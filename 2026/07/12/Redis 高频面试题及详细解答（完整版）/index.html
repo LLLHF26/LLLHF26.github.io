@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Redis 高频面试题">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis 高频面试题">
+<meta property="og:url" content="http://example.com/2026/07/12/Redis%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E7%AD%94%EF%BC%88%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="Redis 高频面试题">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-12T09:18:14.000Z">
+<meta property="article:modified_time" content="2026-07-12T09:28:55.337Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="redis">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/12/Redis%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E7%AD%94%EF%BC%88%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Redis 高频面试题 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/12/Redis%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E7%AD%94%EF%BC%88%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Redis 高频面试题
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-12 17:18:14 / 修改时间：17:28:55" itemprop="dateCreated datePublished" datetime="2026-07-12T17:18:14+08:00">2026-07-12</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Redis 高频面试题</p>
+<span id="more"></span>
+
+
+<h1 id="Redis-高频面试题及详细解答（完整版）"><a href="#Redis-高频面试题及详细解答（完整版）" class="headerlink" title="Redis 高频面试题及详细解答（完整版）"></a>Redis 高频面试题及详细解答（完整版）</h1><h2 id="一、Redis-基础认知面试题"><a href="#一、Redis-基础认知面试题" class="headerlink" title="一、Redis 基础认知面试题"></a>一、Redis 基础认知面试题</h2><h3 id="1-什么是Redis？它的核心特性有哪些？"><a href="#1-什么是Redis？它的核心特性有哪些？" class="headerlink" title="1. 什么是Redis？它的核心特性有哪些？"></a>1. 什么是Redis？它的核心特性有哪些？</h3><p><strong>详细解答</strong>：Redis 是一款开源的、基于内存的、高性能的键值对（Key-Value）NoSQL 数据库，使用 ANSI C 语言编写，支持多种数据结构，常被用于缓存、限流、分布式锁、消息队列等场景。</p>
+<p><strong>核心特性</strong>：</p>
+<ul>
+<li><p><strong>内存高效</strong>：核心数据存储在内存，读写速度极快，QPS 可达 10W+；支持磁盘持久化，防止数据断电丢失。</p>
+</li>
+<li><p><strong>多数据结构支持</strong>：不止简单的字符串，支持 List、Set、ZSet、Hash、Stream 等丰富数据结构，适配各类业务场景。</p>
+</li>
+<li><p><strong>单线程模型</strong>：核心读写命令单线程执行，避免线程竞争、锁开销，保证命令原子性。</p>
+</li>
+<li><p><strong>高可用、可扩展</strong>：支持主从复制、哨兵模式、Cluster 集群，实现故障自动转移、海量数据分片存储。</p>
+</li>
+<li><p><strong>功能丰富</strong>：支持过期删除、事务、Lua 脚本、发布订阅、流水线、分布式锁等高级功能。</p>
+</li>
+<li><p><strong>跨客户端兼容</strong>：支持 Java、Python、Go、PHP 等几乎所有主流开发语言。</p>
+</li>
+</ul>
+<h3 id="2-Redis-为什么速度这么快？"><a href="#2-Redis-为什么速度这么快？" class="headerlink" title="2. Redis 为什么速度这么快？"></a>2. Redis 为什么速度这么快？</h3><p><strong>详细解答</strong>：Redis 高性能是<strong>架构、IO、编码、模型</strong>多维度共同作用的结果，核心原因如下：</p>
+<ol>
+<li><p><strong>纯内存操作</strong>：所有数据读写都在内存中完成，避免磁盘 IO 的慢速开销，内存读写速度是磁盘的上千倍。</p>
+</li>
+<li><p><strong>单线程无锁竞争</strong>：核心命令处理单线程串行执行，无需线程切换、锁竞争、死锁排查，执行效率极高。</p>
+</li>
+<li><p><strong>IO 多路复用模型</strong>：采用 epoll（Linux）、kqueue（Mac）多路复用技术，单线程可监听海量客户端连接，高效处理大量并发请求。</p>
+</li>
+<li><p><strong>高效数据结构与编码</strong>：底层对每种数据结构做了深度优化，例如整数压缩编码、哈希压缩列表，减少内存占用和计算开销。</p>
+</li>
+<li><p><strong>精简的协议设计</strong>：Redis 自定义 RESP 通信协议，文本格式简单、解析高效，无多余冗余数据。</p>
+</li>
+<li><p><strong>流水线批量处理</strong>：支持 Pipeline 批量提交命令，减少网络 IO 往返次数，大幅提升批量操作性能。</p>
+</li>
+</ol>
+<p>补充：Redis 单线程仅指<strong>命令执行核心线程</strong>，持久化、集群心跳、文件读写等操作会使用多线程，不会阻塞核心业务。</p>
+<h3 id="3-Redis-支持哪些数据类型？各自的使用场景？"><a href="#3-Redis-支持哪些数据类型？各自的使用场景？" class="headerlink" title="3. Redis 支持哪些数据类型？各自的使用场景？"></a>3. Redis 支持哪些数据类型？各自的使用场景？</h3><p><strong>详细解答</strong>：Redis 常用 8 种数据类型，其中 5 种基础类型、3 种特殊类型，核心场景如下：</p>
+<h4 id="基础数据类型"><a href="#基础数据类型" class="headerlink" title="基础数据类型"></a>基础数据类型</h4><ul>
+<li><p><strong>String（字符串）</strong>：最基础类型，支持字符串、数字、二进制数据，最大 512MB。<br>场景：缓存用户信息、验证码、token、计数器、限流、分布式ID。</p>
+</li>
+<li><p><strong>Hash（哈希）</strong>：键值对集合，类似 Java 的 HashMap，适合存储结构化数据。<br>场景：存储用户详情、商品信息、订单数据，相比 String 序列化更节省内存、支持局部更新。</p>
+</li>
+<li><p><strong>List（列表）</strong>：有序可重复字符串链表，两头可读写。<br>场景：消息队列、任务队列、用户点赞列表、最新资讯滚动列表。</p>
+</li>
+<li><p><strong>Set（集合）</strong>：无序、不可重复字符串集合，支持交集、并集、差集。<br>场景：用户关注列表、粉丝列表、共同好友、去重统计、抽奖活动。</p>
+</li>
+<li><p><strong>ZSet（有序集合）</strong>：不可重复、按分值排序的集合。<br>场景：排行榜、延时队列、权重排序、积分排名。</p>
+</li>
+</ul>
+<h4 id="特殊数据类型"><a href="#特殊数据类型" class="headerlink" title="特殊数据类型"></a>特殊数据类型</h4><ul>
+<li><p><strong>Stream（流）</strong>：Redis5.0+ 新增，可持久化消息队列，支持消息确认、消费者组。<br>场景：可靠消息队列、日志收集、实时数据流处理。</p>
+</li>
+<li><p><strong>Geo（地理位置）</strong>：存储经纬度坐标，支持距离计算、范围查询。<br>场景：附近的人、附近门店、网约车位置匹配。</p>
+</li>
+<li><p><strong>Bitmap&#x2F;HyperLogLog</strong>：Bitmap 用于位运算统计，HyperLogLog 用于海量数据基数统计。<br>场景：Bitmap 记录用户签到、活跃状态；HyperLogLog 统计页面UV、独立访客。</p>
+</li>
+</ul>
+<h2 id="二、Redis-核心原理面试题"><a href="#二、Redis-核心原理面试题" class="headerlink" title="二、Redis 核心原理面试题"></a>二、Redis 核心原理面试题</h2><h3 id="1-Redis-单线程模型详解，为什么不用多线程？"><a href="#1-Redis-单线程模型详解，为什么不用多线程？" class="headerlink" title="1. Redis 单线程模型详解，为什么不用多线程？"></a>1. Redis 单线程模型详解，为什么不用多线程？</h3><p><strong>详细解答</strong>：</p>
+<h4 id="模型原理"><a href="#模型原理" class="headerlink" title="模型原理"></a>模型原理</h4><p>Redis 核心的<strong>命令读取、解析、执行、返回结果</strong>全程由单个主线程完成，配合 IO 多路复用机制，实现单线程高并发处理。而 RDB&#x2F;AOF 持久化、后台删除、集群同步等耗时操作，由独立子线程&#x2F;后台线程执行，不阻塞主线程。</p>
+<h4 id="为什么不用多线程？"><a href="#为什么不用多线程？" class="headerlink" title="为什么不用多线程？"></a>为什么不用多线程？</h4><ol>
+<li><p><strong>避免锁竞争开销</strong>：多线程操作共享内存数据，需要加锁保证线程安全，会带来锁等待、线程切换、死锁等问题，反而降低性能。</p>
+</li>
+<li><p><strong>CPU 不是瓶颈</strong>：Redis 绝大多数操作是内存读写，速度极快，瓶颈主要在<strong>网络 IO</strong>，单线程足以打满网络带宽，无需多线程提升CPU算力。</p>
+</li>
+<li><p><strong>保证命令原子性</strong>：单线程串行执行命令，单个命令、Lua 脚本天然原子性，无需额外事务锁，逻辑简单可靠。</p>
+</li>
+<li><p><strong>降低复杂度</strong>：单线程模型代码简洁，减少并发异常、数据不一致问题，稳定性更高。</p>
+</li>
+</ol>
+<p>补充：Redis6.0+ 引入<strong>多线程 IO</strong>，仅用于处理网络读写、协议解析，核心命令执行依旧单线程，兼顾并发性能和数据安全性。</p>
+<h3 id="2-Redis-过期键删除策略有哪些？优缺点对比？"><a href="#2-Redis-过期键删除策略有哪些？优缺点对比？" class="headerlink" title="2. Redis 过期键删除策略有哪些？优缺点对比？"></a>2. Redis 过期键删除策略有哪些？优缺点对比？</h3><p><strong>详细解答</strong>：Redis 针对过期 Key 采用<strong>惰性删除 + 定期删除</strong>的混合策略，杜绝内存泄漏和CPU浪费。</p>
+<h4 id="（1）惰性删除"><a href="#（1）惰性删除" class="headerlink" title="（1）惰性删除"></a>（1）惰性删除</h4><p>原理：Key 过期后不会立即删除，<strong>下次访问该Key时</strong>才检查过期并删除。</p>
+<p>优点：极致节省CPU资源，无需后台扫描，只处理需要访问的过期键。</p>
+<p>缺点：大量过期Key长期不被访问，会一直占用内存，导致<strong>内存泄漏</strong>。</p>
+<h4 id="（2）定期删除"><a href="#（2）定期删除" class="headerlink" title="（2）定期删除"></a>（2）定期删除</h4><p>原理：Redis 每隔一段时间（默认100ms），随机抽取部分过期Key扫描并删除，限制扫描时长和数量，避免阻塞主线程。</p>
+<p>优点：弥补惰性删除的内存泄漏问题，定时释放过期内存。</p>
+<p>缺点：无法删除所有过期Key，存在遗漏；扫描耗时过长会轻微阻塞主线程。</p>
+<h4 id="（3）兜底策略：内存淘汰机制"><a href="#（3）兜底策略：内存淘汰机制" class="headerlink" title="（3）兜底策略：内存淘汰机制"></a>（3）兜底策略：内存淘汰机制</h4><p>当内存达到 maxmemory 上限时，触发内存淘汰，强制清理数据，彻底解决过期Key残留问题。</p>
+<h3 id="3-Redis-内存淘汰策略有哪些？各自适用场景？"><a href="#3-Redis-内存淘汰策略有哪些？各自适用场景？" class="headerlink" title="3. Redis 内存淘汰策略有哪些？各自适用场景？"></a>3. Redis 内存淘汰策略有哪些？各自适用场景？</h3><p><strong>详细解答</strong>：Redis 共 8 种内存淘汰策略，默认 <strong>noeviction</strong>，分为 4 大类，核心适配场景如下：</p>
+<table>
+<thead>
+<tr>
+<th>策略名称</th>
+<th>规则说明</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>noeviction（默认）</td>
+<td>内存满了不删除数据，直接报错拒绝写入</td>
+<td>数据零丢失场景，不允许缓存淘汰</td>
+</tr>
+<tr>
+<td>allkeys-lru</td>
+<td>淘汰所有Key中最近最少使用的</td>
+<td>通用缓存场景，优先保留热点数据（最常用）</td>
+</tr>
+<tr>
+<td>volatile-lru</td>
+<td>只淘汰带过期时间的Key中最少使用的</td>
+<td>部分数据永久存储，仅缓存临时数据</td>
+</tr>
+<tr>
+<td>allkeys-lfu</td>
+<td>淘汰所有Key中使用频率最低的</td>
+<td>长期热点缓存，规避LRU缓存抖动问题</td>
+</tr>
+<tr>
+<td>volatile-lfu</td>
+<td>只淘汰带过期时间、使用频率最低的</td>
+<td>临时数据缓存，精准保留高频访问数据</td>
+</tr>
+<tr>
+<td>allkeys-random</td>
+<td>随机淘汰任意Key</td>
+<td>数据访问无规律、对缓存命中率要求低</td>
+</tr>
+<tr>
+<td>volatile-random</td>
+<td>随机淘汰带过期时间的Key</td>
+<td>仅需清理临时过期数据，无访问优先级</td>
+</tr>
+<tr>
+<td>volatile-ttl</td>
+<td>优先淘汰剩余过期时间最短的Key</td>
+<td>需要快速释放即将过期的缓存数据</td>
+</tr>
+</tbody></table>
+<p><strong>生产推荐</strong>：通用业务优先使用 <strong>allkeys-lru</strong>，热点稳定业务使用 <strong>allkeys-lfu</strong>。</p>
+<h2 id="三、Redis-持久化面试题"><a href="#三、Redis-持久化面试题" class="headerlink" title="三、Redis 持久化面试题"></a>三、Redis 持久化面试题</h2><h3 id="1-Redis-两种持久化机制-RDB-和-AOF-原理、优缺点、生产选择？"><a href="#1-Redis-两种持久化机制-RDB-和-AOF-原理、优缺点、生产选择？" class="headerlink" title="1. Redis 两种持久化机制 RDB 和 AOF 原理、优缺点、生产选择？"></a>1. Redis 两种持久化机制 RDB 和 AOF 原理、优缺点、生产选择？</h3><p><strong>详细解答</strong>：Redis 持久化用于解决<strong>断电、进程退出导致内存数据丢失</strong>问题，提供 RDB、AOF 两种机制，可单独使用或混合开启。</p>
+<h4 id="1-RDB（快照持久化）"><a href="#1-RDB（快照持久化）" class="headerlink" title="1. RDB（快照持久化）"></a>1. RDB（快照持久化）</h4><p><strong>原理</strong>：定期将当前内存中的<strong>全量数据</strong>生成二进制快照文件（.rdb），保存到磁盘。触发方式分为手动（save、bgsave）和自动（配置规则定时触发）。</p>
+<p><strong>优点</strong>：</p>
+<ul>
+<li><p>文件体积小、压缩率高，适合冷备份、数据迁移；</p>
+</li>
+<li><p>恢复速度极快，直接加载二进制文件即可；</p>
+</li>
+<li><p>后台子线程执行，几乎不阻塞主线程。</p>
+</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li><p>存在<strong>数据丢失风险</strong>：两次快照之间的增量数据无法保存，故障会丢失最近一段时间数据；</p>
+</li>
+<li><p>频繁快照会消耗磁盘IO、CPU资源。</p>
+</li>
+</ul>
+<h4 id="2-AOF（日志持久化）"><a href="#2-AOF（日志持久化）" class="headerlink" title="2. AOF（日志持久化）"></a>2. AOF（日志持久化）</h4><p><strong>原理</strong>：记录每一条<strong>写操作命令</strong>到日志文件（.aof），重启服务时重放日志命令恢复数据，采用“先写内存、后写磁盘”机制。</p>
+<p><strong>优点</strong>：</p>
+<ul>
+<li><p>数据安全性极高，支持秒级甚至几乎零数据丢失；</p>
+</li>
+<li><p>日志文件可追加、可重写，容错性高。</p>
+</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li><p>文件体积远大于RDB，长期运行日志臃肿；</p>
+</li>
+<li><p>数据恢复速度慢，需要逐条重放命令；</p>
+</li>
+<li><p>高频写入时磁盘IO开销较大。</p>
+</li>
+</ul>
+<h4 id="3-生产环境选择方案"><a href="#3-生产环境选择方案" class="headerlink" title="3. 生产环境选择方案"></a>3. 生产环境选择方案</h4><ul>
+<li><p><strong>数据零丢失场景</strong>：开启 AOF + 每秒刷盘策略；</p>
+</li>
+<li><p><strong>高性能、允许少量数据丢失</strong>：单独开启 RDB；</p>
+</li>
+<li><p><strong>主流生产方案</strong>：<strong>RDB+AOF 混合开启</strong>，兼顾备份速度和数据安全性，Redis重启优先加载AOF文件恢复数据。</p>
+</li>
+</ul>
+<h3 id="2-AOF-重写机制是什么？为什么需要重写？"><a href="#2-AOF-重写机制是什么？为什么需要重写？" class="headerlink" title="2. AOF 重写机制是什么？为什么需要重写？"></a>2. AOF 重写机制是什么？为什么需要重写？</h3><p><strong>详细解答</strong>：</p>
+<h4 id="重写原理"><a href="#重写原理" class="headerlink" title="重写原理"></a>重写原理</h4><p>AOF 持续追加写命令会导致日志文件无限膨胀，Redis 会触发<strong>AOF重写</strong>：后台子线程根据当前内存数据，生成一套<strong>最简可恢复数据的命令日志</strong>，替换原有臃肿的AOF文件。重写过程不会删除旧日志，新日志生成后才完成替换，保证数据安全。</p>
+<h4 id="重写原因"><a href="#重写原因" class="headerlink" title="重写原因"></a>重写原因</h4><ul>
+<li><p>大量无效命令堆积：对同一个Key的多次修改、删除、覆盖操作，无需全部记录；</p>
+</li>
+<li><p>缩减文件体积，减少磁盘占用，提升数据恢复速度；</p>
+</li>
+<li><p>避免日志文件过大导致的IO性能下降。</p>
+</li>
+</ul>
+<p>触发方式：自动触发（文件大小超过阈值）、手动触发（bgrewriteaof 命令）。</p>
+<h2 id="四、Redis-缓存经典问题面试题（缓存三大问题）"><a href="#四、Redis-缓存经典问题面试题（缓存三大问题）" class="headerlink" title="四、Redis 缓存经典问题面试题（缓存三大问题）"></a>四、Redis 缓存经典问题面试题（缓存三大问题）</h2><h3 id="1-缓存穿透、缓存击穿、缓存雪崩区别、成因、解决方案？"><a href="#1-缓存穿透、缓存击穿、缓存雪崩区别、成因、解决方案？" class="headerlink" title="1. 缓存穿透、缓存击穿、缓存雪崩区别、成因、解决方案？"></a>1. 缓存穿透、缓存击穿、缓存雪崩区别、成因、解决方案？</h3><h4 id="（1）缓存穿透"><a href="#（1）缓存穿透" class="headerlink" title="（1）缓存穿透"></a>（1）缓存穿透</h4><p><strong>定义</strong>：查询<strong>数据库和缓存都不存在</strong>的数据，请求直接穿透到数据库，大量恶意请求会压垮数据库。</p>
+<p><strong>成因</strong>：用户查询非法ID、空数据、恶意爬虫攻击。</p>
+<p><strong>解决方案</strong>：</p>
+<ul>
+<li><p>空值缓存：查询为空时，缓存空Key，设置短期过期时间；</p>
+</li>
+<li><p>布隆过滤器：提前过滤不存在的Key，拦截非法请求；</p>
+</li>
+<li><p>接口校验：参数合法性校验、限流、黑名单拦截。</p>
+</li>
+</ul>
+<h4 id="（2）缓存击穿"><a href="#（2）缓存击穿" class="headerlink" title="（2）缓存击穿"></a>（2）缓存击穿</h4><p><strong>定义</strong>：<strong>单个热点Key</strong>过期瞬间，大量并发请求同时打向数据库，瞬间压垮DB。</p>
+<p><strong>成因</strong>：热点缓存Key过期、瞬时并发量大。</p>
+<p><strong>解决方案</strong>：</p>
+<ul>
+<li><p>互斥锁（分布式锁）：同一时间仅一个请求查询DB、更新缓存；</p>
+</li>
+<li><p>热点Key永不过期：手动取消过期时间，后台异步更新缓存；</p>
+</li>
+<li><p>过期时间随机偏移：避免批量热点Key同时过期。</p>
+</li>
+</ul>
+<h4 id="（3）缓存雪崩"><a href="#（3）缓存雪崩" class="headerlink" title="（3）缓存雪崩"></a>（3）缓存雪崩</h4><p><strong>定义</strong>：<strong>大量缓存Key同时过期 &#x2F; Redis服务宕机</strong>，所有请求全部访问数据库，导致数据库雪崩宕机、服务瘫痪。</p>
+<p><strong>成因</strong>：批量Key过期时间一致、Redis集群故障、断电、网络波动。</p>
+<p><strong>解决方案</strong>：</p>
+<ul>
+<li><p>过期时间加随机值，打散过期时间，避免集中失效；</p>
+</li>
+<li><p>搭建 Redis 高可用集群（主从+哨兵&#x2F;Cluster），避免单点故障；</p>
+</li>
+<li><p>服务层限流、降级、熔断，保护数据库；</p>
+</li>
+<li><p>多级缓存架构（本地缓存+Redis分布式缓存），兜底容错。</p>
+</li>
+</ul>
+<h3 id="2-缓存和数据库双写一致性问题如何解决？"><a href="#2-缓存和数据库双写一致性问题如何解决？" class="headerlink" title="2. 缓存和数据库双写一致性问题如何解决？"></a>2. 缓存和数据库双写一致性问题如何解决？</h3><p><strong>详细解答</strong>：缓存与数据库数据不一致是业务高频问题，核心是选择合适的更新策略，适配不同一致性需求。</p>
+<h4 id="1-常规策略对比"><a href="#1-常规策略对比" class="headerlink" title="1. 常规策略对比"></a>1. 常规策略对比</h4><ul>
+<li><p><strong>先更新数据库，再更新缓存</strong>：并发更新会导致脏缓存，极少使用；</p>
+</li>
+<li><p><strong>先更新缓存，再更新数据库</strong>：数据库更新失败会导致数据完全不一致，禁止使用；</p>
+</li>
+<li><p><strong>先更新数据库，再删除缓存（主流方案）</strong>：业务首选，一致性最优。</p>
+</li>
+</ul>
+<h4 id="2-主流方案：先更库、后删缓存"><a href="#2-主流方案：先更库、后删缓存" class="headerlink" title="2. 主流方案：先更库、后删缓存"></a>2. 主流方案：先更库、后删缓存</h4><p>流程：业务更新数据库成功 → 删除对应缓存Key → 下次查询自动加载最新数据。</p>
+<p><strong>存在问题</strong>：极低概率出现「读请求先查缓存（旧数据），写请求删缓存后，读请求未更新缓存」的短暂不一致。</p>
+<p><strong>优化方案</strong>：</p>
+<ul>
+<li><p>延迟双删：更新完成后立即删缓存，延迟500ms再次删除，覆盖脏数据；</p>
+</li>
+<li><p>异步删除：通过MQ异步删除缓存，提升性能、保证最终一致。</p>
+</li>
+</ul>
+<h4 id="3-强一致性方案"><a href="#3-强一致性方案" class="headerlink" title="3. 强一致性方案"></a>3. 强一致性方案</h4><p>对金融、支付等强一致场景，使用<strong>分布式锁</strong>：读写请求竞争同一锁，串行执行，杜绝并发不一致问题。</p>
+<h4 id="4-最终一致性兜底"><a href="#4-最终一致性兜底" class="headerlink" title="4. 最终一致性兜底"></a>4. 最终一致性兜底</h4><p>定时任务轮询比对数据库和缓存数据，自动修复不一致数据。</p>
+<h2 id="五、Redis-高可用面试题"><a href="#五、Redis-高可用面试题" class="headerlink" title="五、Redis 高可用面试题"></a>五、Redis 高可用面试题</h2><h3 id="1-Redis-主从复制原理、完整流程？"><a href="#1-Redis-主从复制原理、完整流程？" class="headerlink" title="1. Redis 主从复制原理、完整流程？"></a>1. Redis 主从复制原理、完整流程？</h3><p><strong>详细解答</strong>：主从复制是 Redis 高可用的基础，实现<strong>主节点写、从节点读</strong>，数据实时同步，读写分离，提升并发能力。</p>
+<h4 id="完整复制流程"><a href="#完整复制流程" class="headerlink" title="完整复制流程"></a>完整复制流程</h4><ol>
+<li><p><strong>建立连接</strong>：从节点启动后，向主节点发送SYNC命令，建立网络连接。</p>
+</li>
+<li><p><strong>全量同步</strong>：主节点收到SYNC后，执行bgsave生成RDB快照，同时缓存期间所有写命令；将RDB文件发送给从节点，从节点加载快照数据。</p>
+</li>
+<li><p><strong>增量同步</strong>：快照同步完成后，主节点将缓存的增量写命令批量发送给从节点，从节点执行命令，保证数据一致。</p>
+</li>
+<li><p><strong>持续同步</strong>：后续主节点所有写操作，实时同步到从节点，保持主从数据一致。</p>
+</li>
+</ol>
+<h4 id="复制优化（Redis2-8-）"><a href="#复制优化（Redis2-8-）" class="headerlink" title="复制优化（Redis2.8+）"></a>复制优化（Redis2.8+）</h4><p>支持<strong>部分重同步</strong>：主从断连重连后，无需全量同步，通过复制偏移量和积压日志，仅同步断连期间的增量数据，大幅提升同步效率。</p>
+<h3 id="2-哨兵模式（Sentinel）原理、作用、故障转移流程？"><a href="#2-哨兵模式（Sentinel）原理、作用、故障转移流程？" class="headerlink" title="2. 哨兵模式（Sentinel）原理、作用、故障转移流程？"></a>2. 哨兵模式（Sentinel）原理、作用、故障转移流程？</h3><p><strong>详细解答</strong>：哨兵是 Redis 官方高可用方案，基于主从复制实现<strong>自动故障检测、自动主从切换、监控告警</strong>，解决主节点单点故障问题。</p>
+<h4 id="哨兵核心作用"><a href="#哨兵核心作用" class="headerlink" title="哨兵核心作用"></a>哨兵核心作用</h4><ul>
+<li><p>监控：实时监控主、从节点在线状态；</p>
+</li>
+<li><p>通知：节点故障时推送告警信息；</p>
+</li>
+<li><p>自动故障转移：主节点宕机，自动选举新主节点，同步数据、更新集群配置。</p>
+</li>
+</ul>
+<h4 id="故障转移完整流程"><a href="#故障转移完整流程" class="headerlink" title="故障转移完整流程"></a>故障转移完整流程</h4><ol>
+<li><p><strong>主观下线</strong>：单个哨兵检测到主节点超时无响应，标记为主观下线；</p>
+</li>
+<li><p><strong>客观下线</strong>：多个哨兵（达到法定票数）确认主节点故障，标记为客观下线，触发故障转移；</p>
+</li>
+<li><p><strong>选举哨兵领导者</strong>：所有哨兵投票选出一个领导者，负责执行切换操作；</p>
+</li>
+<li><p><strong>选举新主节点</strong>：从所有从节点中，筛选数据完整、延迟最低的节点作为新主；</p>
+</li>
+<li><p><strong>切换主从</strong>：将原主节点降级为从节点，挂载到新主节点下；</p>
+</li>
+<li><p><strong>客户端重定向</strong>：哨兵推送新主节点地址，客户端自动切换连接。</p>
+</li>
+</ol>
+<h3 id="3-Redis-Cluster-集群原理、哈希槽、分片规则？"><a href="#3-Redis-Cluster-集群原理、哈希槽、分片规则？" class="headerlink" title="3. Redis Cluster 集群原理、哈希槽、分片规则？"></a>3. Redis Cluster 集群原理、哈希槽、分片规则？</h3><p><strong>详细解答</strong>：Redis Cluster 是 Redis 分布式集群方案，支持<strong>数据分片、横向扩容、故障自愈</strong>，解决单节点内存上限、并发上限问题，生产海量数据首选。</p>
+<h4 id="核心原理"><a href="#核心原理" class="headerlink" title="核心原理"></a>核心原理</h4><p>Cluster 采用<strong>哈希槽分片机制</strong>，整个集群共有 <strong>16384 个哈希槽（0-16383）</strong>，每个主节点负责一部分哈希槽，所有Key通过哈希算法映射到对应槽位，实现数据分布式存储。</p>
+<h4 id="Key-分片规则"><a href="#Key-分片规则" class="headerlink" title="Key 分片规则"></a>Key 分片规则</h4><ol>
+<li><p>对 Key 进行 CRC16 哈希运算，得到哈希值；</p>
+</li>
+<li><p>哈希值对 16384 取模，得到对应的哈希槽编号；</p>
+</li>
+<li><p>根据槽位编号，路由到对应主节点读写数据。</p>
+</li>
+</ol>
+<h4 id="集群特性"><a href="#集群特性" class="headerlink" title="集群特性"></a>集群特性</h4><ul>
+<li><p>最小集群规模：3主3从，保证高可用；</p>
+</li>
+<li><p>支持横向扩容：新增节点可迁移哈希槽，无需停机；</p>
+</li>
+<li><p>故障自愈：单个主节点故障，从节点自动升级为主节点；</p>
+</li>
+<li><p>支持哈希Tag：通过{}包裹Key部分，实现同一槽位数据聚合，适配批量操作。</p>
+</li>
+</ul>
+<h2 id="六、Redis-分布式锁面试题"><a href="#六、Redis-分布式锁面试题" class="headerlink" title="六、Redis 分布式锁面试题"></a>六、Redis 分布式锁面试题</h2><h3 id="1-Redis-分布式锁实现原理、优缺点？"><a href="#1-Redis-分布式锁实现原理、优缺点？" class="headerlink" title="1. Redis 分布式锁实现原理、优缺点？"></a>1. Redis 分布式锁实现原理、优缺点？</h3><p><strong>详细解答</strong>：分布式锁用于解决多服务、多线程并发竞争资源问题，Redis 分布式锁是目前业务最常用的实现方式。</p>
+<h4 id="核心实现命令"><a href="#核心实现命令" class="headerlink" title="核心实现命令"></a>核心实现命令</h4><p><code>SET key unique_value NX EX timeout</code></p>
+<ul>
+<li><p>NX：仅Key不存在时设置成功，保证抢锁原子性；</p>
+</li>
+<li><p>EX：设置锁过期时间，防止死锁；</p>
+</li>
+<li><p>unique_value：唯一随机值，防止误删他人锁。</p>
+</li>
+</ul>
+<h4 id="加锁、解锁流程"><a href="#加锁、解锁流程" class="headerlink" title="加锁、解锁流程"></a>加锁、解锁流程</h4><ol>
+<li><p>加锁：客户端执行SET命令，设置锁Key、唯一值、过期时间，执行成功即抢到锁；</p>
+</li>
+<li><p>执行业务逻辑：抢到锁的客户端执行核心业务；</p>
+</li>
+<li><p>解锁：通过Lua脚本校验当前锁的唯一值，匹配成功则删除Key，释放锁（保证解锁原子性）。</p>
+</li>
+</ol>
+<h4 id="优缺点"><a href="#优缺点" class="headerlink" title="优缺点"></a>优缺点</h4><p>优点：性能极高、实现简单、支持超时防死锁、适配分布式场景。</p>
+<p>缺点：主从异步复制存在<strong>锁失效风险</strong>（主节点加锁成功，未同步到从节点就宕机，从节点升级后主锁失效）。</p>
+<h3 id="2-Redlock-红锁算法原理、适用场景？"><a href="#2-Redlock-红锁算法原理、适用场景？" class="headerlink" title="2. Redlock 红锁算法原理、适用场景？"></a>2. Redlock 红锁算法原理、适用场景？</h3><p><strong>详细解答</strong>：Redlock 是 Redis 官方提出的<strong>高可靠分布式锁算法</strong>，解决单节点分布式锁的数据不一致问题。</p>
+<h4 id="算法原理"><a href="#算法原理" class="headerlink" title="算法原理"></a>算法原理</h4><p>部署<strong>奇数个独立Redis主节点（5个最佳）</strong>，加锁时向所有节点依次申请锁，只要<strong>超过半数节点加锁成功</strong>，即视为抢锁成功；解锁时同时删除所有节点的锁Key。</p>
+<h4 id="核心特性"><a href="#核心特性" class="headerlink" title="核心特性"></a>核心特性</h4><ul>
+<li><p>无需主从复制、集群机制，节点相互独立；</p>
+</li>
+<li><p>彻底规避主从同步延迟导致的锁失效问题；</p>
+</li>
+<li><p>容错性高，少量节点故障不影响锁正常使用。</p>
+</li>
+</ul>
+<h4 id="适用场景"><a href="#适用场景" class="headerlink" title="适用场景"></a>适用场景</h4><p>金融、支付、订单等<strong>对锁安全性要求极高</strong>的场景；普通业务无需使用，性能开销大、部署复杂。</p>
+<h2 id="七、Redis-高频进阶面试题"><a href="#七、Redis-高频进阶面试题" class="headerlink" title="七、Redis 高频进阶面试题"></a>七、Redis 高频进阶面试题</h2><h3 id="1-Redis-事务原理，为什么不支持回滚？"><a href="#1-Redis-事务原理，为什么不支持回滚？" class="headerlink" title="1. Redis 事务原理，为什么不支持回滚？"></a>1. Redis 事务原理，为什么不支持回滚？</h3><p><strong>详细解答</strong>：Redis 事务是一组命令的批量执行，核心保证<strong>批量命令串行、无插队执行</strong>。</p>
+<h4 id="事务流程"><a href="#事务流程" class="headerlink" title="事务流程"></a>事务流程</h4><p>MULTI（开启事务）→ 入队所有命令 → EXEC（批量执行）&#x2F; DISCARD（放弃事务）。</p>
+<h4 id="为什么不支持事务回滚？"><a href="#为什么不支持事务回滚？" class="headerlink" title="为什么不支持事务回滚？"></a>为什么不支持事务回滚？</h4><ul>
+<li><p>Redis 事务错误分为两种：<strong>语法错误</strong>（整体放弃执行）、<strong>运行时错误</strong>（执行失败不回滚）；</p>
+</li>
+<li><p>设计者认为 Redis 事务错误均为<strong>编码问题</strong>，可在开发阶段规避，无需运行时回滚；</p>
+</li>
+<li><p>放弃回滚机制，极大简化代码、提升执行性能，贴合Redis高性能定位。</p>
+</li>
+</ul>
+<p>补充：需要强原子性、事务回滚场景，可使用 <strong>Lua 脚本</strong>替代事务。</p>
+<h3 id="2-Redis-Pipeline-和-Lua-脚本的区别和使用场景？"><a href="#2-Redis-Pipeline-和-Lua-脚本的区别和使用场景？" class="headerlink" title="2. Redis Pipeline 和 Lua 脚本的区别和使用场景？"></a>2. Redis Pipeline 和 Lua 脚本的区别和使用场景？</h3><p><strong>详细解答</strong>：两者均用于批量处理命令、减少网络IO开销，核心差异在原子性和灵活性。</p>
+<h4 id="Pipeline（流水线）"><a href="#Pipeline（流水线）" class="headerlink" title="Pipeline（流水线）"></a>Pipeline（流水线）</h4><p>原理：批量打包多个命令，一次性发送给Redis，一次性返回所有结果，减少网络往返次数。</p>
+<p>特点：<strong>无原子性</strong>，命令独立执行，部分失败不影响其他命令；性能高、开销小。</p>
+<p>场景：海量简单命令批量读写、数据初始化、批量删除。</p>
+<h4 id="Lua-脚本"><a href="#Lua-脚本" class="headerlink" title="Lua 脚本"></a>Lua 脚本</h4><p>原理：将多条命令封装为一个Lua脚本，Redis一次性执行整个脚本，<strong>天然原子性</strong>，脚本内命令全部执行成功或全部失败。</p>
+<p>特点：支持逻辑判断、循环、变量运算，原子性强，灵活性极高。</p>
+<p>场景：分布式锁解锁、复杂批量操作、限流、事务级批量处理。</p>
+<h3 id="3-Redis-热点Key、大Key问题如何排查和解决？"><a href="#3-Redis-热点Key、大Key问题如何排查和解决？" class="headerlink" title="3. Redis 热点Key、大Key问题如何排查和解决？"></a>3. Redis 热点Key、大Key问题如何排查和解决？</h3><p><strong>详细解答</strong>：大Key、热点Key是Redis生产最常见的性能瓶颈，会导致CPU飙升、响应超时、集群卡顿。</p>
+<h4 id="1-大Key（Value过大-元素过多）"><a href="#1-大Key（Value过大-元素过多）" class="headerlink" title="1. 大Key（Value过大&#x2F;元素过多）"></a>1. 大Key（Value过大&#x2F;元素过多）</h4><p>危害：读写耗时变长、网络IO阻塞、内存分配卡顿、集群迁移超时。</p>
+<p>排查：redis-cli --bigkeys、scan 遍历、监控key占用内存。</p>
+<p>解决方案：</p>
+<ul>
+<li><p>拆分大Key：将大Hash&#x2F;List拆分为多个小Key；</p>
+</li>
+<li><p>精简数据：剔除无效字段、缩短存储内容；</p>
+</li>
+<li><p>分批操作：避免一次性读写全量数据，分页获取。</p>
+</li>
+</ul>
+<h4 id="2-热点Key（超高并发访问单个Key）"><a href="#2-热点Key（超高并发访问单个Key）" class="headerlink" title="2. 热点Key（超高并发访问单个Key）"></a>2. 热点Key（超高并发访问单个Key）</h4><p>危害：单节点QPS过载、CPU打满、集群负载不均衡。</p>
+<p>排查：监控热点接口、redis监控平台、日志统计高频Key。</p>
+<p>解决方案：</p>
+<ul>
+<li><p>本地缓存兜底：JVM本地缓存+Redis，减少Redis访问压力；</p>
+</li>
+<li><p>Key分片：热点Key拆分多个副本Key，分散并发流量；</p>
+</li>
+<li><p>永久缓存：静态热点数据取消过期时间，避免集中缓存重建。</p>
+</li>
+</ul>
+<blockquote>
+<p>（注：部分内容可能由 AI 生成）</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/redis/" rel="tag"># redis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/11/MySQL%E8%81%94%E8%A1%A8%E6%9F%A5%E8%AF%A2%E8%B6%85%E5%85%A8%E4%BC%98%E5%8C%96%E6%8C%87%E5%8D%97%EF%BC%81%E9%9B%B6%E5%9F%BA%E7%A1%80%E4%B9%9F%E8%83%BD%E7%9C%8B%E6%87%82%EF%BC%88%E9%99%84%E5%AE%9E%E6%93%8D%E4%BB%A3%E7%A0%81%EF%BC%89/" rel="prev" title="MySQL联表查询超全优化指南">
+      <i class="fa fa-chevron-left"></i> MySQL联表查询超全优化指南
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/07/14/2026%E5%B9%B47%E6%9C%88AI%E7%BC%96%E7%A8%8B%E5%A4%A7%E5%8F%98%E5%B1%80%EF%BC%9A%E4%BB%8E%E4%BB%A3%E7%A0%81%E8%A1%A5%E5%85%A8%E5%88%B0%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93%E5%8D%8F%E5%90%8C/" rel="next" title="2026年7月AI编程大变局：从代码补全到多智能体协同">
+      2026年7月AI编程大变局：从代码补全到多智能体协同 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Redis-%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E7%AD%94%EF%BC%88%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">Redis 高频面试题及详细解答（完整版）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81Redis-%E5%9F%BA%E7%A1%80%E8%AE%A4%E7%9F%A5%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.1.</span> <span class="nav-text">一、Redis 基础认知面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E4%BB%80%E4%B9%88%E6%98%AFRedis%EF%BC%9F%E5%AE%83%E7%9A%84%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F"><span class="nav-number">1.1.1.</span> <span class="nav-text">1. 什么是Redis？它的核心特性有哪些？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-Redis-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%80%9F%E5%BA%A6%E8%BF%99%E4%B9%88%E5%BF%AB%EF%BC%9F"><span class="nav-number">1.1.2.</span> <span class="nav-text">2. Redis 为什么速度这么快？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Redis-%E6%94%AF%E6%8C%81%E5%93%AA%E4%BA%9B%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%EF%BC%9F%E5%90%84%E8%87%AA%E7%9A%84%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.1.3.</span> <span class="nav-text">3. Redis 支持哪些数据类型？各自的使用场景？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9F%BA%E7%A1%80%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="nav-number">1.1.3.1.</span> <span class="nav-text">基础数据类型</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%89%B9%E6%AE%8A%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="nav-number">1.1.3.2.</span> <span class="nav-text">特殊数据类型</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Redis-%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.2.</span> <span class="nav-text">二、Redis 核心原理面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Redis-%E5%8D%95%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B%E8%AF%A6%E8%A7%A3%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E7%94%A8%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9F"><span class="nav-number">1.2.1.</span> <span class="nav-text">1. Redis 单线程模型详解，为什么不用多线程？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%A8%A1%E5%9E%8B%E5%8E%9F%E7%90%86"><span class="nav-number">1.2.1.1.</span> <span class="nav-text">模型原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E7%94%A8%E5%A4%9A%E7%BA%BF%E7%A8%8B%EF%BC%9F"><span class="nav-number">1.2.1.2.</span> <span class="nav-text">为什么不用多线程？</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-Redis-%E8%BF%87%E6%9C%9F%E9%94%AE%E5%88%A0%E9%99%A4%E7%AD%96%E7%95%A5%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F%E4%BC%98%E7%BC%BA%E7%82%B9%E5%AF%B9%E6%AF%94%EF%BC%9F"><span class="nav-number">1.2.2.</span> <span class="nav-text">2. Redis 过期键删除策略有哪些？优缺点对比？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%881%EF%BC%89%E6%83%B0%E6%80%A7%E5%88%A0%E9%99%A4"><span class="nav-number">1.2.2.1.</span> <span class="nav-text">（1）惰性删除</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%882%EF%BC%89%E5%AE%9A%E6%9C%9F%E5%88%A0%E9%99%A4"><span class="nav-number">1.2.2.2.</span> <span class="nav-text">（2）定期删除</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%883%EF%BC%89%E5%85%9C%E5%BA%95%E7%AD%96%E7%95%A5%EF%BC%9A%E5%86%85%E5%AD%98%E6%B7%98%E6%B1%B0%E6%9C%BA%E5%88%B6"><span class="nav-number">1.2.2.3.</span> <span class="nav-text">（3）兜底策略：内存淘汰机制</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Redis-%E5%86%85%E5%AD%98%E6%B7%98%E6%B1%B0%E7%AD%96%E7%95%A5%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F%E5%90%84%E8%87%AA%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.2.3.</span> <span class="nav-text">3. Redis 内存淘汰策略有哪些？各自适用场景？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81Redis-%E6%8C%81%E4%B9%85%E5%8C%96%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.3.</span> <span class="nav-text">三、Redis 持久化面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Redis-%E4%B8%A4%E7%A7%8D%E6%8C%81%E4%B9%85%E5%8C%96%E6%9C%BA%E5%88%B6-RDB-%E5%92%8C-AOF-%E5%8E%9F%E7%90%86%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9%E3%80%81%E7%94%9F%E4%BA%A7%E9%80%89%E6%8B%A9%EF%BC%9F"><span class="nav-number">1.3.1.</span> <span class="nav-text">1. Redis 两种持久化机制 RDB 和 AOF 原理、优缺点、生产选择？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-RDB%EF%BC%88%E5%BF%AB%E7%85%A7%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%89"><span class="nav-number">1.3.1.1.</span> <span class="nav-text">1. RDB（快照持久化）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-AOF%EF%BC%88%E6%97%A5%E5%BF%97%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%89"><span class="nav-number">1.3.1.2.</span> <span class="nav-text">2. AOF（日志持久化）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E9%80%89%E6%8B%A9%E6%96%B9%E6%A1%88"><span class="nav-number">1.3.1.3.</span> <span class="nav-text">3. 生产环境选择方案</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-AOF-%E9%87%8D%E5%86%99%E6%9C%BA%E5%88%B6%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E9%87%8D%E5%86%99%EF%BC%9F"><span class="nav-number">1.3.2.</span> <span class="nav-text">2. AOF 重写机制是什么？为什么需要重写？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%87%8D%E5%86%99%E5%8E%9F%E7%90%86"><span class="nav-number">1.3.2.1.</span> <span class="nav-text">重写原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%87%8D%E5%86%99%E5%8E%9F%E5%9B%A0"><span class="nav-number">1.3.2.2.</span> <span class="nav-text">重写原因</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81Redis-%E7%BC%93%E5%AD%98%E7%BB%8F%E5%85%B8%E9%97%AE%E9%A2%98%E9%9D%A2%E8%AF%95%E9%A2%98%EF%BC%88%E7%BC%93%E5%AD%98%E4%B8%89%E5%A4%A7%E9%97%AE%E9%A2%98%EF%BC%89"><span class="nav-number">1.4.</span> <span class="nav-text">四、Redis 缓存经典问题面试题（缓存三大问题）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F%E3%80%81%E7%BC%93%E5%AD%98%E5%87%BB%E7%A9%BF%E3%80%81%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9%E5%8C%BA%E5%88%AB%E3%80%81%E6%88%90%E5%9B%A0%E3%80%81%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%EF%BC%9F"><span class="nav-number">1.4.1.</span> <span class="nav-text">1. 缓存穿透、缓存击穿、缓存雪崩区别、成因、解决方案？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%881%EF%BC%89%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F"><span class="nav-number">1.4.1.1.</span> <span class="nav-text">（1）缓存穿透</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%882%EF%BC%89%E7%BC%93%E5%AD%98%E5%87%BB%E7%A9%BF"><span class="nav-number">1.4.1.2.</span> <span class="nav-text">（2）缓存击穿</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%883%EF%BC%89%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9"><span class="nav-number">1.4.1.3.</span> <span class="nav-text">（3）缓存雪崩</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E7%BC%93%E5%AD%98%E5%92%8C%E6%95%B0%E6%8D%AE%E5%BA%93%E5%8F%8C%E5%86%99%E4%B8%80%E8%87%B4%E6%80%A7%E9%97%AE%E9%A2%98%E5%A6%82%E4%BD%95%E8%A7%A3%E5%86%B3%EF%BC%9F"><span class="nav-number">1.4.2.</span> <span class="nav-text">2. 缓存和数据库双写一致性问题如何解决？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-%E5%B8%B8%E8%A7%84%E7%AD%96%E7%95%A5%E5%AF%B9%E6%AF%94"><span class="nav-number">1.4.2.1.</span> <span class="nav-text">1. 常规策略对比</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-%E4%B8%BB%E6%B5%81%E6%96%B9%E6%A1%88%EF%BC%9A%E5%85%88%E6%9B%B4%E5%BA%93%E3%80%81%E5%90%8E%E5%88%A0%E7%BC%93%E5%AD%98"><span class="nav-number">1.4.2.2.</span> <span class="nav-text">2. 主流方案：先更库、后删缓存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-%E5%BC%BA%E4%B8%80%E8%87%B4%E6%80%A7%E6%96%B9%E6%A1%88"><span class="nav-number">1.4.2.3.</span> <span class="nav-text">3. 强一致性方案</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-%E6%9C%80%E7%BB%88%E4%B8%80%E8%87%B4%E6%80%A7%E5%85%9C%E5%BA%95"><span class="nav-number">1.4.2.4.</span> <span class="nav-text">4. 最终一致性兜底</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81Redis-%E9%AB%98%E5%8F%AF%E7%94%A8%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.5.</span> <span class="nav-text">五、Redis 高可用面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Redis-%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E5%8E%9F%E7%90%86%E3%80%81%E5%AE%8C%E6%95%B4%E6%B5%81%E7%A8%8B%EF%BC%9F"><span class="nav-number">1.5.1.</span> <span class="nav-text">1. Redis 主从复制原理、完整流程？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4%E5%A4%8D%E5%88%B6%E6%B5%81%E7%A8%8B"><span class="nav-number">1.5.1.1.</span> <span class="nav-text">完整复制流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%A4%8D%E5%88%B6%E4%BC%98%E5%8C%96%EF%BC%88Redis2-8-%EF%BC%89"><span class="nav-number">1.5.1.2.</span> <span class="nav-text">复制优化（Redis2.8+）</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%93%A8%E5%85%B5%E6%A8%A1%E5%BC%8F%EF%BC%88Sentinel%EF%BC%89%E5%8E%9F%E7%90%86%E3%80%81%E4%BD%9C%E7%94%A8%E3%80%81%E6%95%85%E9%9A%9C%E8%BD%AC%E7%A7%BB%E6%B5%81%E7%A8%8B%EF%BC%9F"><span class="nav-number">1.5.2.</span> <span class="nav-text">2. 哨兵模式（Sentinel）原理、作用、故障转移流程？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%93%A8%E5%85%B5%E6%A0%B8%E5%BF%83%E4%BD%9C%E7%94%A8"><span class="nav-number">1.5.2.1.</span> <span class="nav-text">哨兵核心作用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%95%85%E9%9A%9C%E8%BD%AC%E7%A7%BB%E5%AE%8C%E6%95%B4%E6%B5%81%E7%A8%8B"><span class="nav-number">1.5.2.2.</span> <span class="nav-text">故障转移完整流程</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Redis-Cluster-%E9%9B%86%E7%BE%A4%E5%8E%9F%E7%90%86%E3%80%81%E5%93%88%E5%B8%8C%E6%A7%BD%E3%80%81%E5%88%86%E7%89%87%E8%A7%84%E5%88%99%EF%BC%9F"><span class="nav-number">1.5.3.</span> <span class="nav-text">3. Redis Cluster 集群原理、哈希槽、分片规则？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86"><span class="nav-number">1.5.3.1.</span> <span class="nav-text">核心原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Key-%E5%88%86%E7%89%87%E8%A7%84%E5%88%99"><span class="nav-number">1.5.3.2.</span> <span class="nav-text">Key 分片规则</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%9B%86%E7%BE%A4%E7%89%B9%E6%80%A7"><span class="nav-number">1.5.3.3.</span> <span class="nav-text">集群特性</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81Redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.6.</span> <span class="nav-text">六、Redis 分布式锁面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Redis-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9%EF%BC%9F"><span class="nav-number">1.6.1.</span> <span class="nav-text">1. Redis 分布式锁实现原理、优缺点？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E5%AE%9E%E7%8E%B0%E5%91%BD%E4%BB%A4"><span class="nav-number">1.6.1.1.</span> <span class="nav-text">核心实现命令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8A%A0%E9%94%81%E3%80%81%E8%A7%A3%E9%94%81%E6%B5%81%E7%A8%8B"><span class="nav-number">1.6.1.2.</span> <span class="nav-text">加锁、解锁流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="nav-number">1.6.1.3.</span> <span class="nav-text">优缺点</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-Redlock-%E7%BA%A2%E9%94%81%E7%AE%97%E6%B3%95%E5%8E%9F%E7%90%86%E3%80%81%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.6.2.</span> <span class="nav-text">2. Redlock 红锁算法原理、适用场景？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%AE%97%E6%B3%95%E5%8E%9F%E7%90%86"><span class="nav-number">1.6.2.1.</span> <span class="nav-text">算法原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7"><span class="nav-number">1.6.2.2.</span> <span class="nav-text">核心特性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">1.6.2.3.</span> <span class="nav-text">适用场景</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81Redis-%E9%AB%98%E9%A2%91%E8%BF%9B%E9%98%B6%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.7.</span> <span class="nav-text">七、Redis 高频进阶面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Redis-%E4%BA%8B%E5%8A%A1%E5%8E%9F%E7%90%86%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E6%94%AF%E6%8C%81%E5%9B%9E%E6%BB%9A%EF%BC%9F"><span class="nav-number">1.7.1.</span> <span class="nav-text">1. Redis 事务原理，为什么不支持回滚？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BA%8B%E5%8A%A1%E6%B5%81%E7%A8%8B"><span class="nav-number">1.7.1.1.</span> <span class="nav-text">事务流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E6%94%AF%E6%8C%81%E4%BA%8B%E5%8A%A1%E5%9B%9E%E6%BB%9A%EF%BC%9F"><span class="nav-number">1.7.1.2.</span> <span class="nav-text">为什么不支持事务回滚？</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-Redis-Pipeline-%E5%92%8C-Lua-%E8%84%9A%E6%9C%AC%E7%9A%84%E5%8C%BA%E5%88%AB%E5%92%8C%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.7.2.</span> <span class="nav-text">2. Redis Pipeline 和 Lua 脚本的区别和使用场景？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Pipeline%EF%BC%88%E6%B5%81%E6%B0%B4%E7%BA%BF%EF%BC%89"><span class="nav-number">1.7.2.1.</span> <span class="nav-text">Pipeline（流水线）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Lua-%E8%84%9A%E6%9C%AC"><span class="nav-number">1.7.2.2.</span> <span class="nav-text">Lua 脚本</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-Redis-%E7%83%AD%E7%82%B9Key%E3%80%81%E5%A4%A7Key%E9%97%AE%E9%A2%98%E5%A6%82%E4%BD%95%E6%8E%92%E6%9F%A5%E5%92%8C%E8%A7%A3%E5%86%B3%EF%BC%9F"><span class="nav-number">1.7.3.</span> <span class="nav-text">3. Redis 热点Key、大Key问题如何排查和解决？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-%E5%A4%A7Key%EF%BC%88Value%E8%BF%87%E5%A4%A7-%E5%85%83%E7%B4%A0%E8%BF%87%E5%A4%9A%EF%BC%89"><span class="nav-number">1.7.3.1.</span> <span class="nav-text">1. 大Key（Value过大&#x2F;元素过多）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-%E7%83%AD%E7%82%B9Key%EF%BC%88%E8%B6%85%E9%AB%98%E5%B9%B6%E5%8F%91%E8%AE%BF%E9%97%AE%E5%8D%95%E4%B8%AAKey%EF%BC%89"><span class="nav-number">1.7.3.2.</span> <span class="nav-text">2. 热点Key（超高并发访问单个Key）</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">25</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">64</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">12</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">13</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>

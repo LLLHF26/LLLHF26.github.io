@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文系统性梳理 JVM 性能调优的核心知识体系：从内存模型与垃圾回收底层原理出发，深入对比七大 GC 收集器的适用场景与选型策略，再到 GC 日志分析、内存泄漏排查、生产级调优参数模板与实战案例。不管你是准备面试还是正在排查线上 GC 问题，这篇文章都能给你一套完整可落地的解决方案。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JVM 性能调优实战：从内存模型到 GC 调优全指南">
+<meta property="og:url" content="http://example.com/2026/07/16/JVM%20%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%AE%9E%E6%88%98%EF%BC%9A%E4%BB%8E%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E5%88%B0%20GC%20%E8%B0%83%E4%BC%98%E5%85%A8%E6%8C%87%E5%8D%97/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="本文系统性梳理 JVM 性能调优的核心知识体系：从内存模型与垃圾回收底层原理出发，深入对比七大 GC 收集器的适用场景与选型策略，再到 GC 日志分析、内存泄漏排查、生产级调优参数模板与实战案例。不管你是准备面试还是正在排查线上 GC 问题，这篇文章都能给你一套完整可落地的解决方案。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-16T03:55:00.000Z">
+<meta property="article:modified_time" content="2026-07-16T03:59:02.932Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="gc">
+<meta property="article:tag" content="java">
+<meta property="article:tag" content="jvm">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="性能调优">
+<meta property="article:tag" content="面试题">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/16/JVM%20%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%AE%9E%E6%88%98%EF%BC%9A%E4%BB%8E%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E5%88%B0%20GC%20%E8%B0%83%E4%BC%98%E5%85%A8%E6%8C%87%E5%8D%97/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>JVM 性能调优实战：从内存模型到 GC 调优全指南 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/16/JVM%20%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%AE%9E%E6%88%98%EF%BC%9A%E4%BB%8E%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E5%88%B0%20GC%20%E8%B0%83%E4%BC%98%E5%85%A8%E6%8C%87%E5%8D%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          JVM 性能调优实战：从内存模型到 GC 调优全指南
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-16 11:55:00 / 修改时间：11:59:02" itemprop="dateCreated datePublished" datetime="2026-07-16T11:55:00+08:00">2026-07-16</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文系统性梳理 JVM 性能调优的核心知识体系：从内存模型与垃圾回收底层原理出发，深入对比七大 GC 收集器的适用场景与选型策略，再到 GC 日志分析、内存泄漏排查、生产级调优参数模板与实战案例。不管你是准备面试还是正在排查线上 GC 问题，这篇文章都能给你一套完整可落地的解决方案。</p>
+<span id="more"></span>
+
+<h1 id="JVM-性能调优实战：从内存模型到-GC-调优全指南"><a href="#JVM-性能调优实战：从内存模型到-GC-调优全指南" class="headerlink" title="JVM 性能调优实战：从内存模型到 GC 调优全指南"></a>JVM 性能调优实战：从内存模型到 GC 调优全指南</h1><h2 id="一、先搞懂-JVM-内存模型"><a href="#一、先搞懂-JVM-内存模型" class="headerlink" title="一、先搞懂 JVM 内存模型"></a>一、先搞懂 JVM 内存模型</h2><p>很多人在调优时直接上手改参数，连堆和栈的区别都说不清。调优的第一步，是把 JVM 内存的”家底”摸清楚。</p>
+<h3 id="1、JVM-运行时数据区全景图"><a href="#1、JVM-运行时数据区全景图" class="headerlink" title="1、JVM 运行时数据区全景图"></a>1、JVM 运行时数据区全景图</h3><p>JVM 运行时内存可以划分为两大块：<strong>线程私有区</strong>和<strong>线程共享区</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>区域</th>
+<th>归属</th>
+<th>存储内容</th>
+<th>是否 GC</th>
+<th>OOM 风险</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>程序计数器</td>
+<td>线程私有</td>
+<td>当前线程执行的字节码行号</td>
+<td>否</td>
+<td>不会 OOM</td>
+</tr>
+<tr>
+<td>虚拟机栈</td>
+<td>线程私有</td>
+<td>局部变量表、操作数栈、方法出口</td>
+<td>否</td>
+<td>StackOverflowError</td>
+</tr>
+<tr>
+<td>本地方法栈</td>
+<td>线程私有</td>
+<td>Native 方法调用</td>
+<td>否</td>
+<td>StackOverflowError</td>
+</tr>
+<tr>
+<td>堆（Heap）</td>
+<td>线程共享</td>
+<td>所有对象实例和数组</td>
+<td>是</td>
+<td><strong>最常见 OOM</strong></td>
+</tr>
+<tr>
+<td>方法区&#x2F;元空间</td>
+<td>线程共享</td>
+<td>类信息、常量、静态变量、JIT 编译代码</td>
+<td>是</td>
+<td>元空间溢出</td>
+</tr>
+</tbody></table>
+<p><strong>关键认知：堆是 GC 的主战场，占 JVM 内存的绝大部分，也是调优的核心目标。</strong></p>
+<h3 id="2、堆内存分代结构（以-G1-之前的分代模型为例）"><a href="#2、堆内存分代结构（以-G1-之前的分代模型为例）" class="headerlink" title="2、堆内存分代结构（以 G1 之前的分代模型为例）"></a>2、堆内存分代结构（以 G1 之前的分代模型为例）</h3><p>JDK 8 及之前的堆内存采用经典分代模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────┐</span><br><span class="line">│                 堆内存 (Heap)             │</span><br><span class="line">│  ┌─────────────┬─────────────┬────────┐  │</span><br><span class="line">│  │  新生代 Young │   老年代 Old │ 元空间  │  │</span><br><span class="line">│  │ ┌────┬─────┐ │             │ Metaspace│</span><br><span class="line">│  │ │Eden│S0│S1│ │             │         │  │</span><br><span class="line">│  │ └────┴─────┘ │             │         │  │</span><br><span class="line">│  └─────────────┴─────────────┴────────┘  │</span><br><span class="line">└─────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<p><strong>新生代 (Young Generation)</strong>：</p>
+<ul>
+<li><strong>Eden 区</strong>：绝大多数新创建的对象在这里分配。占新生代 80%。</li>
+<li><strong>Survivor 区 (S0&#x2F;S1)</strong>：两块大小相等，用于存放 Minor GC 后存活的对象。占新生代各 10%。</li>
+<li>绝大部分对象”朝生夕死”，Minor GC 后约 98% 的对象被回收。</li>
+</ul>
+<p><strong>老年代 (Old Generation)</strong>：</p>
+<ul>
+<li>存放经过多次 Minor GC 依然存活的对象（默认 15 次，由 <code>-XX:MaxTenuringThreshold</code> 控制）。</li>
+<li>大对象（超过 <code>-XX:PretenureSizeThreshold</code>）直接进入老年代。</li>
+<li>老年代空间更大，GC 频率更低，但一次 Full GC 代价很高。</li>
+</ul>
+<p><strong>元空间 (Metaspace)</strong>：</p>
+<ul>
+<li>JDK 8 起替代永久代（PermGen），使用<strong>本地内存</strong>而非堆内存。</li>
+<li><strong>默认无上限</strong>，必须设置 <code>-XX:MaxMetaspaceSize</code> 防止撑爆物理内存。</li>
+<li>存储类元数据、方法信息、常量池（JDK 7 起字符串常量池移至堆）。</li>
+</ul>
+<h3 id="3、对象分配与晋升流程"><a href="#3、对象分配与晋升流程" class="headerlink" title="3、对象分配与晋升流程"></a>3、对象分配与晋升流程</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">新对象 → Eden 区</span><br><span class="line">    ↓</span><br><span class="line">Minor GC (Eden 满了)</span><br><span class="line">    ↓</span><br><span class="line">存活对象 → S0/S1 (年龄 +1)</span><br><span class="line">    ↓</span><br><span class="line">年龄达到阈值 (默认 15) → 晋升到老年代</span><br><span class="line">    ↓</span><br><span class="line">老年代满了 → Full GC (STW, 代价大)</span><br></pre></td></tr></table></figure>
+
+<p><strong>特殊场景</strong>：</p>
+<ul>
+<li><strong>大对象直接进老年代</strong>：避免在 Eden 和 Survivor 之间反复拷贝。</li>
+<li><strong>动态年龄判断</strong>：Survivor 区中，相同年龄的所有对象大小总和大于 Survivor 空间的一半，则年龄 &gt;&#x3D; 该年龄的对象直接晋升。</li>
+<li><strong>空间分配担保</strong>：Minor GC 前，JVM 检查老年代最大可用连续空间是否大于新生代所有对象总大小；如果不是，则检查是否允许担保失败；不允许则直接触发 Full GC。</li>
+</ul>
+<hr>
+<h2 id="二、垃圾回收器全景对比：从-Serial-到-ZGC"><a href="#二、垃圾回收器全景对比：从-Serial-到-ZGC" class="headerlink" title="二、垃圾回收器全景对比：从 Serial 到 ZGC"></a>二、垃圾回收器全景对比：从 Serial 到 ZGC</h2><p>JDK 发展至今，一共诞生了七种主流垃圾回收器。选对收集器，往往比调参数更重要。</p>
+<h3 id="1、七大收集器速览"><a href="#1、七大收集器速览" class="headerlink" title="1、七大收集器速览"></a>1、七大收集器速览</h3><table>
+<thead>
+<tr>
+<th>收集器</th>
+<th>算法</th>
+<th>工作区域</th>
+<th>线程</th>
+<th>STW</th>
+<th>适用场景</th>
+<th>JDK 版本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Serial</td>
+<td>标记-复制&#x2F;整理</td>
+<td>新生代</td>
+<td>单线程</td>
+<td>长</td>
+<td>客户端、单核</td>
+<td>古老</td>
+</tr>
+<tr>
+<td>ParNew</td>
+<td>标记-复制</td>
+<td>新生代</td>
+<td>多线程</td>
+<td>长</td>
+<td>CMS 的前置收集器</td>
+<td>JDK 7 前</td>
+</tr>
+<tr>
+<td>Parallel Scavenge</td>
+<td>标记-复制</td>
+<td>新生代</td>
+<td>多线程</td>
+<td>长</td>
+<td><strong>吞吐量优先</strong></td>
+<td>JDK 8 默认新生代</td>
+</tr>
+<tr>
+<td>Serial Old</td>
+<td>标记-整理</td>
+<td>老年代</td>
+<td>单线程</td>
+<td>长</td>
+<td>CMS 后备</td>
+<td>古老</td>
+</tr>
+<tr>
+<td>Parallel Old</td>
+<td>标记-整理</td>
+<td>老年代</td>
+<td>多线程</td>
+<td>长</td>
+<td>配合 Parallel Scavenge</td>
+<td>JDK 8 默认老年代</td>
+</tr>
+<tr>
+<td><strong>CMS</strong></td>
+<td>标记-清除</td>
+<td>老年代</td>
+<td>多线程</td>
+<td>短(两次)</td>
+<td><strong>低延迟</strong></td>
+<td>JDK 8~14</td>
+</tr>
+<tr>
+<td><strong>G1</strong></td>
+<td>标记-整理+复制</td>
+<td>整堆</td>
+<td>多线程</td>
+<td>可控</td>
+<td><strong>平衡吞吐与延迟</strong></td>
+<td><strong>JDK 9+ 默认</strong></td>
+</tr>
+<tr>
+<td><strong>ZGC</strong></td>
+<td>标记-整理+染色指针</td>
+<td>整堆</td>
+<td>多线程</td>
+<td><strong>&lt;1ms</strong></td>
+<td><strong>极低延迟</strong></td>
+<td>JDK 15+ 生产可用</td>
+</tr>
+<tr>
+<td>Shenandoah</td>
+<td>标记-整理+转发指针</td>
+<td>整堆</td>
+<td>多线程</td>
+<td><strong>&lt;10ms</strong></td>
+<td>极低延迟</td>
+<td>JDK 15+</td>
+</tr>
+</tbody></table>
+<h3 id="2、CMS：低延迟的先驱，但已是过去式"><a href="#2、CMS：低延迟的先驱，但已是过去式" class="headerlink" title="2、CMS：低延迟的先驱，但已是过去式"></a>2、CMS：低延迟的先驱，但已是过去式</h3><p><strong>核心特点</strong>：以最短回收停顿时间为目标，大部分工作与用户线程并发执行。</p>
+<p><strong>GC 流程（四步）</strong>：</p>
+<ol>
+<li><strong>初始标记 (STW)</strong>：标记 GC Roots 直接关联对象，停顿极短。</li>
+<li><strong>并发标记</strong>：从 GC Roots 出发，遍历对象图。与用户线程并发，耗时长但不 STW。</li>
+<li><strong>重新标记 (STW)</strong>：修正并发标记期间用户线程导致的变化。比初始标记长但远短于并发标记。</li>
+<li><strong>并发清除</strong>：清理垃圾对象，与用户线程并发。</li>
+</ol>
+<p><strong>CMS 的致命缺陷</strong>：</p>
+<ul>
+<li><strong>浮动垃圾</strong>：并发清除阶段新产生的垃圾，只能等下一次 GC。</li>
+<li><strong>内存碎片</strong>：标记-清除算法产生大量碎片，可能触发 <code>Concurrent Mode Failure</code> → 退化为 Serial Old。</li>
+<li><strong>CPU 敏感</strong>：并发阶段占用 CPU 资源，核数少时影响吞吐量。</li>
+<li><strong>JDK 14 已废弃，JDK 15 移除。</strong></li>
+</ul>
+<p><strong>结论：新系统不要再选 CMS，直接上 G1 或 ZGC。</strong></p>
+<h3 id="3、G1：当下最主流的”全能选手”"><a href="#3、G1：当下最主流的”全能选手”" class="headerlink" title="3、G1：当下最主流的”全能选手”"></a>3、G1：当下最主流的”全能选手”</h3><p><strong>核心创新</strong>：打破分代物理隔离，将堆划分为多个大小相等的 Region（默认 2048 个，每个 1~32MB），按需扮演 Eden、Survivor、Old、Humongous 角色。</p>
+<p><strong>GC 流程</strong>：</p>
+<ol>
+<li><strong>初始标记 (STW)</strong>：标记 GC Roots，触发 Young GC。</li>
+<li><strong>并发标记</strong>：从 GC Roots 遍历对象图。</li>
+<li><strong>最终标记 (STW)</strong>：处理 SATB 快照遗漏。</li>
+<li><strong>筛选回收 (STW)</strong>：按回收价值（垃圾最多、回收耗时最少）排序 Region，优先回收高价值 Region。这就是 <strong>Garbage-First</strong> 名字的由来。</li>
+</ol>
+<p><strong>G1 的独特优势</strong>：</p>
+<ul>
+<li><strong>可预测停顿</strong>：通过 <code>-XX:MaxGCPauseMillis</code> 设定期望最大停顿（默认 200ms），G1 会尽量满足。</li>
+<li><strong>无内存碎片</strong>：基于复制+整理算法，Region 回收后将存活对象复制到其他 Region。</li>
+<li><strong>Humongous 区</strong>：对象大小超过 Region 一半时，分配在连续的 Humongous Region。过多大对象会严重影响 G1 性能。</li>
+</ul>
+<p><strong>G1 的局限</strong>：</p>
+<ul>
+<li>内存占用较大（Remembered Set 记账开销约占堆 5%~20%）。</li>
+<li>巨型对象处理不优雅，大量大对象场景不如用 ZGC。</li>
+</ul>
+<h3 id="4、ZGC：JDK-21-24-时代的终极低延迟方案"><a href="#4、ZGC：JDK-21-24-时代的终极低延迟方案" class="headerlink" title="4、ZGC：JDK 21&#x2F;24 时代的终极低延迟方案"></a>4、ZGC：JDK 21&#x2F;24 时代的终极低延迟方案</h3><p><strong>核心创新——染色指针 (Colored Pointers)</strong>：<br>ZGC 在 64 位指针中”借用”几位来存储 GC 状态信息（Marked、Remapped、Finalizable），无需额外元数据即可完成并发整理。这就是 ZGC 停顿能控制在 <strong>亚毫秒级</strong> 的根本原因。</p>
+<p><strong>ZGC 的三大里程碑</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>特性</th>
+<th>意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>JDK 15</td>
+<td>ZGC 生产就绪</td>
+<td>正式成为生产可用的低延迟 GC</td>
+</tr>
+<tr>
+<td>JDK 21</td>
+<td><strong>分代 ZGC (Generational ZGC)</strong></td>
+<td>大幅降低内存开销，吞吐量提升 10%~20%</td>
+</tr>
+<tr>
+<td>JDK 24</td>
+<td>分代 ZGC 增强</td>
+<td>进一步优化分配速率和对象晋升策略</td>
+</tr>
+</tbody></table>
+<p><strong>ZGC 适合的场景</strong>：</p>
+<ul>
+<li>堆非常大（16GB~16TB），且不能容忍超过 1ms 的停顿。</li>
+<li>高频交易、实时风控、在线游戏等延迟敏感场景。</li>
+<li>大量大对象的场景（ZGC 处理大对象比 G1 优雅得多）。</li>
+</ul>
+<p><strong>ZGC 的不足</strong>：</p>
+<ul>
+<li>吞吐量可能略低于 G1（但在分代 ZGC 后差距很小）。</li>
+<li>堆内存额外开销（染色指针需要虚拟内存映射，堆内存建议不超过物理内存 75%）。</li>
+</ul>
+<h3 id="5、垃圾回收器选型决策树"><a href="#5、垃圾回收器选型决策树" class="headerlink" title="5、垃圾回收器选型决策树"></a>5、垃圾回收器选型决策树</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">你的应用属于哪种类型？</span><br><span class="line">│</span><br><span class="line">├── 客户端/小应用 (&lt; 100MB 堆)</span><br><span class="line">│   └── Serial GC（JVM 自适应选择）</span><br><span class="line">│</span><br><span class="line">├── 吞吐量优先（批处理、科学计算）</span><br><span class="line">│   └── Parallel GC（-XX:+UseParallelGC）</span><br><span class="line">│</span><br><span class="line">├── 响应时间优先（Web 服务、API 网关）</span><br><span class="line">│   ├── 堆 &lt; 4GB → 可继续用 Parallel GC</span><br><span class="line">│   ├── 堆 4GB~32GB → **G1 GC（最推荐）**</span><br><span class="line">│   └── 堆 &gt; 32GB + 延迟极敏感 → **ZGC（分代模式）**</span><br><span class="line">│</span><br><span class="line">└── 极致低延迟 (&lt; 1ms 停顿)</span><br><span class="line">    └── **ZGC（-XX:+UseZGC -XX:+ZGenerational）**</span><br></pre></td></tr></table></figure>
+
+<p><strong>80% 的后端服务场景，直接用 G1 就对了。</strong></p>
+<hr>
+<h2 id="三、GC-日志分析：从读懂日志到定位问题"><a href="#三、GC-日志分析：从读懂日志到定位问题" class="headerlink" title="三、GC 日志分析：从读懂日志到定位问题"></a>三、GC 日志分析：从读懂日志到定位问题</h2><h3 id="1、开启-GC-日志（JDK-9-统一日志框架）"><a href="#1、开启-GC-日志（JDK-9-统一日志框架）" class="headerlink" title="1、开启 GC 日志（JDK 9+ 统一日志框架）"></a>1、开启 GC 日志（JDK 9+ 统一日志框架）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 基础配置（线上必备）</span></span><br><span class="line">-Xlog:gc*:file=/var/log/app/gc.log:<span class="keyword">time</span>,level,tags:filecount=10,filesize=50M</span><br><span class="line"></span><br><span class="line"><span class="comment"># 详细配置（排查问题时）</span></span><br><span class="line">-Xlog:gc*=debug:file=/var/log/app/gc-detail.log:<span class="keyword">time</span>,level,tags:filecount=5,filesize=100M</span><br></pre></td></tr></table></figure>
+
+<h3 id="2、G1-GC-日志解读"><a href="#2、G1-GC-日志解读" class="headerlink" title="2、G1 GC 日志解读"></a>2、G1 GC 日志解读</h3><p>一段典型 G1 Young GC 日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[2026-07-16T10:30:15.234+0800][info][gc] GC(42) Pause Young (Normal) (G1 Evacuation Pause) 512M-&gt;384M(2048M) 12.451ms</span><br><span class="line">[2026-07-16T10:30:15.234+0800][info][gc,cpu] GC(42) User=0.05s Sys=0.01s Real=0.01s</span><br></pre></td></tr></table></figure>
+
+<p>关键字段解读：</p>
+<ul>
+<li><code>GC(42)</code>：第 42 次 GC。</li>
+<li><code>Pause Young (Normal)</code>：Young GC，Normal 表示正常触发。</li>
+<li><code>512M-&gt;384M(2048M)</code>：GC 前堆占用 512M → GC 后 384M，总堆 2048M。</li>
+<li><code>12.451ms</code>：<strong>本次 GC 停顿 12.45 毫秒。重点关注这个值！</strong></li>
+<li><code>User=0.05s</code>：CPU 用户态耗时。</li>
+</ul>
+<p>G1 Mixed GC 日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[info][gc] GC(128) Pause Mixed (G1 Evacuation Pause) 1536M-&gt;896M(2048M) 45.233ms</span><br></pre></td></tr></table></figure>
+
+<p><code>Pause Mixed</code>：表示同时对新生代和部分老年代 Region 进行回收。停顿时间通常比 Young GC 长。</p>
+<h3 id="3、核心监控指标"><a href="#3、核心监控指标" class="headerlink" title="3、核心监控指标"></a>3、核心监控指标</h3><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>命令&#x2F;来源</th>
+<th>正常范围</th>
+<th>告警阈值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Young GC 频率</td>
+<td><code>jstat -gc</code> 查看 YGC 增量</td>
+<td>每秒 &lt; 5 次</td>
+<td>&gt; 10 次&#x2F;秒</td>
+</tr>
+<tr>
+<td>Young GC 平均耗时</td>
+<td>GC 日志</td>
+<td>&lt; 50ms</td>
+<td>&gt; 100ms</td>
+</tr>
+<tr>
+<td>Full GC 频率</td>
+<td><code>jstat -gc</code> 查看 FGC 增量</td>
+<td>0（几小时一次算正常）</td>
+<td>&gt; 1 次&#x2F;小时</td>
+</tr>
+<tr>
+<td>Full GC 耗时</td>
+<td>GC 日志</td>
+<td>&lt; 500ms</td>
+<td>&gt; 1s</td>
+</tr>
+<tr>
+<td>老年代使用率</td>
+<td><code>jstat -gcutil</code> OU</td>
+<td>&lt; 70%</td>
+<td>&gt; 85%</td>
+</tr>
+<tr>
+<td>元空间使用率</td>
+<td><code>jstat -gcutil</code> MU</td>
+<td>&lt; 80%</td>
+<td>&gt; 90%</td>
+</tr>
+<tr>
+<td>GC 总耗时占比</td>
+<td>GC 日志汇总</td>
+<td>&lt; 5%</td>
+<td>&gt; 10%</td>
+</tr>
+</tbody></table>
+<h3 id="4、常用诊断命令速查"><a href="#4、常用诊断命令速查" class="headerlink" title="4、常用诊断命令速查"></a>4、常用诊断命令速查</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 实时 GC 统计（每秒打印，共 10 次）</span></span><br><span class="line">jstat -gcutil &lt;pid&gt; 1000 10</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看 JVM 启动参数</span></span><br><span class="line">jinfo -flags &lt;pid&gt;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 生成堆转储（线上慎用，会触发 Full GC）</span></span><br><span class="line">jmap -dump:format=b,file=heap.hprof &lt;pid&gt;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 生成堆转储（无 STW，推荐）</span></span><br><span class="line">jcmd &lt;pid&gt; GC.heap_dump heap.hprof</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看线程堆栈</span></span><br><span class="line">jstack &lt;pid&gt; &gt; thread_dump.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看类加载统计</span></span><br><span class="line">jstat -class &lt;pid&gt;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="四、JVM-调优参数模板（拿来就用）"><a href="#四、JVM-调优参数模板（拿来就用）" class="headerlink" title="四、JVM 调优参数模板（拿来就用）"></a>四、JVM 调优参数模板（拿来就用）</h2><h3 id="1、通用-Web-服务参数模板（4GB-堆-G1）"><a href="#1、通用-Web-服务参数模板（4GB-堆-G1）" class="headerlink" title="1、通用 Web 服务参数模板（4GB 堆 + G1）"></a>1、通用 Web 服务参数模板（4GB 堆 + G1）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 堆与元空间</span></span><br><span class="line">-Xms4g -Xmx4g                          <span class="comment"># 堆最小=最大，避免动态扩容</span></span><br><span class="line">-XX:MetaspaceSize=256m                  <span class="comment"># 元空间初始大小</span></span><br><span class="line">-XX:MaxMetaspaceSize=512m               <span class="comment"># 元空间上限，防止撑爆系统内存</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># G1 收集器</span></span><br><span class="line">-XX:+UseG1GC</span><br><span class="line">-XX:MaxGCPauseMillis=100                <span class="comment"># 期望最大停顿 100ms</span></span><br><span class="line">-XX:G1HeapRegionSize=4m                 <span class="comment"># Region 大小 (堆/2048 ≈ 2m，取 4m)</span></span><br><span class="line">-XX:InitiatingHeapOccupancyPercent=45   <span class="comment"># 老年代占用达 45% 触发 Mixed GC</span></span><br><span class="line">-XX:G1ReservePercent=10                 <span class="comment"># 预留 10% 空间防止晋升失败</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># GC 日志</span></span><br><span class="line">-Xlog:gc*:file=/var/log/app/gc.log:<span class="keyword">time</span>,level,tags:filecount=10,filesize=50M</span><br><span class="line"></span><br><span class="line"><span class="comment"># 通用优化</span></span><br><span class="line">-XX:+UseStringDeduplication            <span class="comment"># 字符串去重（G1 专用）</span></span><br><span class="line">-XX:+HeapDumpOnOutOfMemoryError        <span class="comment"># OOM 时自动 dump</span></span><br><span class="line">-XX:HeapDumpPath=/var/log/app/         <span class="comment"># dump 文件路径</span></span><br><span class="line">-XX:+ExitOnOutOfMemoryError            <span class="comment"># OOM 后自动重启（K8s 场景推荐）</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 容器环境</span></span><br><span class="line">-XX:+UseContainerSupport               <span class="comment"># JDK 10+ 默认开启，读取 cgroups 限制</span></span><br><span class="line">-XX:MaxRAMPercentage=75.0              <span class="comment"># JVM 使用容器内存的 75%</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2、高吞吐批处理参数模板（Parallel-GC）"><a href="#2、高吞吐批处理参数模板（Parallel-GC）" class="headerlink" title="2、高吞吐批处理参数模板（Parallel GC）"></a>2、高吞吐批处理参数模板（Parallel GC）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">-Xms8g -Xmx8g</span><br><span class="line">-XX:+UseParallelGC</span><br><span class="line">-XX:ParallelGCThreads=8                <span class="comment"># GC 线程数 ≈ CPU 核数</span></span><br><span class="line">-XX:MaxGCPauseMillis=500               <span class="comment"># 批处理对停顿容忍度高</span></span><br><span class="line">-XX:GCTimeRatio=19                     <span class="comment"># GC 时间占比目标 1/(1+19) = 5%</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3、极低延迟参数模板（ZGC-分代模式）"><a href="#3、极低延迟参数模板（ZGC-分代模式）" class="headerlink" title="3、极低延迟参数模板（ZGC + 分代模式）"></a>3、极低延迟参数模板（ZGC + 分代模式）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-Xms16g -Xmx16g</span><br><span class="line">-XX:+UseZGC</span><br><span class="line">-XX:+ZGenerational                     <span class="comment"># 分代 ZGC（JDK 21+）</span></span><br><span class="line">-XX:ConcGCThreads=4                    <span class="comment"># 并发 GC 线程数</span></span><br><span class="line">-XX:ZAllocationSpikeTolerance=5        <span class="comment"># 分配尖峰容忍度</span></span><br><span class="line">-Xlog:gc*:file=/var/log/app/gc.log:<span class="keyword">time</span>,level,tags:filecount=10,filesize=100M</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="五、四个经典-JVM-故障排查实战"><a href="#五、四个经典-JVM-故障排查实战" class="headerlink" title="五、四个经典 JVM 故障排查实战"></a>五、四个经典 JVM 故障排查实战</h2><h3 id="案例一：Full-GC-频繁，老年代居高不下"><a href="#案例一：Full-GC-频繁，老年代居高不下" class="headerlink" title="案例一：Full GC 频繁，老年代居高不下"></a>案例一：Full GC 频繁，老年代居高不下</h3><p><strong>现象</strong>：线上服务每 3 分钟一次 Full GC，每次停顿 2~3 秒，接口超时率飙升。</p>
+<p><strong>排查步骤</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 查看 GC 概况</span></span><br><span class="line">jstat -gcutil &lt;pid&gt; 1000 5</span><br><span class="line"></span><br><span class="line"><span class="comment"># 输出示例：</span></span><br><span class="line"><span class="comment">#  S0     S1     E      O      M     YGC     YGCT    FGC    FGCT     GCT</span></span><br><span class="line"><span class="comment">#  0.00  85.32  99.12  92.45  78.23  3456   89.234   234   567.890  657.124</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>分析</strong>：老年代使用率 92.45%，Full GC 后降不下来 → <strong>存在内存泄漏或堆太小</strong>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 2. 生成堆转储</span></span><br><span class="line">jcmd &lt;pid&gt; GC.heap_dump /tmp/heap.hprof</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 用 MAT / JProfiler 分析</span></span><br><span class="line"><span class="comment"># 重点关注：Dominator Tree（支配树）中占用最大的对象</span></span><br><span class="line"><span class="comment"># 查看 GC Roots → 对象的引用链</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>根因</strong>：代码中 ThreadLocal 未清理（见案例四），线程池复用线程导致用户上下文对象累积不释放。</p>
+<p><strong>解决</strong>：在拦截器 <code>afterCompletion</code> 中调用 <code>ThreadLocal.remove()</code>，并增加堆从 2GB 到 4GB。</p>
+<h3 id="案例二：Young-GC-频繁，每秒-15-次"><a href="#案例二：Young-GC-频繁，每秒-15-次" class="headerlink" title="案例二：Young GC 频繁，每秒 15+ 次"></a>案例二：Young GC 频繁，每秒 15+ 次</h3><p><strong>现象</strong>：<code>jstat</code> 显示 YGC 每秒超过 15 次，服务 RT 抖动明显。</p>
+<p><strong>分析</strong>：Young GC 频繁意味着 Eden 区填满速度过快，原因通常是：</p>
+<ul>
+<li>对象分配速率过高（代码中频繁创建临时对象）。</li>
+<li>Eden 区设置太小。</li>
+</ul>
+<p><strong>排查</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看对象分配速率</span></span><br><span class="line">jstat -gc &lt;pid&gt; 1000 10</span><br><span class="line"><span class="comment"># 关注 EU (Eden 使用量) 的上升速度</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>解决</strong>：</p>
+<ol>
+<li>增大新生代：<code>-XX:NewRatio=2</code>（老年代:新生代 &#x3D; 2:1）。默认是 2，可以调为 1 增大新生代。</li>
+<li>审查代码：减少循环内 <code>new</code> 对象、用对象池、避免 <code>String.format</code> 等高频创建操作。</li>
+<li>启用逃逸分析：<code>-XX:+DoEscapeAnalysis</code>（JDK 8+ 默认开启），栈上分配减少堆压力。</li>
+</ol>
+<h3 id="案例三：元空间-OOM"><a href="#案例三：元空间-OOM" class="headerlink" title="案例三：元空间 OOM"></a>案例三：元空间 OOM</h3><p><strong>现象</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java.lang.OutOfMemoryError: Metaspace</span><br></pre></td></tr></table></figure>
+
+<p><strong>排查</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">jstat -gcutil &lt;pid&gt; 1000</span><br><span class="line"><span class="comment"># MU (Metaspace 使用率) 接近 100%</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>常见原因</strong>：</p>
+<ul>
+<li>动态生成大量类（CGLIB 代理、Groovy 脚本、JSP 编译）。</li>
+<li><code>-XX:MaxMetaspaceSize</code> 设置过小或未设置。</li>
+</ul>
+<p><strong>解决</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">-XX:MaxMetaspaceSize=512m    <span class="comment"># 设置上限</span></span><br><span class="line">-XX:+TraceClassLoading       <span class="comment"># 排查时开启，观察哪些类在疯狂加载</span></span><br><span class="line">-XX:+TraceClassUnloading     <span class="comment"># 观察类卸载情况</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="案例四：ThreadLocal-内存泄漏（2026-年依然高频）"><a href="#案例四：ThreadLocal-内存泄漏（2026-年依然高频）" class="headerlink" title="案例四：ThreadLocal 内存泄漏（2026 年依然高频）"></a>案例四：ThreadLocal 内存泄漏（2026 年依然高频）</h3><p><strong>经典问题代码</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserContext</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ThreadLocal&lt;UserInfo&gt; HOLDER = <span class="keyword">new</span> <span class="title class_">ThreadLocal</span>&lt;&gt;();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">set</span><span class="params">(UserInfo user)</span> &#123; HOLDER.set(user); &#125;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> UserInfo <span class="title function_">get</span><span class="params">()</span> &#123; <span class="keyword">return</span> HOLDER.get(); &#125;</span><br><span class="line">    <span class="comment">// 致命问题：没有 remove() 方法！</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 拦截器中</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserInterceptor</span> <span class="keyword">implements</span> <span class="title class_">HandlerInterceptor</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">preHandle</span><span class="params">(HttpServletRequest request, </span></span><br><span class="line"><span class="params">                             HttpServletResponse response, </span></span><br><span class="line"><span class="params">                             Object handler)</span> &#123;</span><br><span class="line">        UserContext.set(<span class="keyword">new</span> <span class="title class_">UserInfo</span>(request.getHeader(<span class="string">&quot;X-User-Id&quot;</span>)));</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 致命问题：afterCompletion 中没有调用 UserContext.remove()！</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么泄漏</strong>：Tomcat 使用线程池，线程被复用。Request A 处理完后，线程归还线程池，但 ThreadLocal 中的 UserInfo 对象仍被引用 → 永远无法回收 → 老年代持续增长 → Full GC → OOM。</p>
+<p><strong>正确写法</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">afterCompletion</span><span class="params">(HttpServletRequest request,</span></span><br><span class="line"><span class="params">                            HttpServletResponse response,</span></span><br><span class="line"><span class="params">                            Object handler, Exception ex)</span> &#123;</span><br><span class="line">    UserContext.remove();  <span class="comment">// 必须清理！</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// UserContext 补充</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">remove</span><span class="params">()</span> &#123;</span><br><span class="line">    HOLDER.remove();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="六、2026-年-JVM-性能优化的三个新方向"><a href="#六、2026-年-JVM-性能优化的三个新方向" class="headerlink" title="六、2026 年 JVM 性能优化的三个新方向"></a>六、2026 年 JVM 性能优化的三个新方向</h2><h3 id="1、分代-ZGC-成为低延迟标配"><a href="#1、分代-ZGC-成为低延迟标配" class="headerlink" title="1、分代 ZGC 成为低延迟标配"></a>1、分代 ZGC 成为低延迟标配</h3><p>JDK 21 引入的分代 ZGC 解决了原始 ZGC 内存开销大的问题。JDK 24 进一步优化了对象晋升策略，吞吐量已非常接近 G1。如果你的应用对延迟要求极高（P99 &lt; 10ms），且堆内存在 8GB 以上，<strong>推荐直接上分代 ZGC</strong>。</p>
+<p>配置：<code>-XX:+UseZGC -XX:+ZGenerational</code></p>
+<h3 id="2、虚拟线程降低-GC-压力"><a href="#2、虚拟线程降低-GC-压力" class="headerlink" title="2、虚拟线程降低 GC 压力"></a>2、虚拟线程降低 GC 压力</h3><p>JDK 21 正式发布的虚拟线程（Virtual Threads）与平台线程不同，虚拟线程的栈不分配在堆外，而是在堆内以栈块（Stack Chunk）形式动态管理。当虚拟线程阻塞时，栈块可以被 GC 回收，<strong>大量减少了传统的线程栈内存占用</strong>。对于高并发 IO 密集型服务，虚拟线程不仅能提升吞吐，还能显著降低 GC 压力。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 虚拟线程：百万级并发不是梦</span></span><br><span class="line"><span class="keyword">try</span> (<span class="type">var</span> <span class="variable">executor</span> <span class="operator">=</span> Executors.newVirtualThreadPerTaskExecutor()) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">1_000_000</span>; i++) &#123;</span><br><span class="line">        executor.submit(() -&gt; &#123;</span><br><span class="line">            <span class="comment">// 处理 IO 密集型任务</span></span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3、ScopedValue-替代-ThreadLocal"><a href="#3、ScopedValue-替代-ThreadLocal" class="headerlink" title="3、ScopedValue 替代 ThreadLocal"></a>3、ScopedValue 替代 ThreadLocal</h3><p>JDK 22+ 引入了 <code>ScopedValue</code>（JDK 24 已到第四次预览），它在结构化并发中提供更安全、更高效的上下文传递。与 ThreadLocal 不同，ScopedValue 的值绑定是<strong>不可变的且限定作用域</strong>的，天然避免了内存泄漏问题。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ScopedValue：天生安全，无需手动清理</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">static</span> ScopedValue&lt;UserInfo&gt; USER = ScopedValue.newInstance();</span><br><span class="line"></span><br><span class="line">ScopedValue.where(USER, userInfo).run(() -&gt; &#123;</span><br><span class="line">    <span class="comment">// 在这个作用域内，USER 可用</span></span><br><span class="line">    handleRequest();</span><br><span class="line">&#125;);</span><br><span class="line"><span class="comment">// 作用域结束，自动清理，不会泄漏</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="七、总结：JVM-调优的”三七法则”"><a href="#七、总结：JVM-调优的”三七法则”" class="headerlink" title="七、总结：JVM 调优的”三七法则”"></a>七、总结：JVM 调优的”三七法则”</h2><p>这条法则是我从多年线上故障中总结出来的：</p>
+<blockquote>
+<p><strong>70% 的 JVM 问题出在代码层面（内存泄漏、不合理的对象创建），20% 出在 GC 选型不当，只有 10% 需要精细调 GC 参数。</strong></p>
+</blockquote>
+<p>调优的正确顺序：</p>
+<ol>
+<li><strong>先看代码</strong>：有没有 ThreadLocal 没清理？有没有循环里疯狂 new 对象？有没有大对象缓存？</li>
+<li><strong>再选 GC</strong>：Web 服务用 G1，延迟极敏感用 ZGC，批处理用 Parallel。</li>
+<li><strong>定堆大小</strong>：<code>-Xms = -Xmx</code>，堆大小不超过物理内存的 75%（容器内不超过 limit 的 75%）。</li>
+<li><strong>最后调参</strong>：设 <code>MaxGCPauseMillis</code>、开 GC 日志、设 <code>MaxMetaspaceSize</code>。</li>
+<li><strong>持续监控</strong>：接入 Prometheus + Grafana 或至少用 <code>jstat</code> 定期抓一下 GC 数据。</li>
+</ol>
+<p><strong>记住一句话：永远不要为了调优而调优。没出问题就别动 GC 参数。</strong></p>
+<hr>
+<blockquote>
+<p><strong>参考资源</strong>：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://openjdk.org/jeps/439">JEP 439: Generational ZGC</a></li>
+<li><a target="_blank" rel="noopener" href="https://openjdk.org/jeps/444">JEP 444: Virtual Threads</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.oracle.com/en/java/javase/21/gctuning/">G1 GC Tuning Guide (Oracle)</a></li>
+<li>GC 日志分析工具：<a target="_blank" rel="noopener" href="https://gceasy.io/">GCEasy</a>、<a target="_blank" rel="noopener" href="https://github.com/chewiebug/GCViewer">GCViewer</a></li>
+</ul>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/jvm/" rel="tag"># jvm</a>
+              <a href="/tags/java/" rel="tag"># java</a>
+              <a href="/tags/gc/" rel="tag"># gc</a>
+              <a href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag"># 性能调优</a>
+              <a href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag"># 后端</a>
+              <a href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag"># 面试题</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/15/Nginx%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E5%AE%9E%E6%88%98%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/" rel="prev" title="Nginx 高频面试题及实战配置详解">
+      <i class="fa fa-chevron-left"></i> Nginx 高频面试题及实战配置详解
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/07/18/Java%20%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20JMM%20%E5%88%B0%20JUC%20%E6%A0%B8%E5%BF%83%E6%BA%90%E7%A0%81/" rel="next" title="Java 并发编程详解：从 JMM 到 JUC 核心源码">
+      Java 并发编程详解：从 JMM 到 JUC 核心源码 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#JVM-%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%AE%9E%E6%88%98%EF%BC%9A%E4%BB%8E%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E5%88%B0-GC-%E8%B0%83%E4%BC%98%E5%85%A8%E6%8C%87%E5%8D%97"><span class="nav-number">1.</span> <span class="nav-text">JVM 性能调优实战：从内存模型到 GC 调优全指南</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%85%88%E6%90%9E%E6%87%82-JVM-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.1.</span> <span class="nav-text">一、先搞懂 JVM 内存模型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81JVM-%E8%BF%90%E8%A1%8C%E6%97%B6%E6%95%B0%E6%8D%AE%E5%8C%BA%E5%85%A8%E6%99%AF%E5%9B%BE"><span class="nav-number">1.1.1.</span> <span class="nav-text">1、JVM 运行时数据区全景图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E5%A0%86%E5%86%85%E5%AD%98%E5%88%86%E4%BB%A3%E7%BB%93%E6%9E%84%EF%BC%88%E4%BB%A5-G1-%E4%B9%8B%E5%89%8D%E7%9A%84%E5%88%86%E4%BB%A3%E6%A8%A1%E5%9E%8B%E4%B8%BA%E4%BE%8B%EF%BC%89"><span class="nav-number">1.1.2.</span> <span class="nav-text">2、堆内存分代结构（以 G1 之前的分代模型为例）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81%E5%AF%B9%E8%B1%A1%E5%88%86%E9%85%8D%E4%B8%8E%E6%99%8B%E5%8D%87%E6%B5%81%E7%A8%8B"><span class="nav-number">1.1.3.</span> <span class="nav-text">3、对象分配与晋升流程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8%E5%85%A8%E6%99%AF%E5%AF%B9%E6%AF%94%EF%BC%9A%E4%BB%8E-Serial-%E5%88%B0-ZGC"><span class="nav-number">1.2.</span> <span class="nav-text">二、垃圾回收器全景对比：从 Serial 到 ZGC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E4%B8%83%E5%A4%A7%E6%94%B6%E9%9B%86%E5%99%A8%E9%80%9F%E8%A7%88"><span class="nav-number">1.2.1.</span> <span class="nav-text">1、七大收集器速览</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81CMS%EF%BC%9A%E4%BD%8E%E5%BB%B6%E8%BF%9F%E7%9A%84%E5%85%88%E9%A9%B1%EF%BC%8C%E4%BD%86%E5%B7%B2%E6%98%AF%E8%BF%87%E5%8E%BB%E5%BC%8F"><span class="nav-number">1.2.2.</span> <span class="nav-text">2、CMS：低延迟的先驱，但已是过去式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81G1%EF%BC%9A%E5%BD%93%E4%B8%8B%E6%9C%80%E4%B8%BB%E6%B5%81%E7%9A%84%E2%80%9D%E5%85%A8%E8%83%BD%E9%80%89%E6%89%8B%E2%80%9D"><span class="nav-number">1.2.3.</span> <span class="nav-text">3、G1：当下最主流的”全能选手”</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81ZGC%EF%BC%9AJDK-21-24-%E6%97%B6%E4%BB%A3%E7%9A%84%E7%BB%88%E6%9E%81%E4%BD%8E%E5%BB%B6%E8%BF%9F%E6%96%B9%E6%A1%88"><span class="nav-number">1.2.4.</span> <span class="nav-text">4、ZGC：JDK 21&#x2F;24 时代的终极低延迟方案</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5%E3%80%81%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96%E6%A0%91"><span class="nav-number">1.2.5.</span> <span class="nav-text">5、垃圾回收器选型决策树</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81GC-%E6%97%A5%E5%BF%97%E5%88%86%E6%9E%90%EF%BC%9A%E4%BB%8E%E8%AF%BB%E6%87%82%E6%97%A5%E5%BF%97%E5%88%B0%E5%AE%9A%E4%BD%8D%E9%97%AE%E9%A2%98"><span class="nav-number">1.3.</span> <span class="nav-text">三、GC 日志分析：从读懂日志到定位问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E5%BC%80%E5%90%AF-GC-%E6%97%A5%E5%BF%97%EF%BC%88JDK-9-%E7%BB%9F%E4%B8%80%E6%97%A5%E5%BF%97%E6%A1%86%E6%9E%B6%EF%BC%89"><span class="nav-number">1.3.1.</span> <span class="nav-text">1、开启 GC 日志（JDK 9+ 统一日志框架）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81G1-GC-%E6%97%A5%E5%BF%97%E8%A7%A3%E8%AF%BB"><span class="nav-number">1.3.2.</span> <span class="nav-text">2、G1 GC 日志解读</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81%E6%A0%B8%E5%BF%83%E7%9B%91%E6%8E%A7%E6%8C%87%E6%A0%87"><span class="nav-number">1.3.3.</span> <span class="nav-text">3、核心监控指标</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81%E5%B8%B8%E7%94%A8%E8%AF%8A%E6%96%AD%E5%91%BD%E4%BB%A4%E9%80%9F%E6%9F%A5"><span class="nav-number">1.3.4.</span> <span class="nav-text">4、常用诊断命令速查</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81JVM-%E8%B0%83%E4%BC%98%E5%8F%82%E6%95%B0%E6%A8%A1%E6%9D%BF%EF%BC%88%E6%8B%BF%E6%9D%A5%E5%B0%B1%E7%94%A8%EF%BC%89"><span class="nav-number">1.4.</span> <span class="nav-text">四、JVM 调优参数模板（拿来就用）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E9%80%9A%E7%94%A8-Web-%E6%9C%8D%E5%8A%A1%E5%8F%82%E6%95%B0%E6%A8%A1%E6%9D%BF%EF%BC%884GB-%E5%A0%86-G1%EF%BC%89"><span class="nav-number">1.4.1.</span> <span class="nav-text">1、通用 Web 服务参数模板（4GB 堆 + G1）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E9%AB%98%E5%90%9E%E5%90%90%E6%89%B9%E5%A4%84%E7%90%86%E5%8F%82%E6%95%B0%E6%A8%A1%E6%9D%BF%EF%BC%88Parallel-GC%EF%BC%89"><span class="nav-number">1.4.2.</span> <span class="nav-text">2、高吞吐批处理参数模板（Parallel GC）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81%E6%9E%81%E4%BD%8E%E5%BB%B6%E8%BF%9F%E5%8F%82%E6%95%B0%E6%A8%A1%E6%9D%BF%EF%BC%88ZGC-%E5%88%86%E4%BB%A3%E6%A8%A1%E5%BC%8F%EF%BC%89"><span class="nav-number">1.4.3.</span> <span class="nav-text">3、极低延迟参数模板（ZGC + 分代模式）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%9B%9B%E4%B8%AA%E7%BB%8F%E5%85%B8-JVM-%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5%E5%AE%9E%E6%88%98"><span class="nav-number">1.5.</span> <span class="nav-text">五、四个经典 JVM 故障排查实战</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A1%88%E4%BE%8B%E4%B8%80%EF%BC%9AFull-GC-%E9%A2%91%E7%B9%81%EF%BC%8C%E8%80%81%E5%B9%B4%E4%BB%A3%E5%B1%85%E9%AB%98%E4%B8%8D%E4%B8%8B"><span class="nav-number">1.5.1.</span> <span class="nav-text">案例一：Full GC 频繁，老年代居高不下</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A1%88%E4%BE%8B%E4%BA%8C%EF%BC%9AYoung-GC-%E9%A2%91%E7%B9%81%EF%BC%8C%E6%AF%8F%E7%A7%92-15-%E6%AC%A1"><span class="nav-number">1.5.2.</span> <span class="nav-text">案例二：Young GC 频繁，每秒 15+ 次</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A1%88%E4%BE%8B%E4%B8%89%EF%BC%9A%E5%85%83%E7%A9%BA%E9%97%B4-OOM"><span class="nav-number">1.5.3.</span> <span class="nav-text">案例三：元空间 OOM</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A1%88%E4%BE%8B%E5%9B%9B%EF%BC%9AThreadLocal-%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%EF%BC%882026-%E5%B9%B4%E4%BE%9D%E7%84%B6%E9%AB%98%E9%A2%91%EF%BC%89"><span class="nav-number">1.5.4.</span> <span class="nav-text">案例四：ThreadLocal 内存泄漏（2026 年依然高频）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%812026-%E5%B9%B4-JVM-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E7%9A%84%E4%B8%89%E4%B8%AA%E6%96%B0%E6%96%B9%E5%90%91"><span class="nav-number">1.6.</span> <span class="nav-text">六、2026 年 JVM 性能优化的三个新方向</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E5%88%86%E4%BB%A3-ZGC-%E6%88%90%E4%B8%BA%E4%BD%8E%E5%BB%B6%E8%BF%9F%E6%A0%87%E9%85%8D"><span class="nav-number">1.6.1.</span> <span class="nav-text">1、分代 ZGC 成为低延迟标配</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E8%99%9A%E6%8B%9F%E7%BA%BF%E7%A8%8B%E9%99%8D%E4%BD%8E-GC-%E5%8E%8B%E5%8A%9B"><span class="nav-number">1.6.2.</span> <span class="nav-text">2、虚拟线程降低 GC 压力</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81ScopedValue-%E6%9B%BF%E4%BB%A3-ThreadLocal"><span class="nav-number">1.6.3.</span> <span class="nav-text">3、ScopedValue 替代 ThreadLocal</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E6%80%BB%E7%BB%93%EF%BC%9AJVM-%E8%B0%83%E4%BC%98%E7%9A%84%E2%80%9D%E4%B8%89%E4%B8%83%E6%B3%95%E5%88%99%E2%80%9D"><span class="nav-number">1.7.</span> <span class="nav-text">七、总结：JVM 调优的”三七法则”</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">25</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">64</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">12</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">13</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>

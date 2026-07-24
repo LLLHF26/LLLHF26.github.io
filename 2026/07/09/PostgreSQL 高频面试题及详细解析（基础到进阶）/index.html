@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="PostgreSQL 高频面试题及详细解析">
+<meta property="og:type" content="article">
+<meta property="og:title" content="PostgreSQL 高频面试题及详细解析">
+<meta property="og:url" content="http://example.com/2026/07/09/PostgreSQL%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E6%9E%90%EF%BC%88%E5%9F%BA%E7%A1%80%E5%88%B0%E8%BF%9B%E9%98%B6%EF%BC%89/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="PostgreSQL 高频面试题及详细解析">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-09T10:30:00.000Z">
+<meta property="article:modified_time" content="2026-07-11T09:53:42.096Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="PostgreSQL">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/09/PostgreSQL%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E6%9E%90%EF%BC%88%E5%9F%BA%E7%A1%80%E5%88%B0%E8%BF%9B%E9%98%B6%EF%BC%89/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>PostgreSQL 高频面试题及详细解析 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/09/PostgreSQL%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E6%9E%90%EF%BC%88%E5%9F%BA%E7%A1%80%E5%88%B0%E8%BF%9B%E9%98%B6%EF%BC%89/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          PostgreSQL 高频面试题及详细解析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-07-09 18:30:00" itemprop="dateCreated datePublished" datetime="2026-07-09T18:30:00+08:00">2026-07-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-07-11 17:53:42" itemprop="dateModified" datetime="2026-07-11T17:53:42+08:00">2026-07-11</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>PostgreSQL 高频面试题及详细解析</p>
+<span id="more"></span>
+
+<h1 id="PostgreSQL-高频面试题及详细解析（基础到进阶）"><a href="#PostgreSQL-高频面试题及详细解析（基础到进阶）" class="headerlink" title="PostgreSQL 高频面试题及详细解析（基础到进阶）"></a>PostgreSQL 高频面试题及详细解析（基础到进阶）</h1><h2 id="一、基础概念篇（入门必问）"><a href="#一、基础概念篇（入门必问）" class="headerlink" title="一、基础概念篇（入门必问）"></a>一、基础概念篇（入门必问）</h2><h3 id="1、PostgreSQL-是什么？核心特性有哪些？"><a href="#1、PostgreSQL-是什么？核心特性有哪些？" class="headerlink" title="1、PostgreSQL 是什么？核心特性有哪些？"></a>1、PostgreSQL 是什么？核心特性有哪些？</h3><p><strong>参考答案：</strong></p>
+<p>PostgreSQL 是一款开源、免费、功能强大的<strong>对象-关系型数据库（ORDBMS）</strong>，兼容 SQL 标准，同时支持面向对象特性，是企业级后端、大数据、GIS 场景的主流数据库。</p>
+<p><strong>核心特性：</strong></p>
+<ul>
+<li><p><strong>完全开源免费</strong>：开源协议宽松，可商用无版权风险</p>
+</li>
+<li><p><strong>事务完全兼容 ACID</strong>：支持严格的事务隔离、原子性、一致性、持久性</p>
+</li>
+<li><p><strong>丰富的数据类型</strong>：支持 JSON&#x2F;JSONB、数组、地理信息、枚举、自定义类型</p>
+</li>
+<li><p><strong>高扩展性</strong>：支持自定义函数、存储过程、触发器、扩展插件（pg_stat_statements、pgvector）</p>
+</li>
+<li><p><strong>强大的索引体系</strong>：B-tree、Hash、GIN、GiST、BRIN 多种索引</p>
+</li>
+<li><p><strong>并发性能优秀</strong>：多版本并发控制（MVCC），无锁读写</p>
+</li>
+<li><p><strong>支持分区表、复制、读写分离</strong>，适配高可用、大数据量场景</p>
+</li>
+</ul>
+<h3 id="2、MySQL-和-PostgreSQL-的核心区别？面试高频对比"><a href="#2、MySQL-和-PostgreSQL-的核心区别？面试高频对比" class="headerlink" title="2、MySQL 和 PostgreSQL 的核心区别？面试高频对比"></a>2、MySQL 和 PostgreSQL 的核心区别？面试高频对比</h3><p><strong>参考答案：</strong></p>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>MySQL</th>
+<th>PostgreSQL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>数据库类型</td>
+<td>关系型数据库（RDBMS）</td>
+<td>对象关系型（ORDBMS），支持面向对象</td>
+</tr>
+<tr>
+<td>事务与SQL标准</td>
+<td>部分兼容SQL，早期版本事务较弱</td>
+<td><strong>高度兼容SQL标准</strong>，语法严谨</td>
+</tr>
+<tr>
+<td>数据类型</td>
+<td>基础类型为主，JSON支持较弱</td>
+<td>支持JSONB、数组、GIS、自定义类型</td>
+</tr>
+<tr>
+<td>索引类型</td>
+<td>B-tree、Hash为主</td>
+<td>B-tree、GIN、GiST、BRIN等丰富索引</td>
+</tr>
+<tr>
+<td>并发机制</td>
+<td>MVCC，读不加锁、写加锁</td>
+<td>优化版MVCC，<strong>读写完全不阻塞</strong></td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>互联网高并发简单CRUD</td>
+<td>复杂查询、数据分析、GIS、金融、企业级系统</td>
+</tr>
+<tr>
+<td>扩展性</td>
+<td>弱</td>
+<td>极强，支持插件扩展、自定义函数</td>
+</tr>
+</tbody></table>
+<h3 id="3、PostgreSQL-支持的事务隔离级别有哪些？默认级别？"><a href="#3、PostgreSQL-支持的事务隔离级别有哪些？默认级别？" class="headerlink" title="3、PostgreSQL 支持的事务隔离级别有哪些？默认级别？"></a>3、PostgreSQL 支持的事务隔离级别有哪些？默认级别？</h3><p><strong>参考答案：</strong></p>
+<p>PostgreSQL 完全支持 SQL 标准的 4 种隔离级别：</p>
+<ol>
+<li><p><strong>读未提交（Read Uncommitted）</strong>：PG 底层不支持，实际降级为读已提交</p>
+</li>
+<li><p><strong>读已提交（Read Committed）</strong>：<strong>默认隔离级别</strong></p>
+</li>
+<li><p><strong>可重复读（Repeatable Read）</strong>：主流高可用场景常用</p>
+</li>
+<li><p><strong>串行化（Serializable）</strong>：最高隔离级别，完全杜绝并发问题，性能最低</p>
+</li>
+</ol>
+<p><strong>核心特点</strong>：PG 的可重复读级别，可解决幻读问题，优于 MySQL 的可重复读。</p>
+<h2 id="二、核心机制篇（面试重点）"><a href="#二、核心机制篇（面试重点）" class="headerlink" title="二、核心机制篇（面试重点）"></a>二、核心机制篇（面试重点）</h2><h3 id="4、什么是-MVCC？PostgreSQL-MVCC-实现原理？"><a href="#4、什么是-MVCC？PostgreSQL-MVCC-实现原理？" class="headerlink" title="4、什么是 MVCC？PostgreSQL MVCC 实现原理？"></a>4、什么是 MVCC？PostgreSQL MVCC 实现原理？</h3><p><strong>参考答案：</strong></p>
+<p>MVCC（多版本并发控制）是数据库实现<strong>无锁并发读写</strong>的核心机制，通过保存数据的多个历史版本，让读操作读取旧版本数据，避免阻塞写操作。</p>
+<p><strong>PG MVCC 核心原理：</strong></p>
+<ul>
+<li><p>每条数据行都隐藏 4 个系统字段：<code>xmin</code>（创建事务ID）、<code>xmax</code>（删除&#x2F;更新事务ID）、<code>cmin/cmax</code></p>
+</li>
+<li><p><strong>新增数据</strong>：xmin &#x3D; 当前事务ID，xmax &#x3D; 0（未删除）</p>
+</li>
+<li><p><strong>更新&#x2F;删除数据</strong>：不会直接修改旧数据，而是标记旧数据 xmax 为当前事务ID，生成一条新数据版本</p>
+</li>
+<li><p><strong>读数据</strong>：事务根据快照规则，过滤出当前可见的数据版本，读写互不阻塞</p>
+</li>
+</ul>
+<p><strong>优缺点</strong>：实现高性能并发读写；会产生大量死元组，需要定期清理（VACUUM）。</p>
+<h3 id="5、PostgreSQL-VACUUM-作用是什么？AUTOVACUUM-机制？"><a href="#5、PostgreSQL-VACUUM-作用是什么？AUTOVACUUM-机制？" class="headerlink" title="5、PostgreSQL VACUUM 作用是什么？AUTOVACUUM 机制？"></a>5、PostgreSQL VACUUM 作用是什么？AUTOVACUUM 机制？</h3><p><strong>参考答案：</strong></p>
+<p>MVCC 机制会产生大量<strong>死元组（过期数据版本）</strong>，占用磁盘空间、导致索引膨胀、查询变慢，VACUUM 就是用来清理死元组的核心机制。</p>
+<p><strong>VACUUM 分类：</strong></p>
+<ol>
+<li><p><strong>普通 VACUUM</strong>：清理死元组，标记空间可复用，<strong>不收缩磁盘文件</strong>，在线执行、不锁表</p>
+</li>
+<li><p><strong>VACUUM FULL</strong>：重组表数据、收缩磁盘空间，<strong>会锁表</strong>，业务低峰期执行</p>
+</li>
+<li><p><strong>VACUUM ANALYZE</strong>：清理数据 + 更新统计信息，优化器生成最优执行计划</p>
+</li>
+</ol>
+<p><strong>AUTOVACUUM 自动机制</strong>：PG 默认开启，当表的更新、删除数据量达到阈值时，自动触发 vacuum 清理和 analyze 统计更新，保障数据库性能稳定。</p>
+<h3 id="6、PostgreSQL-事务快照原理？"><a href="#6、PostgreSQL-事务快照原理？" class="headerlink" title="6、PostgreSQL 事务快照原理？"></a>6、PostgreSQL 事务快照原理？</h3><p><strong>参考答案：</strong></p>
+<p>事务快照是 PG 实现 MVCC 可见性判断的核心，每个事务启动时会生成一个快照，记录当前活跃、已结束的事务ID，以此判断数据版本是否可见。</p>
+<p>快照包含三个核心参数：</p>
+<ul>
+<li><p><code>snapshot_min</code>：最小未结束事务ID</p>
+</li>
+<li><p><code>snapshot_max</code>：最大事务ID</p>
+</li>
+<li><p><code>active_xids</code>：当前正在活跃的事务ID列表</p>
+</li>
+</ul>
+<p>事务只会读取快照生成前已提交的数据，快照生成后新增&#x2F;修改的数据对当前事务不可见，保证隔离性。</p>
+<h2 id="三、索引优化篇（高频考点）"><a href="#三、索引优化篇（高频考点）" class="headerlink" title="三、索引优化篇（高频考点）"></a>三、索引优化篇（高频考点）</h2><h3 id="7、PostgreSQL-有哪些常用索引？各自适用场景？"><a href="#7、PostgreSQL-有哪些常用索引？各自适用场景？" class="headerlink" title="7、PostgreSQL 有哪些常用索引？各自适用场景？"></a>7、PostgreSQL 有哪些常用索引？各自适用场景？</h3><p><strong>参考答案：</strong></p>
+<h4 id="（1）B-tree-索引（默认索引）"><a href="#（1）B-tree-索引（默认索引）" class="headerlink" title="（1）B-tree 索引（默认索引）"></a>（1）B-tree 索引（默认索引）</h4><p>适用：等值查询、范围查询（&gt;、&lt;、between）、排序、分组，几乎适配所有常规字段（int、varchar、时间）。</p>
+<h4 id="（2）GIN-索引"><a href="#（2）GIN-索引" class="headerlink" title="（2）GIN 索引"></a>（2）GIN 索引</h4><p>适用：<strong>JSONB、数组、全文检索</strong>，适合多值类型的包含查询，查询快、写入稍慢。</p>
+<h4 id="（3）GiST-索引"><a href="#（3）GiST-索引" class="headerlink" title="（3）GiST 索引"></a>（3）GiST 索引</h4><p>适用：地理信息 GIS、模糊查询、距离计算，支持非结构化数据检索。</p>
+<h4 id="（4）BRIN-索引"><a href="#（4）BRIN-索引" class="headerlink" title="（4）BRIN 索引"></a>（4）BRIN 索引</h4><p>适用：<strong>数据有序、连续存储的大表</strong>（如时间流水表），占用空间极小、创建极快，无序数据无效。</p>
+<h4 id="（5）Hash-索引"><a href="#（5）Hash-索引" class="headerlink" title="（5）Hash 索引"></a>（5）Hash 索引</h4><p>适用：纯等值查询，不支持范围查询、排序，使用率极低。</p>
+<h3 id="8、JSON-和-JSONB-的区别？为什么优先用-JSONB？"><a href="#8、JSON-和-JSONB-的区别？为什么优先用-JSONB？" class="headerlink" title="8、JSON 和 JSONB 的区别？为什么优先用 JSONB？"></a>8、JSON 和 JSONB 的区别？为什么优先用 JSONB？</h3><p><strong>参考答案：</strong></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>JSON</th>
+<th>JSONB</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>存储格式</td>
+<td>原始文本存储</td>
+<td>二进制结构化存储</td>
+</tr>
+<tr>
+<td>重复键、空格</td>
+<td>保留原始格式</td>
+<td>自动去重、格式化、去除空格</td>
+</tr>
+<tr>
+<td>索引支持</td>
+<td>不支持字段索引</td>
+<td>支持 GIN 索引，可精准检索内部字段</td>
+</tr>
+<tr>
+<td>查询性能</td>
+<td>每次需要解析文本，慢</td>
+<td>直接读取二进制，快</td>
+</tr>
+<tr>
+<td>更新性能</td>
+<td>略快</td>
+<td>略慢</td>
+</tr>
+</tbody></table>
+<p><strong>结论</strong>：业务中<strong>一律优先使用 JSONB</strong>，仅纯存储、无需查询解析的场景用 JSON。</p>
+<h3 id="9、PostgreSQL-索引失效场景有哪些？"><a href="#9、PostgreSQL-索引失效场景有哪些？" class="headerlink" title="9、PostgreSQL 索引失效场景有哪些？"></a>9、PostgreSQL 索引失效场景有哪些？</h3><p><strong>参考答案：</strong></p>
+<ul>
+<li><p>对索引字段做函数、运算操作（如 <code>substr(name,1,2)</code>、<code>age+1</code>）</p>
+</li>
+<li><p>隐式类型转换（字符串字段匹配数字、类型不统一）</p>
+</li>
+<li><p>like 前置模糊匹配（<code>%xxx</code>），普通B-tree索引不生效</p>
+</li>
+<li><p>查询数据量过大（超过表数据20%~30%），优化器选择全表扫描</p>
+</li>
+<li><p>索引失效、统计信息过时（未执行 analyze）</p>
+</li>
+<li><p>分区表未指定分区字段条件</p>
+</li>
+</ul>
+<h2 id="四、高可用与架构篇"><a href="#四、高可用与架构篇" class="headerlink" title="四、高可用与架构篇"></a>四、高可用与架构篇</h2><h3 id="10、PostgreSQL-主从复制原理？流复制机制？"><a href="#10、PostgreSQL-主从复制原理？流复制机制？" class="headerlink" title="10、PostgreSQL 主从复制原理？流复制机制？"></a>10、PostgreSQL 主从复制原理？流复制机制？</h3><p><strong>参考答案：</strong></p>
+<p>PG 主流采用<strong>WAL 日志流复制</strong>实现主从架构、读写分离。</p>
+<p><strong>核心原理</strong>：</p>
+<ol>
+<li><p>主库所有增删改操作都会记录 WAL（预写日志）</p>
+</li>
+<li><p>从库持续拉取主库的 WAL 日志，回放日志同步数据</p>
+</li>
+<li><p>主库负责写，从库负责读，实现读写分离、负载分担</p>
+</li>
+</ol>
+<p><strong>复制模式</strong>：</p>
+<ul>
+<li><p><strong>异步复制</strong>：主库写完即返回，不等待从库同步，性能高、存在数据丢失风险</p>
+</li>
+<li><p><strong>同步复制</strong>：主库等待从库同步完成后返回，数据强一致、性能低</p>
+</li>
+</ul>
+<h3 id="11、PostgreSQL-分区表类型及适用场景？"><a href="#11、PostgreSQL-分区表类型及适用场景？" class="headerlink" title="11、PostgreSQL 分区表类型及适用场景？"></a>11、PostgreSQL 分区表类型及适用场景？</h3><p><strong>参考答案：</strong></p>
+<p>PG 10+ 支持原生分区表，三种核心分区方式：</p>
+<ol>
+<li><p><strong>范围分区（Range）</strong>：按时间、数值范围分区，最常用，适配日志表、流水订单表</p>
+</li>
+<li><p><strong>列表分区（List）</strong>：按固定值分区，适配地区、状态、类型字段</p>
+</li>
+<li><p><strong>哈希分区（Hash）</strong>：均匀打散数据，适配大规模均分数据场景</p>
+</li>
+</ol>
+<p><strong>优势</strong>：分区裁剪、查询更快、删除分区高效、降低单表数据量。</p>
+<h2 id="五、性能调优与问题排查"><a href="#五、性能调优与问题排查" class="headerlink" title="五、性能调优与问题排查"></a>五、性能调优与问题排查</h2><h3 id="12、如何定位-PostgreSQL-慢-SQL？"><a href="#12、如何定位-PostgreSQL-慢-SQL？" class="headerlink" title="12、如何定位 PostgreSQL 慢 SQL？"></a>12、如何定位 PostgreSQL 慢 SQL？</h3><p><strong>参考答案：</strong></p>
+<p>通过官方插件和命令快速排查：</p>
+<ol>
+<li><p>开启 <strong>pg_stat_statements</strong> 插件，统计SQL执行耗时、调用次数</p>
+</li>
+<li><p>使用 <code>explain analyze</code> 查看SQL执行计划，定位全表扫描、索引失效问题</p>
+</li>
+<li><p>查看慢查询日志，配置参数 <code>log_min_duration_statement</code> 记录超时SQL</p>
+</li>
+<li><p>通过<code>pg_stat_activity</code> 查看当前活跃慢会话、阻塞事务</p>
+</li>
+</ol>
+<h3 id="13、PostgreSQL-常见性能调优参数？"><a href="#13、PostgreSQL-常见性能调优参数？" class="headerlink" title="13、PostgreSQL 常见性能调优参数？"></a>13、PostgreSQL 常见性能调优参数？</h3><p><strong>参考答案：</strong></p>
+<ul>
+<li><p><code>shared_buffers</code>：共享缓冲区，通常设置为物理内存的 1&#x2F;4</p>
+</li>
+<li><p><code>work_mem</code>：单会话排序、分组、哈希操作内存，小并发调大，避免磁盘排序</p>
+</li>
+<li><p><code>maintenance_work_mem</code>：索引创建、vacuum 专用内存</p>
+</li>
+<li><p><code>max_connections</code>：最大连接数，避免连接过多耗尽资源</p>
+</li>
+<li><p><code>effective_cache_size</code>：优化器估算缓存大小，影响索引选择</p>
+</li>
+</ul>
+<h3 id="14、PostgreSQL-死锁产生原因及解决方案？"><a href="#14、PostgreSQL-死锁产生原因及解决方案？" class="headerlink" title="14、PostgreSQL 死锁产生原因及解决方案？"></a>14、PostgreSQL 死锁产生原因及解决方案？</h3><p><strong>参考答案：</strong></p>
+<p><strong>原因</strong>：多个事务互相持有对方需要的锁，循环等待，导致事务卡死。多出现于多表更新、更新顺序不一致场景。</p>
+<p><strong>解决方案</strong>：</p>
+<ul>
+<li><p>统一所有事务的表&#x2F;数据更新顺序</p>
+</li>
+<li><p>缩短事务执行时间，避免长事务</p>
+</li>
+<li><p>设置锁超时参数，自动释放卡死事务</p>
+</li>
+<li><p>通过 <code>pg_locks</code> 视图排查锁等待、终止死锁会话</p>
+</li>
+</ul>
+<h2 id="六、进阶面试压轴题"><a href="#六、进阶面试压轴题" class="headerlink" title="六、进阶面试压轴题"></a>六、进阶面试压轴题</h2><h3 id="15、说一说-PostgreSQL-WAL-日志机制？"><a href="#15、说一说-PostgreSQL-WAL-日志机制？" class="headerlink" title="15、说一说 PostgreSQL WAL 日志机制？"></a>15、说一说 PostgreSQL WAL 日志机制？</h3><p><strong>参考答案：</strong></p>
+<p>WAL（预写日志）是 PG 保证<strong>数据安全、崩溃恢复、主从复制</strong>的核心机制。</p>
+<p><strong>核心规则</strong>：<strong>先写日志，后写数据</strong></p>
+<ul>
+<li><p>所有数据修改操作，先写入 WAL 日志，再刷新到磁盘数据文件</p>
+</li>
+<li><p>数据库宕机重启后，通过 WAL 日志重做未落地的数据、回滚未提交事务，保证数据一致性</p>
+</li>
+<li><p>WAL 日志也是主从流复制的数据源，从库通过回放 WAL 实现数据同步</p>
+</li>
+</ul>
+<h3 id="16、PG-为什么适合复杂查询，MySQL-不适合？"><a href="#16、PG-为什么适合复杂查询，MySQL-不适合？" class="headerlink" title="16、PG 为什么适合复杂查询，MySQL 不适合？"></a>16、PG 为什么适合复杂查询，MySQL 不适合？</h3><p><strong>参考答案：</strong></p>
+<ul>
+<li><p>PG 查询优化器更强大，支持复杂子查询、多表关联、窗口函数、CTE 递归查询</p>
+</li>
+<li><p>PG 语法严格、SQL 标准兼容度高，复杂逻辑无需代码兜底</p>
+</li>
+<li><p>PG 支持更丰富的数据类型和索引，适配复杂业务检索</p>
+</li>
+<li><p>MySQL 优化器较弱，复杂关联、子查询容易产生低效执行计划，适合简单CRUD</p>
+</li>
+</ul>
+<h3 id="17、什么是-CTE？PG-中-CTE-的优势？"><a href="#17、什么是-CTE？PG-中-CTE-的优势？" class="headerlink" title="17、什么是 CTE？PG 中 CTE 的优势？"></a>17、什么是 CTE？PG 中 CTE 的优势？</h3><p><strong>参考答案：</strong></p>
+<p>CTE（公共表表达式），即 with 语句，用于拆分复杂SQL、实现递归查询。</p>
+<p><strong>优势</strong>：</p>
+<ul>
+<li><p>简化复杂多表嵌套查询，代码可读性高</p>
+</li>
+<li><p>支持<strong>递归CTE</strong>，轻松实现树形结构查询（部门、菜单层级）</p>
+</li>
+<li><p>PG 中 CTE 结果会物化，可重复复用，提升复杂查询性能</p>
+</li>
+</ul>
+<blockquote>
+<p>（注：部分内容可能由 AI 生成）</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/PostgreSQL/" rel="tag"># PostgreSQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/08/Linux%20%E5%B8%B8%E7%94%A8%E8%BF%90%E7%BB%B4%E6%8C%87%E4%BB%A4%E5%A4%A7%E5%85%A8%EF%BC%88%E5%AE%9E%E6%88%98%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89/" rel="prev" title="Linux 常用运维指令大全">
+      <i class="fa fa-chevron-left"></i> Linux 常用运维指令大全
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/07/10/MySQL%E8%B6%85%E8%AF%A6%E7%BB%86%E8%AF%A6%E8%A7%A3%EF%BC%88%E9%87%8D%E7%82%B9%EF%BC%9A%E4%BA%8B%E5%8A%A1%E3%80%81%E7%B4%A2%E5%BC%95%E3%80%81%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%EF%BC%89/" rel="next" title="MySQL超详细详解">
+      MySQL超详细详解 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#PostgreSQL-%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E6%9E%90%EF%BC%88%E5%9F%BA%E7%A1%80%E5%88%B0%E8%BF%9B%E9%98%B6%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">PostgreSQL 高频面试题及详细解析（基础到进阶）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5%E7%AF%87%EF%BC%88%E5%85%A5%E9%97%A8%E5%BF%85%E9%97%AE%EF%BC%89"><span class="nav-number">1.1.</span> <span class="nav-text">一、基础概念篇（入门必问）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81PostgreSQL-%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F"><span class="nav-number">1.1.1.</span> <span class="nav-text">1、PostgreSQL 是什么？核心特性有哪些？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81MySQL-%E5%92%8C-PostgreSQL-%E7%9A%84%E6%A0%B8%E5%BF%83%E5%8C%BA%E5%88%AB%EF%BC%9F%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E5%AF%B9%E6%AF%94"><span class="nav-number">1.1.2.</span> <span class="nav-text">2、MySQL 和 PostgreSQL 的核心区别？面试高频对比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81PostgreSQL-%E6%94%AF%E6%8C%81%E7%9A%84%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F%E9%BB%98%E8%AE%A4%E7%BA%A7%E5%88%AB%EF%BC%9F"><span class="nav-number">1.1.3.</span> <span class="nav-text">3、PostgreSQL 支持的事务隔离级别有哪些？默认级别？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E6%A0%B8%E5%BF%83%E6%9C%BA%E5%88%B6%E7%AF%87%EF%BC%88%E9%9D%A2%E8%AF%95%E9%87%8D%E7%82%B9%EF%BC%89"><span class="nav-number">1.2.</span> <span class="nav-text">二、核心机制篇（面试重点）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AF-MVCC%EF%BC%9FPostgreSQL-MVCC-%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86%EF%BC%9F"><span class="nav-number">1.2.1.</span> <span class="nav-text">4、什么是 MVCC？PostgreSQL MVCC 实现原理？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5%E3%80%81PostgreSQL-VACUUM-%E4%BD%9C%E7%94%A8%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9FAUTOVACUUM-%E6%9C%BA%E5%88%B6%EF%BC%9F"><span class="nav-number">1.2.2.</span> <span class="nav-text">5、PostgreSQL VACUUM 作用是什么？AUTOVACUUM 机制？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6%E3%80%81PostgreSQL-%E4%BA%8B%E5%8A%A1%E5%BF%AB%E7%85%A7%E5%8E%9F%E7%90%86%EF%BC%9F"><span class="nav-number">1.2.3.</span> <span class="nav-text">6、PostgreSQL 事务快照原理？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E7%AF%87%EF%BC%88%E9%AB%98%E9%A2%91%E8%80%83%E7%82%B9%EF%BC%89"><span class="nav-number">1.3.</span> <span class="nav-text">三、索引优化篇（高频考点）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7%E3%80%81PostgreSQL-%E6%9C%89%E5%93%AA%E4%BA%9B%E5%B8%B8%E7%94%A8%E7%B4%A2%E5%BC%95%EF%BC%9F%E5%90%84%E8%87%AA%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.3.1.</span> <span class="nav-text">7、PostgreSQL 有哪些常用索引？各自适用场景？</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%881%EF%BC%89B-tree-%E7%B4%A2%E5%BC%95%EF%BC%88%E9%BB%98%E8%AE%A4%E7%B4%A2%E5%BC%95%EF%BC%89"><span class="nav-number">1.3.1.1.</span> <span class="nav-text">（1）B-tree 索引（默认索引）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%882%EF%BC%89GIN-%E7%B4%A2%E5%BC%95"><span class="nav-number">1.3.1.2.</span> <span class="nav-text">（2）GIN 索引</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%883%EF%BC%89GiST-%E7%B4%A2%E5%BC%95"><span class="nav-number">1.3.1.3.</span> <span class="nav-text">（3）GiST 索引</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%884%EF%BC%89BRIN-%E7%B4%A2%E5%BC%95"><span class="nav-number">1.3.1.4.</span> <span class="nav-text">（4）BRIN 索引</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%EF%BC%885%EF%BC%89Hash-%E7%B4%A2%E5%BC%95"><span class="nav-number">1.3.1.5.</span> <span class="nav-text">（5）Hash 索引</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8%E3%80%81JSON-%E5%92%8C-JSONB-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BC%98%E5%85%88%E7%94%A8-JSONB%EF%BC%9F"><span class="nav-number">1.3.2.</span> <span class="nav-text">8、JSON 和 JSONB 的区别？为什么优先用 JSONB？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9%E3%80%81PostgreSQL-%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E5%9C%BA%E6%99%AF%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F"><span class="nav-number">1.3.3.</span> <span class="nav-text">9、PostgreSQL 索引失效场景有哪些？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E6%9E%B6%E6%9E%84%E7%AF%87"><span class="nav-number">1.4.</span> <span class="nav-text">四、高可用与架构篇</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#10%E3%80%81PostgreSQL-%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E5%8E%9F%E7%90%86%EF%BC%9F%E6%B5%81%E5%A4%8D%E5%88%B6%E6%9C%BA%E5%88%B6%EF%BC%9F"><span class="nav-number">1.4.1.</span> <span class="nav-text">10、PostgreSQL 主从复制原理？流复制机制？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#11%E3%80%81PostgreSQL-%E5%88%86%E5%8C%BA%E8%A1%A8%E7%B1%BB%E5%9E%8B%E5%8F%8A%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.4.2.</span> <span class="nav-text">11、PostgreSQL 分区表类型及适用场景？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E4%B8%8E%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5"><span class="nav-number">1.5.</span> <span class="nav-text">五、性能调优与问题排查</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#12%E3%80%81%E5%A6%82%E4%BD%95%E5%AE%9A%E4%BD%8D-PostgreSQL-%E6%85%A2-SQL%EF%BC%9F"><span class="nav-number">1.5.1.</span> <span class="nav-text">12、如何定位 PostgreSQL 慢 SQL？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#13%E3%80%81PostgreSQL-%E5%B8%B8%E8%A7%81%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%8F%82%E6%95%B0%EF%BC%9F"><span class="nav-number">1.5.2.</span> <span class="nav-text">13、PostgreSQL 常见性能调优参数？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#14%E3%80%81PostgreSQL-%E6%AD%BB%E9%94%81%E4%BA%A7%E7%94%9F%E5%8E%9F%E5%9B%A0%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%EF%BC%9F"><span class="nav-number">1.5.3.</span> <span class="nav-text">14、PostgreSQL 死锁产生原因及解决方案？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E8%BF%9B%E9%98%B6%E9%9D%A2%E8%AF%95%E5%8E%8B%E8%BD%B4%E9%A2%98"><span class="nav-number">1.6.</span> <span class="nav-text">六、进阶面试压轴题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#15%E3%80%81%E8%AF%B4%E4%B8%80%E8%AF%B4-PostgreSQL-WAL-%E6%97%A5%E5%BF%97%E6%9C%BA%E5%88%B6%EF%BC%9F"><span class="nav-number">1.6.1.</span> <span class="nav-text">15、说一说 PostgreSQL WAL 日志机制？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#16%E3%80%81PG-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%80%82%E5%90%88%E5%A4%8D%E6%9D%82%E6%9F%A5%E8%AF%A2%EF%BC%8CMySQL-%E4%B8%8D%E9%80%82%E5%90%88%EF%BC%9F"><span class="nav-number">1.6.2.</span> <span class="nav-text">16、PG 为什么适合复杂查询，MySQL 不适合？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#17%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AF-CTE%EF%BC%9FPG-%E4%B8%AD-CTE-%E7%9A%84%E4%BC%98%E5%8A%BF%EF%BC%9F"><span class="nav-number">1.6.3.</span> <span class="nav-text">17、什么是 CTE？PG 中 CTE 的优势？</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">25</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">64</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">12</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">13</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>

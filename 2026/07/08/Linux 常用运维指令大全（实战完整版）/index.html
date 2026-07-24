@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Linux 常用运维指令大全">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 常用运维指令大全">
+<meta property="og:url" content="http://example.com/2026/07/08/Linux%20%E5%B8%B8%E7%94%A8%E8%BF%90%E7%BB%B4%E6%8C%87%E4%BB%A4%E5%A4%A7%E5%85%A8%EF%BC%88%E5%AE%9E%E6%88%98%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="Linux 常用运维指令大全">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-08T09:10:00.000Z">
+<meta property="article:modified_time" content="2026-07-08T09:25:14.215Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="运维">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/08/Linux%20%E5%B8%B8%E7%94%A8%E8%BF%90%E7%BB%B4%E6%8C%87%E4%BB%A4%E5%A4%A7%E5%85%A8%EF%BC%88%E5%AE%9E%E6%88%98%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux 常用运维指令大全 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/08/Linux%20%E5%B8%B8%E7%94%A8%E8%BF%90%E7%BB%B4%E6%8C%87%E4%BB%A4%E5%A4%A7%E5%85%A8%EF%BC%88%E5%AE%9E%E6%88%98%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux 常用运维指令大全
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-08 17:10:00 / 修改时间：17:25:14" itemprop="dateCreated datePublished" datetime="2026-07-08T17:10:00+08:00">2026-07-08</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Linux 常用运维指令大全</p>
+<span id="more"></span>
+
+<h1 id="Linux-常用运维指令大全"><a href="#Linux-常用运维指令大全" class="headerlink" title="Linux 常用运维指令大全"></a>Linux 常用运维指令大全</h1><p>本文整理运维工作中<strong>高频使用、生产必备</strong>的Linux指令，按场景分类，涵盖文件目录、权限管理、磁盘资源、进程管理、网络运维、日志查看、软件包管理、系统运维、文件传输、批量运维十大核心场景，所有指令均附带常用参数、实操示例及适用场景，适配CentOS、Ubuntu主流服务器系统，可直接用于线上运维排查、日常维护。</p>
+<h2 id="一、文件与目录操作（最基础高频）"><a href="#一、文件与目录操作（最基础高频）" class="headerlink" title="一、文件与目录操作（最基础高频）"></a>一、文件与目录操作（最基础高频）</h2><p>主要用于服务器文件浏览、创建、移动、删除、查找等日常操作，是所有运维操作的基础。</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>核心功能</th>
+<th>常用参数+实操示例</th>
+<th>运维场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ls</td>
+<td>列出目录文件&#x2F;属性</td>
+<td>ls -l（详细信息）、ls -a（显示隐藏文件）、ls -lh（人性化显示大小）、ls -lt（按修改时间排序）</td>
+<td>查看目录文件、排查文件大小、核对文件修改时间</td>
+</tr>
+<tr>
+<td>pwd</td>
+<td>查看当前工作目录绝对路径</td>
+<td>直接输入pwd执行，无额外参数</td>
+<td>定位当前操作目录，避免路径错误</td>
+</tr>
+<tr>
+<td>cd</td>
+<td>切换工作目录</td>
+<td>cd &#x2F;home（进入指定目录）、cd ..（返回上一级）、cd ~（回到用户家目录）、cd -（返回上一次目录）</td>
+<td>目录跳转、切换工作路径</td>
+</tr>
+<tr>
+<td>mkdir</td>
+<td>创建目录</td>
+<td>mkdir test（创建单目录）、mkdir -p &#x2F;a&#x2F;b&#x2F;c（递归创建多级目录）</td>
+<td>搭建项目目录、创建日志存储目录</td>
+</tr>
+<tr>
+<td>rm</td>
+<td>删除文件&#x2F;目录</td>
+<td>rm 文件名（删文件）、rm -rf 目录名（强制递归删除目录，无提示）</td>
+<td>清理垃圾文件、删除无用目录（生产慎用-rf）</td>
+</tr>
+<tr>
+<td>cp</td>
+<td>复制文件&#x2F;目录</td>
+<td>cp file1 file2（复制文件）、cp -r 目录1 目录2（复制目录）、cp -p（保留文件属性）</td>
+<td>备份配置文件、迁移项目文件</td>
+</tr>
+<tr>
+<td>mv</td>
+<td>移动&#x2F;重命名文件</td>
+<td>mv 旧名 新名（重命名）、mv 文件 &#x2F;目标路径（移动文件）</td>
+<td>文件归类、配置文件替换、项目迁移</td>
+</tr>
+<tr>
+<td>find</td>
+<td>全局查找文件&#x2F;目录</td>
+<td>find &#x2F; -name “*.log”（全盘查找日志文件）、find .&#x2F; -size +100M（查找当前目录大于100M的文件）</td>
+<td>排查大文件、查找缺失配置文件、清理过期日志</td>
+</tr>
+</tbody></table>
+<h2 id="二、文件查看与编辑指令"><a href="#二、文件查看与编辑指令" class="headerlink" title="二、文件查看与编辑指令"></a>二、文件查看与编辑指令</h2><p>用于查看服务器日志、编辑配置文件，是故障排查、服务配置的核心指令。</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>核心功能</th>
+<th>常用参数+实操示例</th>
+<th>运维场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cat</td>
+<td>查看小文件全部内容</td>
+<td>cat nginx.conf（查看配置文件）、cat file1 &gt;&gt; file2（文件内容合并）</td>
+<td>查看小配置文件、快速核对文件内容</td>
+</tr>
+<tr>
+<td>less</td>
+<td>分页查看大文件（可上下翻页）</td>
+<td>less 日志文件，空格翻页、q退出、&#x2F;关键词搜索</td>
+<td>查看超大日志文件，避免cat刷屏卡顿</td>
+</tr>
+<tr>
+<td>head</td>
+<td>查看文件头部内容</td>
+<td>head -n 20 日志文件（查看前20行）</td>
+<td>快速查看日志开头、配置文件头部参数</td>
+</tr>
+<tr>
+<td>tail</td>
+<td>查看文件尾部内容（日志必备）</td>
+<td>tail -n 30 日志（查看最后30行）、tail -f 日志（实时监控日志刷新）</td>
+<td>线上故障实时排查、监控服务运行日志</td>
+</tr>
+<tr>
+<td>vi&#x2F;vim</td>
+<td>文件编辑（系统默认编辑器）</td>
+<td>vim 文件名，i进入编辑、ESC退出编辑、:wq保存退出、:q!强制不保存退出</td>
+<td>修改服务配置文件、编写脚本、配置环境参数</td>
+</tr>
+<tr>
+<td>grep</td>
+<td>文件内容关键词过滤</td>
+<td>grep “error” 日志文件（筛选报错日志）、grep -v “空行”（过滤指定内容）、grep -r “关键词” .&#x2F;（递归筛选目录下所有文件）</td>
+<td>排查日志报错、筛选配置参数、检索关键信息</td>
+</tr>
+</tbody></table>
+<h2 id="三、权限与用户管理指令"><a href="#三、权限与用户管理指令" class="headerlink" title="三、权限与用户管理指令"></a>三、权限与用户管理指令</h2><p>用于服务器账号管理、文件权限管控，保障服务器访问安全，解决权限不足、访问报错等问题。</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>核心功能</th>
+<th>常用参数+实操示例</th>
+<th>运维场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>chmod</td>
+<td>修改文件&#x2F;目录权限</td>
+<td>chmod 755 文件名（读写执行权限）、chmod -R 775 目录（递归修改目录所有文件权限）</td>
+<td>解决文件权限不足、服务无法读取文件问题</td>
+</tr>
+<tr>
+<td>chown</td>
+<td>修改文件&#x2F;目录所属用户和组</td>
+<td>chown root:root 文件名、chown -R nginx:nginx 项目目录</td>
+<td>服务权限归属配置、解决文件属主错误导致的访问异常</td>
+</tr>
+<tr>
+<td>useradd</td>
+<td>创建系统用户</td>
+<td>useradd test（创建test用户）、useradd -m test（创建用户并生成家目录）</td>
+<td>新增运维账号、业务专属用户</td>
+</tr>
+<tr>
+<td>userdel</td>
+<td>删除系统用户</td>
+<td>userdel test（删除用户）、userdel -r test（删除用户及家目录）</td>
+<td>清理废弃账号、注销离职人员运维权限</td>
+</tr>
+<tr>
+<td>passwd</td>
+<td>修改用户密码</td>
+<td>passwd（修改当前用户密码）、passwd test（修改指定用户密码）</td>
+<td>账号密码重置、定期更新服务器密码</td>
+</tr>
+<tr>
+<td>sudo</td>
+<td>临时获取管理员权限</td>
+<td>sudo 指令（普通用户执行管理员命令）、sudo -i（切换root权限）</td>
+<td>普通用户运维操作、临时授权执行高危指令</td>
+</tr>
+</tbody></table>
+<h2 id="四、磁盘与资源监控指令"><a href="#四、磁盘与资源监控指令" class="headerlink" title="四、磁盘与资源监控指令"></a>四、磁盘与资源监控指令</h2><p>监控服务器磁盘、内存、空间资源，排查磁盘爆满、内存溢出、资源占用过高等问题。</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>核心功能</th>
+<th>常用参数+实操示例</th>
+<th>运维场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>df</td>
+<td>查看磁盘分区空间占用</td>
+<td>df -h（人性化显示磁盘剩余&#x2F;占用空间）、df -i（查看inode使用情况）</td>
+<td>排查磁盘爆满、分区空间不足、inode耗尽问题</td>
+</tr>
+<tr>
+<td>du</td>
+<td>统计文件&#x2F;目录磁盘占用大小</td>
+<td>du -sh 目录（查看目录总大小）、du -h --max-depth&#x3D;1（查看当前目录各级文件大小）</td>
+<td>定位大文件、清理占用空间过高的目录</td>
+</tr>
+<tr>
+<td>free</td>
+<td>查看内存&#x2F;交换分区使用情况</td>
+<td>free -h（人性化显示内存、缓存、剩余内存）</td>
+<td>排查内存溢出、内存占用过高、服务卡顿问题</td>
+</tr>
+<tr>
+<td>mount&#x2F;umount</td>
+<td>挂载&#x2F;卸载磁盘分区</td>
+<td>mount &#x2F;dev&#x2F;sdb1 &#x2F;data（挂载磁盘）、umount &#x2F;data（卸载挂载目录）</td>
+<td>服务器新增磁盘、挂载数据盘、迁移数据分区</td>
+</tr>
+</tbody></table>
+<h2 id="五、进程与服务管理指令"><a href="#五、进程与服务管理指令" class="headerlink" title="五、进程与服务管理指令"></a>五、进程与服务管理指令</h2><p>管控服务器运行进程、系统服务，排查进程卡死、服务宕机、端口占用等核心问题，是运维故障排查核心。</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>核心功能</th>
+<th>常用参数+实操示例</th>
+<th>运维场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ps</td>
+<td>查看系统进程快照</td>
+<td>ps -ef（查看所有进程）、ps -ef | grep nginx（筛选指定服务进程）</td>
+<td>核对服务是否启动、排查异常进程</td>
+</tr>
+<tr>
+<td>top&#x2F;htop</td>
+<td>实时监控进程资源占用</td>
+<td>top（系统自带，实时查看CPU&#x2F;内存占用）、htop（彩色可视化监控，需yum&#x2F;apt安装）</td>
+<td>排查服务器CPU爆满、内存飙升、进程卡死问题</td>
+</tr>
+<tr>
+<td>kill</td>
+<td>终止进程</td>
+<td>kill 进程PID（正常终止）、kill -9 进程PID（强制杀死卡死进程）</td>
+<td>关闭异常进程、重启卡死服务</td>
+</tr>
+<tr>
+<td>systemctl</td>
+<td>系统服务管理（CentOS7+&#x2F;Ubuntu16+）</td>
+<td>systemctl start nginx（启动服务）、stop（停止）、restart（重启）、status（查看状态）、enable（开机自启）、disable（关闭自启）</td>
+<td>管理Nginx、MySQL、Java等所有系统服务</td>
+</tr>
+<tr>
+<td>netstat&#x2F;ss</td>
+<td>查看端口、连接状态</td>
+<td>netstat -tulpn（查看所有监听端口）、ss -tulpn（高效端口查询，替代netstat）</td>
+<td>排查端口占用、端口冲突、服务监听异常</td>
+</tr>
+</tbody></table>
+<h2 id="六、网络运维指令"><a href="#六、网络运维指令" class="headerlink" title="六、网络运维指令"></a>六、网络运维指令</h2><p>排查服务器网络连通性、IP配置、域名解析、外网访问等网络问题，解决ping不通、端口不通、网络延迟等故障。</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>核心功能</th>
+<th>常用参数+实操示例</th>
+<th>运维场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ip</td>
+<td>查看&#x2F;配置网络信息（替代ifconfig）</td>
+<td>ip addr（查看本机IP、网卡信息）、ip route（查看路由表）</td>
+<td>核对服务器IP、网卡状态、路由配置</td>
+</tr>
+<tr>
+<td>ping</td>
+<td>测试网络连通性</td>
+<td>ping 域名&#x2F;IP、ping -c 4 地址（仅发送4次数据包，停止刷屏）</td>
+<td>排查服务器外网连通、跨服务器通信异常</td>
+</tr>
+<tr>
+<td>curl&#x2F;wget</td>
+<td>网络请求&#x2F;文件下载</td>
+<td>curl 网址（测试接口访问）、wget 链接（下载网络文件）</td>
+<td>排查接口不通、下载安装包、测试外网访问</td>
+</tr>
+<tr>
+<td>traceroute</td>
+<td>追踪网络路由节点</td>
+<td>traceroute 目标IP&#x2F;域名</td>
+<td>排查网络延迟、丢包、路由跳转异常</td>
+</tr>
+<tr>
+<td>nslookup&#x2F;dig</td>
+<td>域名DNS解析查询</td>
+<td>nslookup 域名、dig 域名（详细解析信息）</td>
+<td>排查域名解析失败、DNS劫持、解析延迟问题</td>
+</tr>
+</tbody></table>
+<h2 id="七、软件包管理指令"><a href="#七、软件包管理指令" class="headerlink" title="七、软件包管理指令"></a>七、软件包管理指令</h2><p>适配CentOS（yum）、Ubuntu（apt）两大系统，用于软件安装、升级、卸载、依赖修复。</p>
+<h3 id="1、CentOS-RHEL-系统（yum）"><a href="#1、CentOS-RHEL-系统（yum）" class="headerlink" title="1、CentOS&#x2F;RHEL 系统（yum）"></a>1、CentOS&#x2F;RHEL 系统（yum）</h3><ul>
+<li><p><strong>yum install 软件名</strong>：安装软件包（例：yum install nginx -y）</p>
+</li>
+<li><p><strong>yum remove 软件名</strong>：卸载软件（保留配置文件）</p>
+</li>
+<li><p><strong>yum erase 软件名</strong>：彻底卸载软件（删除配置）</p>
+</li>
+<li><p><strong>yum update</strong>：升级系统所有可更新软件包</p>
+</li>
+<li><p><strong>yum list | grep 软件名</strong>：查询软件是否可安装</p>
+</li>
+<li><p><strong>yum clean all</strong>：清理yum缓存，释放磁盘空间</p>
+</li>
+</ul>
+<h3 id="2、Ubuntu-Debian-系统（apt）"><a href="#2、Ubuntu-Debian-系统（apt）" class="headerlink" title="2、Ubuntu&#x2F;Debian 系统（apt）"></a>2、Ubuntu&#x2F;Debian 系统（apt）</h3><ul>
+<li><p><strong>apt update</strong>：更新软件源缓存</p>
+</li>
+<li><p><strong>apt install 软件名</strong>：安装软件包</p>
+</li>
+<li><p><strong>apt remove 软件名</strong>：卸载软件（保留配置）</p>
+</li>
+<li><p><strong>apt purge 软件名</strong>：彻底卸载+清理配置</p>
+</li>
+<li><p><strong>apt upgrade</strong>：升级已安装软件包</p>
+</li>
+<li><p><strong>apt full-upgrade</strong>：完整升级（自动清理冗余依赖）</p>
+</li>
+</ul>
+<h2 id="八、文件传输与压缩解压指令"><a href="#八、文件传输与压缩解压指令" class="headerlink" title="八、文件传输与压缩解压指令"></a>八、文件传输与压缩解压指令</h2><p>用于服务器文件上传、下载、压缩打包、解压，是文件迁移、备份的必备指令。</p>
+<h3 id="1、压缩解压（tar-万能指令）"><a href="#1、压缩解压（tar-万能指令）" class="headerlink" title="1、压缩解压（tar 万能指令）"></a>1、压缩解压（tar 万能指令）</h3><ul>
+<li><p><strong>打包压缩</strong>：tar -zcvf 压缩包名.tar.gz 目标目录&#x2F;文件</p>
+</li>
+<li><p><strong>解压文件</strong>：tar -zxvf 压缩包名.tar.gz</p>
+</li>
+<li><p><strong>解压到指定目录</strong>：tar -zxvf 压缩包名.tar.gz -C &#x2F;目标路径</p>
+</li>
+<li><p>参数释义：z（gzip压缩）、c（创建压缩包）、x（解压）、v（显示过程）、f（指定文件）</p>
+</li>
+</ul>
+<h3 id="2、文件传输"><a href="#2、文件传输" class="headerlink" title="2、文件传输"></a>2、文件传输</h3><ul>
+<li><p><strong>scp</strong>：跨服务器文件传输<br>示例：scp 本地文件 远程用户@远程IP:&#x2F;远程路径（本地上传远程）<br>示例：scp 远程用户@远程IP:&#x2F;远程文件 本地路径（远程下载本地）</p>
+</li>
+<li><p><strong>rz&#x2F;sz</strong>：本地与服务器互传（需安装lrzsz）<br>rz：本地文件上传服务器；sz 文件名：服务器文件下载到本地</p>
+</li>
+</ul>
+<h2 id="九、系统运维基础指令"><a href="#九、系统运维基础指令" class="headerlink" title="九、系统运维基础指令"></a>九、系统运维基础指令</h2><p>用于系统重启、关机、时间查看、版本查询、负载监控等基础系统操作。</p>
+<ul>
+<li><p><strong>uname -a</strong>：查看系统内核、版本信息</p>
+</li>
+<li><p><strong>cat &#x2F;etc&#x2F;os-release</strong>：查看服务器系统版本（CentOS&#x2F;Ubuntu）</p>
+</li>
+<li><p><strong>hostname</strong>：查看&#x2F;修改服务器主机名</p>
+</li>
+<li><p><strong>uptime</strong>：查看服务器运行时长、系统负载</p>
+</li>
+<li><p><strong>date</strong>：查看&#x2F;修改系统时间</p>
+</li>
+<li><p><strong>shutdown -h now</strong>：立即关机</p>
+</li>
+<li><p><strong>shutdown -r now &#x2F; reboot</strong>：立即重启服务器</p>
+</li>
+<li><p><strong>history</strong>：查看历史执行指令</p>
+</li>
+</ul>
+<h2 id="十、运维高频组合指令（实战神器）"><a href="#十、运维高频组合指令（实战神器）" class="headerlink" title="十、运维高频组合指令（实战神器）"></a>十、运维高频组合指令（实战神器）</h2><p>日常故障排查、批量操作高频组合指令，大幅提升运维效率</p>
+<ul>
+<li><p>筛选日志报错：<code>grep -i &quot;error|warn&quot; app.log</code>（忽略大小写筛选错误、警告日志）</p>
+</li>
+<li><p>实时监控报错日志：<code>tail -f app.log | grep &quot;error&quot;</code></p>
+</li>
+<li><p>查找100M以上大文件：<code>find / -type f -size +100M | sort -rh</code></p>
+</li>
+<li><p>查看端口占用进程：<code>netstat -tulpn | grep 端口号</code></p>
+</li>
+<li><p>批量删除指定后缀文件：<code>find ./ -name &quot;*.tmp&quot; -delete</code></p>
+</li>
+<li><p>统计日志访问量：<code>grep &quot;200&quot; access.log | wc -l</code></p>
+</li>
+</ul>
+<h2 id="十一、运维操作注意事项"><a href="#十一、运维操作注意事项" class="headerlink" title="十一、运维操作注意事项"></a>十一、运维操作注意事项</h2><ol>
+<li><p><strong>慎用 rm -rf</strong>：禁止直接执行 rm -rf &#x2F; 根目录删除，删除前务必核对路径</p>
+</li>
+<li><p><strong>高危操作先备份</strong>：修改配置、删除文件前，先备份原文件（cp 原文件 原文件.bak）</p>
+</li>
+<li><p><strong>禁止随意kill进程</strong>：生产环境优先用kill正常终止，kill -9仅用于卡死无响应进程</p>
+</li>
+<li><p><strong>权限最小化原则</strong>：非必要不设置777权限，避免服务器安全风险</p>
+</li>
+<li><p><strong>服务重启先检查</strong>：重启服务前先查看status状态，避免配置错误导致服务启动失败</p>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag"># 运维</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/07/MySQL%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%EF%BC%88%E5%90%AB%E8%AF%A6%E7%BB%86%E8%A7%A3%E7%AD%94%EF%BC%89/" rel="prev" title="MySQL高频面试题">
+      <i class="fa fa-chevron-left"></i> MySQL高频面试题
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/07/09/PostgreSQL%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E6%9E%90%EF%BC%88%E5%9F%BA%E7%A1%80%E5%88%B0%E8%BF%9B%E9%98%B6%EF%BC%89/" rel="next" title="PostgreSQL 高频面试题及详细解析">
+      PostgreSQL 高频面试题及详细解析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Linux-%E5%B8%B8%E7%94%A8%E8%BF%90%E7%BB%B4%E6%8C%87%E4%BB%A4%E5%A4%A7%E5%85%A8"><span class="nav-number">1.</span> <span class="nav-text">Linux 常用运维指令大全</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E6%96%87%E4%BB%B6%E4%B8%8E%E7%9B%AE%E5%BD%95%E6%93%8D%E4%BD%9C%EF%BC%88%E6%9C%80%E5%9F%BA%E7%A1%80%E9%AB%98%E9%A2%91%EF%BC%89"><span class="nav-number">1.1.</span> <span class="nav-text">一、文件与目录操作（最基础高频）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E6%96%87%E4%BB%B6%E6%9F%A5%E7%9C%8B%E4%B8%8E%E7%BC%96%E8%BE%91%E6%8C%87%E4%BB%A4"><span class="nav-number">1.2.</span> <span class="nav-text">二、文件查看与编辑指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%9D%83%E9%99%90%E4%B8%8E%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86%E6%8C%87%E4%BB%A4"><span class="nav-number">1.3.</span> <span class="nav-text">三、权限与用户管理指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%A3%81%E7%9B%98%E4%B8%8E%E8%B5%84%E6%BA%90%E7%9B%91%E6%8E%A7%E6%8C%87%E4%BB%A4"><span class="nav-number">1.4.</span> <span class="nav-text">四、磁盘与资源监控指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E8%BF%9B%E7%A8%8B%E4%B8%8E%E6%9C%8D%E5%8A%A1%E7%AE%A1%E7%90%86%E6%8C%87%E4%BB%A4"><span class="nav-number">1.5.</span> <span class="nav-text">五、进程与服务管理指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E7%BD%91%E7%BB%9C%E8%BF%90%E7%BB%B4%E6%8C%87%E4%BB%A4"><span class="nav-number">1.6.</span> <span class="nav-text">六、网络运维指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E8%BD%AF%E4%BB%B6%E5%8C%85%E7%AE%A1%E7%90%86%E6%8C%87%E4%BB%A4"><span class="nav-number">1.7.</span> <span class="nav-text">七、软件包管理指令</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81CentOS-RHEL-%E7%B3%BB%E7%BB%9F%EF%BC%88yum%EF%BC%89"><span class="nav-number">1.7.1.</span> <span class="nav-text">1、CentOS&#x2F;RHEL 系统（yum）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81Ubuntu-Debian-%E7%B3%BB%E7%BB%9F%EF%BC%88apt%EF%BC%89"><span class="nav-number">1.7.2.</span> <span class="nav-text">2、Ubuntu&#x2F;Debian 系统（apt）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E6%96%87%E4%BB%B6%E4%BC%A0%E8%BE%93%E4%B8%8E%E5%8E%8B%E7%BC%A9%E8%A7%A3%E5%8E%8B%E6%8C%87%E4%BB%A4"><span class="nav-number">1.8.</span> <span class="nav-text">八、文件传输与压缩解压指令</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E5%8E%8B%E7%BC%A9%E8%A7%A3%E5%8E%8B%EF%BC%88tar-%E4%B8%87%E8%83%BD%E6%8C%87%E4%BB%A4%EF%BC%89"><span class="nav-number">1.8.1.</span> <span class="nav-text">1、压缩解压（tar 万能指令）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E6%96%87%E4%BB%B6%E4%BC%A0%E8%BE%93"><span class="nav-number">1.8.2.</span> <span class="nav-text">2、文件传输</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81%E7%B3%BB%E7%BB%9F%E8%BF%90%E7%BB%B4%E5%9F%BA%E7%A1%80%E6%8C%87%E4%BB%A4"><span class="nav-number">1.9.</span> <span class="nav-text">九、系统运维基础指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%81%E8%BF%90%E7%BB%B4%E9%AB%98%E9%A2%91%E7%BB%84%E5%90%88%E6%8C%87%E4%BB%A4%EF%BC%88%E5%AE%9E%E6%88%98%E7%A5%9E%E5%99%A8%EF%BC%89"><span class="nav-number">1.10.</span> <span class="nav-text">十、运维高频组合指令（实战神器）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%80%E3%80%81%E8%BF%90%E7%BB%B4%E6%93%8D%E4%BD%9C%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="nav-number">1.11.</span> <span class="nav-text">十一、运维操作注意事项</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">25</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">64</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">12</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">13</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>

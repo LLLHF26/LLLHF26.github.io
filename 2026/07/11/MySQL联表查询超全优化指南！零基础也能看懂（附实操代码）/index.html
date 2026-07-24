@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="日常开发中，联表JOIN查询是刚需，但很多人遇到查询变慢、超时、数据量大卡顿的问题，却不知道如何下手优化。 其实99%的联表慢查询，都逃不出4个核心问题：无索引、驱动表选错、先关联后过滤、字段类型不一致。 本文用最通俗的语言、可直接运行的实操代码，带你彻底搞定MySQL联表优化，适配日常开发、面试场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL联表查询超全优化指南">
+<meta property="og:url" content="http://example.com/2026/07/11/MySQL%E8%81%94%E8%A1%A8%E6%9F%A5%E8%AF%A2%E8%B6%85%E5%85%A8%E4%BC%98%E5%8C%96%E6%8C%87%E5%8D%97%EF%BC%81%E9%9B%B6%E5%9F%BA%E7%A1%80%E4%B9%9F%E8%83%BD%E7%9C%8B%E6%87%82%EF%BC%88%E9%99%84%E5%AE%9E%E6%93%8D%E4%BB%A3%E7%A0%81%EF%BC%89/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="日常开发中，联表JOIN查询是刚需，但很多人遇到查询变慢、超时、数据量大卡顿的问题，却不知道如何下手优化。 其实99%的联表慢查询，都逃不出4个核心问题：无索引、驱动表选错、先关联后过滤、字段类型不一致。 本文用最通俗的语言、可直接运行的实操代码，带你彻底搞定MySQL联表优化，适配日常开发、面试场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-11T11:58:00.000Z">
+<meta property="article:modified_time" content="2026-07-11T11:59:33.460Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="mysql">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/11/MySQL%E8%81%94%E8%A1%A8%E6%9F%A5%E8%AF%A2%E8%B6%85%E5%85%A8%E4%BC%98%E5%8C%96%E6%8C%87%E5%8D%97%EF%BC%81%E9%9B%B6%E5%9F%BA%E7%A1%80%E4%B9%9F%E8%83%BD%E7%9C%8B%E6%87%82%EF%BC%88%E9%99%84%E5%AE%9E%E6%93%8D%E4%BB%A3%E7%A0%81%EF%BC%89/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>MySQL联表查询超全优化指南 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/11/MySQL%E8%81%94%E8%A1%A8%E6%9F%A5%E8%AF%A2%E8%B6%85%E5%85%A8%E4%BC%98%E5%8C%96%E6%8C%87%E5%8D%97%EF%BC%81%E9%9B%B6%E5%9F%BA%E7%A1%80%E4%B9%9F%E8%83%BD%E7%9C%8B%E6%87%82%EF%BC%88%E9%99%84%E5%AE%9E%E6%93%8D%E4%BB%A3%E7%A0%81%EF%BC%89/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL联表查询超全优化指南
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-11 19:58:00 / 修改时间：19:59:33" itemprop="dateCreated datePublished" datetime="2026-07-11T19:58:00+08:00">2026-07-11</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>日常开发中，联表JOIN查询是刚需，但很多人遇到查询变慢、超时、数据量大卡顿的问题，却不知道如何下手优化。</p>
+<p>其实99%的联表慢查询，都逃不出4个核心问题：<strong>无索引、驱动表选错、先关联后过滤、字段类型不一致</strong>。</p>
+<p>本文用最通俗的语言、可直接运行的实操代码，带你彻底搞定MySQL联表优化，适配日常开发、面试场景。</p>
+<span id="more"></span>
+
+
+
+<h1 id="MySQL联表查询超全优化指南！零基础也能看懂（附实操代码）"><a href="#MySQL联表查询超全优化指南！零基础也能看懂（附实操代码）" class="headerlink" title="MySQL联表查询超全优化指南！零基础也能看懂（附实操代码）"></a>MySQL联表查询超全优化指南！零基础也能看懂（附实操代码）</h1><p>日常开发中，联表JOIN查询是刚需，但很多人遇到查询变慢、超时、数据量大卡顿的问题，却不知道如何下手优化。</p>
+<p>其实99%的联表慢查询，都逃不出4个核心问题：<strong>无索引、驱动表选错、先关联后过滤、字段类型不一致</strong>。</p>
+<p>本文用最通俗的语言、可直接运行的实操代码，带你彻底搞定MySQL联表优化，适配日常开发、面试场景。</p>
+<h2 id="一、前置准备：测试表结构"><a href="#一、前置准备：测试表结构" class="headerlink" title="一、前置准备：测试表结构"></a>一、前置准备：测试表结构</h2><p>我们模拟最经典的「用户+订单」业务场景，一张小表、一张大表，贴合真实业务：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 小表：用户表（数据量少）</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> <span class="keyword">user</span>(</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">20</span>)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 大表：订单表（数据量千万级，核心优化对象）</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> `<span class="keyword">order</span>`(</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    user_id <span class="type">INT</span>,</span><br><span class="line">    order_name <span class="type">VARCHAR</span>(<span class="number">20</span>)</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<h2 id="二、核心优化一：大表关联字段必建索引（最关键）"><a href="#二、核心优化一：大表关联字段必建索引（最关键）" class="headerlink" title="二、核心优化一：大表关联字段必建索引（最关键）"></a>二、核心优化一：大表关联字段必建索引（最关键）</h2><h3 id="问题根源"><a href="#问题根源" class="headerlink" title="问题根源"></a>问题根源</h3><p>联表查询的核心逻辑是：遍历驱动表数据，去被驱动表匹配数据。如果<strong>大表的关联字段没有索引</strong>，MySQL会触发<strong>块嵌套循环（BNL）</strong>，全盘扫描数据，性能暴跌。</p>
+<h3 id="未优化（错误写法，全表扫描）"><a href="#未优化（错误写法，全表扫描）" class="headerlink" title="未优化（错误写法，全表扫描）"></a>未优化（错误写法，全表扫描）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">user</span> u</span><br><span class="line"><span class="keyword">JOIN</span> `<span class="keyword">order</span>` o <span class="keyword">ON</span> u.id <span class="operator">=</span> o.user_id;</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题特征</strong>：执行计划出现 <code>type=ALL</code>、<code>Using join buffer (Block Nested Loop)</code></p>
+<h3 id="优化方案：给大表关联字段加索引"><a href="#优化方案：给大表关联字段加索引" class="headerlink" title="优化方案：给大表关联字段加索引"></a>优化方案：给大表关联字段加索引</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 给订单表关联字段 user_id 建索引</span></span><br><span class="line"><span class="keyword">CREATE</span> INDEX idx_userid <span class="keyword">ON</span> `<span class="keyword">order</span>`(user_id);</span><br></pre></td></tr></table></figure>
+
+<h3 id="优化效果"><a href="#优化效果" class="headerlink" title="优化效果"></a>优化效果</h3><p>执行计划中 <code>type</code> 变为 <code>ref</code>，告别全表扫描，查询效率提升数十倍。</p>
+<p><strong>核心口诀</strong>：小表无所谓，大表关联字段必须加索引！</p>
+<h2 id="三、核心优化二：小表驱动大表，杜绝反向驱动"><a href="#三、核心优化二：小表驱动大表，杜绝反向驱动" class="headerlink" title="三、核心优化二：小表驱动大表，杜绝反向驱动"></a>三、核心优化二：小表驱动大表，杜绝反向驱动</h2><p>MySQL联表底层是<strong>嵌套循环查询</strong>：驱动表遍历行数越少，联表效率越高。</p>
+<p>铁律：<strong>用数据量小的小表，驱动数据量大的大表</strong></p>
+<h3 id="错误写法（大表驱动小表，性能极差）"><a href="#错误写法（大表驱动小表，性能极差）" class="headerlink" title="错误写法（大表驱动小表，性能极差）"></a>错误写法（大表驱动小表，性能极差）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 大表order遍历所有数据，再匹配小表user，无效循环太多</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> `<span class="keyword">order</span>` o</span><br><span class="line"><span class="keyword">JOIN</span> <span class="keyword">user</span> u <span class="keyword">ON</span> u.id <span class="operator">=</span> o.user_id;</span><br></pre></td></tr></table></figure>
+
+<h3 id="正确写法（小表驱动大表）"><a href="#正确写法（小表驱动大表）" class="headerlink" title="正确写法（小表驱动大表）"></a>正确写法（小表驱动大表）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 先遍历少量用户数据，再匹配订单表，循环次数极少</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">user</span> u</span><br><span class="line"><span class="keyword">JOIN</span> `<span class="keyword">order</span>` o <span class="keyword">ON</span> u.id <span class="operator">=</span> o.user_id;</span><br></pre></td></tr></table></figure>
+
+<h3 id="重点：LEFT-JOIN-特殊规则"><a href="#重点：LEFT-JOIN-特殊规则" class="headerlink" title="重点：LEFT JOIN 特殊规则"></a>重点：LEFT JOIN 特殊规则</h3><p><strong>LEFT JOIN 左表固定是驱动表</strong>，绝对不能写反！</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 正确：小表在左，驱动大表</span></span><br><span class="line"><span class="keyword">user</span> u <span class="keyword">LEFT</span> <span class="keyword">JOIN</span> `<span class="keyword">order</span>` o <span class="keyword">ON</span> u.id <span class="operator">=</span> o.user_id</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 错误：大表在左，海量数据循环匹配，直接超时</span></span><br><span class="line">`<span class="keyword">order</span>` o <span class="keyword">LEFT</span> <span class="keyword">JOIN</span> <span class="keyword">user</span> u <span class="keyword">ON</span> o.user_id <span class="operator">=</span> u.id</span><br></pre></td></tr></table></figure>
+
+<h2 id="四、核心优化三：先过滤，再关联（大幅减少笛卡尔积）"><a href="#四、核心优化三：先过滤，再关联（大幅减少笛卡尔积）" class="headerlink" title="四、核心优化三：先过滤，再关联（大幅减少笛卡尔积）"></a>四、核心优化三：先过滤，再关联（大幅减少笛卡尔积）</h2><p>很多人写SQL习惯「先关联整张表，再过滤数据」，这是超级大坑。</p>
+<p>未优化时，会先完成全量联表，生成巨大的笛卡尔积，再筛选数据，资源消耗极高。</p>
+<h3 id="错误写法（先关联、后过滤）"><a href="#错误写法（先关联、后过滤）" class="headerlink" title="错误写法（先关联、后过滤）"></a>错误写法（先关联、后过滤）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">user</span> u</span><br><span class="line"><span class="keyword">JOIN</span> `<span class="keyword">order</span>` o <span class="keyword">ON</span> u.id <span class="operator">=</span> o.user_id</span><br><span class="line"><span class="keyword">WHERE</span> u.name <span class="operator">=</span> <span class="string">&#x27;张三&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="正确写法（先缩小驱动表范围，再联表）"><a href="#正确写法（先缩小驱动表范围，再联表）" class="headerlink" title="正确写法（先缩小驱动表范围，再联表）"></a>正确写法（先缩小驱动表范围，再联表）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 先过滤出极少的目标用户，再关联订单表，笛卡尔积最小化</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> </span><br><span class="line">(<span class="keyword">SELECT</span> id,name <span class="keyword">FROM</span> <span class="keyword">user</span> <span class="keyword">WHERE</span> name <span class="operator">=</span> <span class="string">&#x27;张三&#x27;</span>) u</span><br><span class="line"><span class="keyword">JOIN</span> `<span class="keyword">order</span>` o <span class="keyword">ON</span> u.id <span class="operator">=</span> o.user_id;</span><br></pre></td></tr></table></figure>
+
+<h2 id="五、核心优化四：统一字段类型，杜绝隐式类型转换"><a href="#五、核心优化四：统一字段类型，杜绝隐式类型转换" class="headerlink" title="五、核心优化四：统一字段类型，杜绝隐式类型转换"></a>五、核心优化四：统一字段类型，杜绝隐式类型转换</h2><p>这是最隐蔽的坑：<strong>关联字段类型不一致，会直接导致索引失效</strong>。</p>
+<p>原理：MySQL会对索引列做隐式类型转换，相当于对索引列使用函数，索引直接报废，触发全表扫描。</p>
+<h3 id="模拟坑场景"><a href="#模拟坑场景" class="headerlink" title="模拟坑场景"></a>模拟坑场景</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 左表字段：int数字类型</span></span><br><span class="line">user.id <span class="type">INT</span></span><br><span class="line"><span class="comment">-- 右表关联字段：varchar字符串类型</span></span><br><span class="line">order.user_id <span class="type">VARCHAR</span>(<span class="number">20</span>)</span><br></pre></td></tr></table></figure>
+
+<h3 id="失效SQL（索引完全没用）"><a href="#失效SQL（索引完全没用）" class="headerlink" title="失效SQL（索引完全没用）"></a>失效SQL（索引完全没用）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">user</span> u</span><br><span class="line"><span class="keyword">JOIN</span> `<span class="keyword">order</span>` o <span class="keyword">ON</span> u.id <span class="operator">=</span> o.user_id;</span><br></pre></td></tr></table></figure>
+
+<h3 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h3><p>保证联表关联字段 <strong>类型、长度、字符集、是否可为NULL</strong> 完全一致！</p>
+<h2 id="六、终极优化：覆盖索引（彻底消除回表，性能拉满）"><a href="#六、终极优化：覆盖索引（彻底消除回表，性能拉满）" class="headerlink" title="六、终极优化：覆盖索引（彻底消除回表，性能拉满）"></a>六、终极优化：覆盖索引（彻底消除回表，性能拉满）</h2><p>普通索引联表会存在回表查询，我们可以通过<strong>覆盖索引</strong>，让查询数据全部从索引中获取，无需回表，实现最优性能。</p>
+<h3 id="创建覆盖索引（包含关联字段-查询字段）"><a href="#创建覆盖索引（包含关联字段-查询字段）" class="headerlink" title="创建覆盖索引（包含关联字段+查询字段）"></a>创建覆盖索引（包含关联字段+查询字段）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- user_id：关联字段；order_name、id：查询所需字段</span></span><br><span class="line"><span class="keyword">CREATE</span> INDEX idx_cover <span class="keyword">ON</span> `<span class="keyword">order</span>`(user_id,order_name,id);</span><br></pre></td></tr></table></figure>
+
+<h3 id="最优联表SQL"><a href="#最优联表SQL" class="headerlink" title="最优联表SQL"></a>最优联表SQL</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> u.name,o.order_name</span><br><span class="line"><span class="keyword">FROM</span> <span class="keyword">user</span> u</span><br><span class="line"><span class="keyword">JOIN</span> `<span class="keyword">order</span>` o <span class="keyword">ON</span> u.id <span class="operator">=</span> o.user_id</span><br><span class="line"><span class="keyword">WHERE</span> u.name<span class="operator">=</span><span class="string">&#x27;张三&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p><strong>优化标识</strong>：EXPLAIN执行计划出现 <code>Using index</code>，代表触发覆盖索引，无回表，性能极致。</p>
+<h2 id="七、优化结果校验：如何判断是否优化成功？"><a href="#七、优化结果校验：如何判断是否优化成功？" class="headerlink" title="七、优化结果校验：如何判断是否优化成功？"></a>七、优化结果校验：如何判断是否优化成功？</h2><p>执行 <code>EXPLAIN</code> 查看执行计划，对照以下标准：</p>
+<ul>
+<li><p>❌ <code>type=ALL</code>：全表扫描，需加索引</p>
+</li>
+<li><p>❌<code>Using join buffer (Block Nested Loop)</code>：无索引联表，严重卡顿</p>
+</li>
+<li><p>✅ <code>type=ref</code>：索引生效，联表正常</p>
+</li>
+<li><p>✅ <code>Using index</code>：覆盖索引，无回表，最优状态</p>
+</li>
+</ul>
+<h2 id="八、联表优化终极总结（直接背！）"><a href="#八、联表优化终极总结（直接背！）" class="headerlink" title="八、联表优化终极总结（直接背！）"></a>八、联表优化终极总结（直接背！）</h2><ol>
+<li><p><strong>大表关联字段必建索引</strong>，杜绝块嵌套循环全表扫描</p>
+</li>
+<li><p><strong>小表驱动大表</strong>，LEFT JOIN 小表必须放左侧</p>
+</li>
+<li><p><strong>先过滤、后关联</strong>，最大限度缩小驱动表数据量，减少笛卡尔积</p>
+</li>
+<li><p><strong>关联字段类型完全一致</strong>，禁止隐式类型转换导致索引失效</p>
+</li>
+<li><p>高频查询场景，搭建<strong>覆盖索引</strong>，消除回表提升性能</p>
+</li>
+</ol>
+<blockquote>
+<p>（注：部分内容可能由 AI 生成）</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql/" rel="tag"># mysql</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/10/MySQL%E8%B6%85%E8%AF%A6%E7%BB%86%E8%AF%A6%E8%A7%A3%EF%BC%88%E9%87%8D%E7%82%B9%EF%BC%9A%E4%BA%8B%E5%8A%A1%E3%80%81%E7%B4%A2%E5%BC%95%E3%80%81%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%EF%BC%89/" rel="prev" title="MySQL超详细详解">
+      <i class="fa fa-chevron-left"></i> MySQL超详细详解
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/07/12/Redis%20%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E5%8F%8A%E8%AF%A6%E7%BB%86%E8%A7%A3%E7%AD%94%EF%BC%88%E5%AE%8C%E6%95%B4%E7%89%88%EF%BC%89/" rel="next" title="Redis 高频面试题">
+      Redis 高频面试题 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#MySQL%E8%81%94%E8%A1%A8%E6%9F%A5%E8%AF%A2%E8%B6%85%E5%85%A8%E4%BC%98%E5%8C%96%E6%8C%87%E5%8D%97%EF%BC%81%E9%9B%B6%E5%9F%BA%E7%A1%80%E4%B9%9F%E8%83%BD%E7%9C%8B%E6%87%82%EF%BC%88%E9%99%84%E5%AE%9E%E6%93%8D%E4%BB%A3%E7%A0%81%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">MySQL联表查询超全优化指南！零基础也能看懂（附实操代码）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%89%8D%E7%BD%AE%E5%87%86%E5%A4%87%EF%BC%9A%E6%B5%8B%E8%AF%95%E8%A1%A8%E7%BB%93%E6%9E%84"><span class="nav-number">1.1.</span> <span class="nav-text">一、前置准备：测试表结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8C%96%E4%B8%80%EF%BC%9A%E5%A4%A7%E8%A1%A8%E5%85%B3%E8%81%94%E5%AD%97%E6%AE%B5%E5%BF%85%E5%BB%BA%E7%B4%A2%E5%BC%95%EF%BC%88%E6%9C%80%E5%85%B3%E9%94%AE%EF%BC%89"><span class="nav-number">1.2.</span> <span class="nav-text">二、核心优化一：大表关联字段必建索引（最关键）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E6%A0%B9%E6%BA%90"><span class="nav-number">1.2.1.</span> <span class="nav-text">问题根源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%AA%E4%BC%98%E5%8C%96%EF%BC%88%E9%94%99%E8%AF%AF%E5%86%99%E6%B3%95%EF%BC%8C%E5%85%A8%E8%A1%A8%E6%89%AB%E6%8F%8F%EF%BC%89"><span class="nav-number">1.2.2.</span> <span class="nav-text">未优化（错误写法，全表扫描）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%98%E5%8C%96%E6%96%B9%E6%A1%88%EF%BC%9A%E7%BB%99%E5%A4%A7%E8%A1%A8%E5%85%B3%E8%81%94%E5%AD%97%E6%AE%B5%E5%8A%A0%E7%B4%A2%E5%BC%95"><span class="nav-number">1.2.3.</span> <span class="nav-text">优化方案：给大表关联字段加索引</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%98%E5%8C%96%E6%95%88%E6%9E%9C"><span class="nav-number">1.2.4.</span> <span class="nav-text">优化效果</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8C%96%E4%BA%8C%EF%BC%9A%E5%B0%8F%E8%A1%A8%E9%A9%B1%E5%8A%A8%E5%A4%A7%E8%A1%A8%EF%BC%8C%E6%9D%9C%E7%BB%9D%E5%8F%8D%E5%90%91%E9%A9%B1%E5%8A%A8"><span class="nav-number">1.3.</span> <span class="nav-text">三、核心优化二：小表驱动大表，杜绝反向驱动</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%94%99%E8%AF%AF%E5%86%99%E6%B3%95%EF%BC%88%E5%A4%A7%E8%A1%A8%E9%A9%B1%E5%8A%A8%E5%B0%8F%E8%A1%A8%EF%BC%8C%E6%80%A7%E8%83%BD%E6%9E%81%E5%B7%AE%EF%BC%89"><span class="nav-number">1.3.1.</span> <span class="nav-text">错误写法（大表驱动小表，性能极差）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%A3%E7%A1%AE%E5%86%99%E6%B3%95%EF%BC%88%E5%B0%8F%E8%A1%A8%E9%A9%B1%E5%8A%A8%E5%A4%A7%E8%A1%A8%EF%BC%89"><span class="nav-number">1.3.2.</span> <span class="nav-text">正确写法（小表驱动大表）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E7%82%B9%EF%BC%9ALEFT-JOIN-%E7%89%B9%E6%AE%8A%E8%A7%84%E5%88%99"><span class="nav-number">1.3.3.</span> <span class="nav-text">重点：LEFT JOIN 特殊规则</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8C%96%E4%B8%89%EF%BC%9A%E5%85%88%E8%BF%87%E6%BB%A4%EF%BC%8C%E5%86%8D%E5%85%B3%E8%81%94%EF%BC%88%E5%A4%A7%E5%B9%85%E5%87%8F%E5%B0%91%E7%AC%9B%E5%8D%A1%E5%B0%94%E7%A7%AF%EF%BC%89"><span class="nav-number">1.4.</span> <span class="nav-text">四、核心优化三：先过滤，再关联（大幅减少笛卡尔积）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%94%99%E8%AF%AF%E5%86%99%E6%B3%95%EF%BC%88%E5%85%88%E5%85%B3%E8%81%94%E3%80%81%E5%90%8E%E8%BF%87%E6%BB%A4%EF%BC%89"><span class="nav-number">1.4.1.</span> <span class="nav-text">错误写法（先关联、后过滤）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%A3%E7%A1%AE%E5%86%99%E6%B3%95%EF%BC%88%E5%85%88%E7%BC%A9%E5%B0%8F%E9%A9%B1%E5%8A%A8%E8%A1%A8%E8%8C%83%E5%9B%B4%EF%BC%8C%E5%86%8D%E8%81%94%E8%A1%A8%EF%BC%89"><span class="nav-number">1.4.2.</span> <span class="nav-text">正确写法（先缩小驱动表范围，再联表）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8C%96%E5%9B%9B%EF%BC%9A%E7%BB%9F%E4%B8%80%E5%AD%97%E6%AE%B5%E7%B1%BB%E5%9E%8B%EF%BC%8C%E6%9D%9C%E7%BB%9D%E9%9A%90%E5%BC%8F%E7%B1%BB%E5%9E%8B%E8%BD%AC%E6%8D%A2"><span class="nav-number">1.5.</span> <span class="nav-text">五、核心优化四：统一字段类型，杜绝隐式类型转换</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E6%8B%9F%E5%9D%91%E5%9C%BA%E6%99%AF"><span class="nav-number">1.5.1.</span> <span class="nav-text">模拟坑场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%B1%E6%95%88SQL%EF%BC%88%E7%B4%A2%E5%BC%95%E5%AE%8C%E5%85%A8%E6%B2%A1%E7%94%A8%EF%BC%89"><span class="nav-number">1.5.2.</span> <span class="nav-text">失效SQL（索引完全没用）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="nav-number">1.5.3.</span> <span class="nav-text">解决方案</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E7%BB%88%E6%9E%81%E4%BC%98%E5%8C%96%EF%BC%9A%E8%A6%86%E7%9B%96%E7%B4%A2%E5%BC%95%EF%BC%88%E5%BD%BB%E5%BA%95%E6%B6%88%E9%99%A4%E5%9B%9E%E8%A1%A8%EF%BC%8C%E6%80%A7%E8%83%BD%E6%8B%89%E6%BB%A1%EF%BC%89"><span class="nav-number">1.6.</span> <span class="nav-text">六、终极优化：覆盖索引（彻底消除回表，性能拉满）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E8%A6%86%E7%9B%96%E7%B4%A2%E5%BC%95%EF%BC%88%E5%8C%85%E5%90%AB%E5%85%B3%E8%81%94%E5%AD%97%E6%AE%B5-%E6%9F%A5%E8%AF%A2%E5%AD%97%E6%AE%B5%EF%BC%89"><span class="nav-number">1.6.1.</span> <span class="nav-text">创建覆盖索引（包含关联字段+查询字段）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%80%E4%BC%98%E8%81%94%E8%A1%A8SQL"><span class="nav-number">1.6.2.</span> <span class="nav-text">最优联表SQL</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E4%BC%98%E5%8C%96%E7%BB%93%E6%9E%9C%E6%A0%A1%E9%AA%8C%EF%BC%9A%E5%A6%82%E4%BD%95%E5%88%A4%E6%96%AD%E6%98%AF%E5%90%A6%E4%BC%98%E5%8C%96%E6%88%90%E5%8A%9F%EF%BC%9F"><span class="nav-number">1.7.</span> <span class="nav-text">七、优化结果校验：如何判断是否优化成功？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E8%81%94%E8%A1%A8%E4%BC%98%E5%8C%96%E7%BB%88%E6%9E%81%E6%80%BB%E7%BB%93%EF%BC%88%E7%9B%B4%E6%8E%A5%E8%83%8C%EF%BC%81%EF%BC%89"><span class="nav-number">1.8.</span> <span class="nav-text">八、联表优化终极总结（直接背！）</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">25</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">64</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">12</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">13</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>

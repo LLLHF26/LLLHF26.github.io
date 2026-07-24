@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一份Kafka 完整实战学习笔记">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kafka 完整实战学习笔记（Docker三Broker集群 + SpringBoot3）">
+<meta property="og:url" content="http://example.com/2026/07/04/Kafka%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="一份Kafka 完整实战学习笔记">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/images/Snipaste_2026-07-04_21-09-48.png">
+<meta property="article:published_time" content="2026-07-04T12:33:09.000Z">
+<meta property="article:modified_time" content="2026-07-04T13:20:16.626Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="Kafka">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/images/Snipaste_2026-07-04_21-09-48.png">
+
+<link rel="canonical" href="http://example.com/2026/07/04/Kafka%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Kafka 完整实战学习笔记（Docker三Broker集群 + SpringBoot3） | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/04/Kafka%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kafka 完整实战学习笔记（Docker三Broker集群 + SpringBoot3）
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-04 20:33:09 / 修改时间：21:20:16" itemprop="dateCreated datePublished" datetime="2026-07-04T20:33:09+08:00">2026-07-04</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>一份Kafka 完整实战学习笔记</p>
+<span id="more"></span>
+
+<h1 id="Kafka-完整实战学习笔记（Docker三Broker集群-SpringBoot3）"><a href="#Kafka-完整实战学习笔记（Docker三Broker集群-SpringBoot3）" class="headerlink" title="Kafka 完整实战学习笔记（Docker三Broker集群 + SpringBoot3）"></a>Kafka 完整实战学习笔记（Docker三Broker集群 + SpringBoot3）</h1><h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
+<li>Kafka 核心基础概念</li>
+<li>Docker Compose 搭建三Broker Kafka集群</li>
+<li>SpringBoot3.5 整合Kafka 完整实战代码</li>
+<li>四大核心集群验证实验</li>
+<li>开发高频报错排错手册</li>
+<li>面试核心知识点总结</li>
+</ol>
+<hr>
+<h2 id="一、Kafka-核心基础概念"><a href="#一、Kafka-核心基础概念" class="headerlink" title="一、Kafka 核心基础概念"></a>一、Kafka 核心基础概念</h2><h3 id="1-核心组件对照表"><a href="#1-核心组件对照表" class="headerlink" title="1. 核心组件对照表"></a>1. 核心组件对照表</h3><table>
+<thead>
+<tr>
+<th>名词</th>
+<th>详细解释</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Broker</td>
+<td>Kafka独立服务节点，一个容器&#x3D;1个Broker；多Broker组成集群，分布式存储消息</td>
+</tr>
+<tr>
+<td>Topic</td>
+<td>消息逻辑分类主题，如<code>order_topic</code>专门存储订单消息</td>
+</tr>
+<tr>
+<td>Partition 分区</td>
+<td>Topic物理分片，一个Topic拆分多个分区分散在不同Broker；<strong>同一分区只能分配给同组一个消费者，保证分区内消息有序</strong></td>
+</tr>
+<tr>
+<td>Replica 副本</td>
+<td>分区数据备份，集群必备；Leader副本负责读写，Follower同步数据；Leader宕机自动从可用副本选举新Leader</td>
+</tr>
+<tr>
+<td>Offset</td>
+<td>分区内消息自增唯一编号，作为消费游标，记录消费者读到哪条消息</td>
+</tr>
+<tr>
+<td>ConsumerGroup 消费组</td>
+<td>一组消费者实例，两条核心规则：<br>1. 同组：消息分摊，一条消息仅一个实例接收，用于业务并发扩容<br>2. 不同组：全量接收所有消息，用于多下游业务（库存&#x2F;短信&#x2F;数据统计）</td>
+</tr>
+<tr>
+<td>Coordinator 协调者</td>
+<td>每个消费组固定分配一台Broker，负责管理消费者加入、分区分配、Offset持久化</td>
+</tr>
+</tbody></table>
+<p><img src="/../images/Snipaste_2026-07-04_21-09-48.png"></p>
+<h3 id="2-acks-可靠性参数说明"><a href="#2-acks-可靠性参数说明" class="headerlink" title="2. acks 可靠性参数说明"></a>2. acks 可靠性参数说明</h3><ul>
+<li><code>acks=0</code>：不等待Broker应答，吞吐量最高，消息丢失风险极大</li>
+<li><code>acks=1</code>：仅等待Leader副本写入成功，Leader宕机、副本未同步完成会丢失消息</li>
+<li><code>acks=-1(all)</code>：等待ISR内所有副本同步完成才返回成功，生产环境推荐，集群副本数≥2才可生效</li>
+</ul>
+<h3 id="3-核心铁则"><a href="#3-核心铁则" class="headerlink" title="3. 核心铁则"></a>3. 核心铁则</h3><ol>
+<li>单分区消息严格有序，多分区无法保证全局有序；</li>
+<li>同消费组消费者数量 ≤ 分区总数，多余消费者闲置，收不到消息；</li>
+<li>副本ISR集合：正在正常同步的副本列表，只有ISR内副本可参与Leader选举。</li>
+</ol>
+<hr>
+<h2 id="二、Docker-Compose-搭建三Broker-Kafka集群"><a href="#二、Docker-Compose-搭建三Broker-Kafka集群" class="headerlink" title="二、Docker Compose 搭建三Broker Kafka集群"></a>二、Docker Compose 搭建三Broker Kafka集群</h2><h3 id="1-目录结构"><a href="#1-目录结构" class="headerlink" title="1. 目录结构"></a>1. 目录结构</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">D:\Docker\kafka</span></span><br><span class="line"><span class="string">├─</span> <span class="string">single</span> <span class="comment"># 单机单 Broker（简易测试场景）</span></span><br><span class="line"><span class="string">└─</span> <span class="string">cluster</span> <span class="comment"># 三 Broker 集群（本篇重点）</span></span><br><span class="line"><span class="string">└─</span> <span class="string">docker-compose.yml</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-集群完整配置（解决跨容器127-0-0-1互通BUG）"><a href="#2-集群完整配置（解决跨容器127-0-0-1互通BUG）" class="headerlink" title="2. 集群完整配置（解决跨容器127.0.0.1互通BUG）"></a>2. 集群完整配置（解决跨容器127.0.0.1互通BUG）</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">zookeeper:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">confluentinc/cp-zookeeper:7.4.0</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">zk-cluster</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;2181:2181&quot;</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="attr">ZOOKEEPER_CLIENT_PORT:</span> <span class="number">2181</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">kafka1:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">confluentinc/cp-kafka:7.4.0</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">kafka-broker1</span></span><br><span class="line">    <span class="attr">hostname:</span> <span class="string">kafka1</span></span><br><span class="line">    <span class="attr">depends_on:</span> [<span class="string">zookeeper</span>]</span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;9091:9091&quot;</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="attr">KAFKA_BROKER_ID:</span> <span class="number">1</span></span><br><span class="line">      <span class="attr">KAFKA_ZOOKEEPER_CONNECT:</span> <span class="string">zookeeper:2181</span></span><br><span class="line">      <span class="comment"># 双监听配置：INTERNAL容器内网互通，EXTERNAL宿主机程序连接</span></span><br><span class="line">      <span class="attr">KAFKA_LISTENERS:</span> <span class="string">INTERNAL://kafka1:29091,EXTERNAL://0.0.0.0:9091</span></span><br><span class="line">      <span class="attr">KAFKA_ADVERTISED_LISTENERS:</span> <span class="string">INTERNAL://kafka1:29091,EXTERNAL://127.0.0.1:9091</span></span><br><span class="line">      <span class="attr">KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:</span> <span class="string">INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT</span></span><br><span class="line">      <span class="attr">KAFKA_INTER_BROKER_LISTENER_NAME:</span> <span class="string">INTERNAL</span></span><br><span class="line">      <span class="attr">KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:</span> <span class="number">2</span></span><br><span class="line">      <span class="attr">KAFKA_NUM_PARTITIONS:</span> <span class="number">3</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">kafka2:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">confluentinc/cp-kafka:7.4.0</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">kafka-broker2</span></span><br><span class="line">    <span class="attr">hostname:</span> <span class="string">kafka2</span></span><br><span class="line">    <span class="attr">depends_on:</span> [<span class="string">zookeeper</span>]</span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;9092:9092&quot;</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="attr">KAFKA_BROKER_ID:</span> <span class="number">2</span></span><br><span class="line">      <span class="attr">KAFKA_ZOOKEEPER_CONNECT:</span> <span class="string">zookeeper:2181</span></span><br><span class="line">      <span class="attr">KAFKA_LISTENERS:</span> <span class="string">INTERNAL://kafka2:29092,EXTERNAL://0.0.0.0:9092</span></span><br><span class="line">      <span class="attr">KAFKA_ADVERTISED_LISTENERS:</span> <span class="string">INTERNAL://kafka2:29092,EXTERNAL://127.0.0.1:9092</span></span><br><span class="line">      <span class="attr">KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:</span> <span class="string">INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT</span></span><br><span class="line">      <span class="attr">KAFKA_INTER_BROKER_LISTENER_NAME:</span> <span class="string">INTERNAL</span></span><br><span class="line">      <span class="attr">KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:</span> <span class="number">2</span></span><br><span class="line">      <span class="attr">KAFKA_NUM_PARTITIONS:</span> <span class="number">3</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">kafka3:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">confluentinc/cp-kafka:7.4.0</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">kafka-broker3</span></span><br><span class="line">    <span class="attr">hostname:</span> <span class="string">kafka3</span></span><br><span class="line">    <span class="attr">depends_on:</span> [<span class="string">zookeeper</span>]</span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;9093:9093&quot;</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="attr">KAFKA_BROKER_ID:</span> <span class="number">3</span></span><br><span class="line">      <span class="attr">KAFKA_ZOOKEEPER_CONNECT:</span> <span class="string">zookeeper:2181</span></span><br><span class="line">      <span class="attr">KAFKA_LISTENERS:</span> <span class="string">INTERNAL://kafka3:29093,EXTERNAL://0.0.0.0:9093</span></span><br><span class="line">      <span class="attr">KAFKA_ADVERTISED_LISTENERS:</span> <span class="string">INTERNAL://kafka3:29093,EXTERNAL://127.0.0.1:9093</span></span><br><span class="line">      <span class="attr">KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:</span> <span class="string">INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT</span></span><br><span class="line">      <span class="attr">KAFKA_INTER_BROKER_LISTENER_NAME:</span> <span class="string">INTERNAL</span></span><br><span class="line">      <span class="attr">KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:</span> <span class="number">2</span></span><br><span class="line">      <span class="attr">KAFKA_NUM_PARTITIONS:</span> <span class="number">3</span>  </span><br></pre></td></tr></table></figure>
+<h3 id="3集群启停命令"><a href="#3集群启停命令" class="headerlink" title="3集群启停命令"></a>3集群启停命令</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 进入cluster文件夹，后台启动集群</span></span><br><span class="line">docker-compose up -d</span><br><span class="line"><span class="comment"># 查看运行容器</span></span><br><span class="line">docker ps</span><br><span class="line"><span class="comment"># 完整销毁集群（清空所有数据）</span></span><br><span class="line">docker-compose down</span><br><span class="line"><span class="comment"># 重启集群</span></span><br><span class="line">docker-compose restart</span><br></pre></td></tr></table></figure>
+<h3 id="4-容器内-Kafka-命令行工具"><a href="#4-容器内-Kafka-命令行工具" class="headerlink" title="4. 容器内 Kafka 命令行工具"></a>4. 容器内 Kafka 命令行工具</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 进入任意一台kafka容器</span></span><br><span class="line">docker <span class="built_in">exec</span> -it kafka-broker1 bash</span><br><span class="line"><span class="comment"># 查看topic完整信息（分区、Leader、副本、ISR同步列表）</span></span><br><span class="line">kafka-topics --describe --topic order_topic --bootstrap-server 127.0.0.1:9091</span><br><span class="line"><span class="comment"># 查询消费组协调者Broker</span></span><br><span class="line">kafka-consumer-groups --describe --group sms-notice-group --bootstrap-server 127.0.0.1:9091</span><br></pre></td></tr></table></figure>
+<h3 id="5-双监听配置原理"><a href="#5-双监听配置原理" class="headerlink" title="5. 双监听配置原理"></a>5. 双监听配置原理</h3><ol>
+<li>INTERNAL 监听：使用容器 hostname（kafka1&#x2F;kafka2&#x2F;kafka3），Docker 内部网络可互相解析，专门用于 Broker 之间副本同步、集群通信；</li>
+<li>EXTERNAL 监听：绑定宿主机127.0.0.1端口，供 Windows 本机 IDEA 中的 SpringBoot 项目连接；</li>
+<li>旧配置仅使用127.0.0.1会导致跨容器副本同步失败，报Connection to 127.0.0.1:909X failed。</li>
+</ol>
+<h2 id="三、SpringBoot3-5-整合-Kafka-完整实战代码"><a href="#三、SpringBoot3-5-整合-Kafka-完整实战代码" class="headerlink" title="三、SpringBoot3.5 整合 Kafka 完整实战代码"></a>三、SpringBoot3.5 整合 Kafka 完整实战代码</h2><h3 id="application-yml-集群配置"><a href="#application-yml-集群配置" class="headerlink" title="application.yml 集群配置"></a>application.yml 集群配置</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">server:</span></span><br><span class="line">  <span class="attr">port:</span> <span class="number">8080</span></span><br><span class="line"></span><br><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">kafka:</span></span><br><span class="line">    <span class="comment"># 填写集群全部Broker地址，不可只写单台</span></span><br><span class="line">    <span class="attr">bootstrap-servers:</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span><span class="string">:9091,127.0.0.1:9092,127.0.0.1:9093</span></span><br><span class="line">    <span class="attr">producer:</span></span><br><span class="line">      <span class="attr">key-serializer:</span> <span class="string">org.apache.kafka.common.serialization.StringSerializer</span></span><br><span class="line">      <span class="attr">value-serializer:</span> <span class="string">org.apache.kafka.common.serialization.StringSerializer</span></span><br><span class="line">      <span class="attr">acks:</span> <span class="number">-1</span></span><br><span class="line">      <span class="attr">retries:</span> <span class="number">3</span></span><br><span class="line">    <span class="attr">consumer:</span></span><br><span class="line">      <span class="attr">group-id:</span> <span class="string">order-demo-group</span></span><br><span class="line">      <span class="attr">enable-auto-commit:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">auto-commit-interval:</span> <span class="number">500</span></span><br><span class="line">      <span class="attr">auto-offset-reset:</span> <span class="string">latest</span></span><br><span class="line">      <span class="attr">key-deserializer:</span> <span class="string">org.apache.kafka.common.serialization.StringDeserializer</span></span><br><span class="line">      <span class="attr">value-deserializer:</span> <span class="string">org.apache.kafka.common.serialization.StringDeserializer</span></span><br><span class="line"><span class="comment"># 过滤Kafka冗余INFO日志，只打印警告/错误</span></span><br><span class="line"><span class="attr">logging:</span></span><br><span class="line">  <span class="attr">level:</span></span><br><span class="line">    <span class="attr">org.apache.kafka.clients.consumer:</span> <span class="string">WARN</span></span><br></pre></td></tr></table></figure>
+<h2 id="生产者代码（兼容低版本，无弃用警告）"><a href="#生产者代码（兼容低版本，无弃用警告）" class="headerlink" title="生产者代码（兼容低版本，无弃用警告）"></a>生产者代码（兼容低版本，无弃用警告）</h2><p>路径：<code>com.lhf.test_kafka.producer.OrderProducer.java</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.lhf.test_kafka.producer;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.RecordMetadata;</span><br><span class="line"><span class="keyword">import</span> org.springframework.kafka.core.KafkaTemplate;</span><br><span class="line"><span class="keyword">import</span> org.springframework.kafka.support.SendResult;</span><br><span class="line"><span class="keyword">import</span> org.springframework.stereotype.Service;</span><br><span class="line"><span class="keyword">import</span> org.springframework.util.concurrent.ListenableFutureCallback;</span><br><span class="line"><span class="keyword">import</span> javax.annotation.Resource;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderProducer</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Resource</span></span><br><span class="line">    <span class="keyword">private</span> KafkaTemplate&lt;String, String&gt; kafkaTemplate;</span><br><span class="line">    <span class="comment">// 订单主题常量</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">ORDER_TOPIC</span> <span class="operator">=</span> <span class="string">&quot;order_topic&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">sendOrder</span><span class="params">(String orderJson)</span> &#123;</span><br><span class="line">        <span class="type">var</span> <span class="variable">future</span> <span class="operator">=</span> kafkaTemplate.send(ORDER_TOPIC, orderJson);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 发送异步回调，打印分区、offset信息</span></span><br><span class="line">        future.addCallback(<span class="keyword">new</span> <span class="title class_">ListenableFutureCallback</span>&lt;SendResult&lt;String, String&gt;&gt;() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onFailure</span><span class="params">(Throwable ex)</span> &#123;</span><br><span class="line">                System.err.println(<span class="string">&quot;【生产者】消息发送失败：&quot;</span> + ex.getMessage());</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onSuccess</span><span class="params">(SendResult&lt;String, String&gt; result)</span> &#123;</span><br><span class="line">                <span class="type">RecordMetadata</span> <span class="variable">metadata</span> <span class="operator">=</span> result.getRecordMetadata();</span><br><span class="line">                <span class="type">String</span> <span class="variable">topic</span> <span class="operator">=</span> metadata.topic();</span><br><span class="line">                <span class="type">int</span> <span class="variable">partition</span> <span class="operator">=</span> metadata.partition();</span><br><span class="line">                <span class="type">long</span> <span class="variable">offset</span> <span class="operator">=</span> metadata.offset();</span><br><span class="line"></span><br><span class="line">                System.out.println(<span class="string">&quot;==================== 生产者发送回执 ====================&quot;</span>);</span><br><span class="line">                System.out.println(<span class="string">&quot;发送主题：&quot;</span> + topic);</span><br><span class="line">                System.out.println(<span class="string">&quot;消息分区：&quot;</span> + partition);</span><br><span class="line">                System.out.println(<span class="string">&quot;消息Offset：&quot;</span> + offset);</span><br><span class="line">                System.out.println(<span class="string">&quot;订单内容：&quot;</span> + orderJson);</span><br><span class="line">                System.out.println(<span class="string">&quot;========================================================\n&quot;</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="消费者-1：库存服务（消费组-order-demo-group）"><a href="#消费者-1：库存服务（消费组-order-demo-group）" class="headerlink" title="消费者 1：库存服务（消费组 order-demo-group）"></a>消费者 1：库存服务（消费组 order-demo-group）</h3><p>路径：<code>com.lhf.test_kafka.consumer.StockConsumer.java</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.lhf.test_kafka.consumer;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.consumer.ConsumerRecord;</span><br><span class="line"><span class="keyword">import</span> org.springframework.kafka.annotation.KafkaListener;</span><br><span class="line"><span class="keyword">import</span> org.springframework.stereotype.Service;</span><br><span class="line"><span class="keyword">import</span> java.util.Optional;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StockConsumer</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@KafkaListener(topics = &quot;order_topic&quot;, groupId = &quot;$&#123;spring.kafka.consumer.group-id&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">listenStock</span><span class="params">(ConsumerRecord&lt;String, String&gt; record)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">topic</span> <span class="operator">=</span> record.topic();</span><br><span class="line">        <span class="type">int</span> <span class="variable">partition</span> <span class="operator">=</span> record.partition();</span><br><span class="line">        <span class="type">long</span> <span class="variable">offset</span> <span class="operator">=</span> record.offset();</span><br><span class="line">        <span class="type">String</span> <span class="variable">msgBody</span> <span class="operator">=</span> record.value();</span><br><span class="line">        <span class="comment">// 格式化Optional输出，消除 Optional[数字] 冗余文字</span></span><br><span class="line">        Optional&lt;Integer&gt; leaderEpochOpt = record.leaderEpoch();</span><br><span class="line">        <span class="type">String</span> <span class="variable">leaderText</span> <span class="operator">=</span> leaderEpochOpt.map(val -&gt; <span class="string">&quot;纪元-&quot;</span> + val).orElse(<span class="string">&quot;未知&quot;</span>);</span><br><span class="line"></span><br><span class="line">        System.out.println(<span class="string">&quot;==================== 库存服务 消息详情 ====================&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;主题：&quot;</span> + topic);</span><br><span class="line">        System.out.println(<span class="string">&quot;消息分区：&quot;</span> + partition);</span><br><span class="line">        System.out.println(<span class="string">&quot;分区Leader纪元：&quot;</span> + leaderText);</span><br><span class="line">        System.out.println(<span class="string">&quot;消息Offset：&quot;</span> + offset);</span><br><span class="line">        System.out.println(<span class="string">&quot;订单数据：&quot;</span> + msgBody);</span><br><span class="line">        System.out.println(<span class="string">&quot;业务逻辑：扣减商品库存&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;==========================================================\n&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="消费者-2：短信服务（独立消费组-sms-notice-group）"><a href="#消费者-2：短信服务（独立消费组-sms-notice-group）" class="headerlink" title="消费者 2：短信服务（独立消费组 sms-notice-group）"></a>消费者 2：短信服务（独立消费组 sms-notice-group）</h3><p>路径：<code>com.lhf.test_kafka.consumer.SmsConsumer.java</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.lhf.test_kafka.consumer;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.consumer.ConsumerRecord;</span><br><span class="line"><span class="keyword">import</span> org.springframework.kafka.annotation.KafkaListener;</span><br><span class="line"><span class="keyword">import</span> org.springframework.stereotype.Service;</span><br><span class="line"><span class="keyword">import</span> java.util.Optional;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SmsConsumer</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 独立消费组，与库存服务隔离，每条消息全量接收</span></span><br><span class="line">    <span class="meta">@KafkaListener(topics = &quot;order_topic&quot;, groupId = &quot;sms-notice-group&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">listenSms</span><span class="params">(ConsumerRecord&lt;String, String&gt; record)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">topic</span> <span class="operator">=</span> record.topic();</span><br><span class="line">        <span class="type">int</span> <span class="variable">partition</span> <span class="operator">=</span> record.partition();</span><br><span class="line">        <span class="type">long</span> <span class="variable">offset</span> <span class="operator">=</span> record.offset();</span><br><span class="line">        <span class="type">String</span> <span class="variable">msgBody</span> <span class="operator">=</span> record.value();</span><br><span class="line">        Optional&lt;Integer&gt; leaderEpochOpt = record.leaderEpoch();</span><br><span class="line">        <span class="type">String</span> <span class="variable">leaderText</span> <span class="operator">=</span> leaderEpochOpt.map(val -&gt; <span class="string">&quot;纪元-&quot;</span> + val).orElse(<span class="string">&quot;未知&quot;</span>);</span><br><span class="line"></span><br><span class="line">        System.out.println(<span class="string">&quot;==================== 短信服务 消息详情 ====================&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;主题：&quot;</span> + topic);</span><br><span class="line">        System.out.println(<span class="string">&quot;消息分区：&quot;</span> + partition);</span><br><span class="line">        System.out.println(<span class="string">&quot;分区Leader纪元：&quot;</span> + leaderText);</span><br><span class="line">        System.out.println(<span class="string">&quot;消息Offset：&quot;</span> + offset);</span><br><span class="line">        System.out.println(<span class="string">&quot;订单数据：&quot;</span> + msgBody);</span><br><span class="line">        System.out.println(<span class="string">&quot;业务逻辑：发送下单提醒短信&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;==========================================================\n&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="测试-Controller"><a href="#测试-Controller" class="headerlink" title="测试 Controller"></a>测试 Controller</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.lhf.test_kafka.controller;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> com.lhf.test_kafka.producer.OrderProducer;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.PostMapping;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RequestBody;</span><br><span class="line"><span class="keyword">import</span> org.springframework.web.bind.annotation.RestController;</span><br><span class="line"><span class="keyword">import</span> javax.annotation.Resource;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 订单接收实体</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">OrderDTO</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> String orderId;</span><br><span class="line">    <span class="keyword">private</span> Integer goodsId;</span><br><span class="line">    <span class="keyword">private</span> Integer num;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">getOrderId</span><span class="params">()</span> &#123; <span class="keyword">return</span> orderId; &#125;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setOrderId</span><span class="params">(String orderId)</span> &#123; <span class="built_in">this</span>.orderId = orderId; &#125;</span><br><span class="line">    <span class="keyword">public</span> Integer <span class="title function_">getGoodsId</span><span class="params">()</span> &#123; <span class="keyword">return</span> goodsId; &#125;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setGoodsId</span><span class="params">(Integer goodsId)</span> &#123; <span class="built_in">this</span>.goodsId = goodsId; &#125;</span><br><span class="line">    <span class="keyword">public</span> Integer <span class="title function_">getNum</span><span class="params">()</span> &#123; <span class="keyword">return</span> num; &#125;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setNum</span><span class="params">(Integer num)</span> &#123; <span class="built_in">this</span>.num = num; &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@RestController</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderController</span> &#123;</span><br><span class="line">    <span class="meta">@Resource</span></span><br><span class="line">    <span class="keyword">private</span> OrderProducer orderProducer;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@PostMapping(&quot;/createOrder&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">createOrder</span><span class="params">(<span class="meta">@RequestBody</span> OrderDTO order)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">json</span> <span class="operator">=</span> String.format(<span class="string">&quot;&#123;\&quot;orderId\&quot;:\&quot;%s\&quot;,\&quot;goodsId\&quot;:%d,\&quot;num\&quot;:%d&#125;&quot;</span>,</span><br><span class="line">                order.getOrderId(), order.getGoodsId(), order.getNum());</span><br><span class="line">        orderProducer.sendOrder(json);</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;下单成功，消息已投递Kafka：&quot;</span> + json;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="接口测试"><a href="#接口测试" class="headerlink" title="接口测试"></a>接口测试</h3><p>请求地址：<code>POST http://localhost:8080/createOrder</code><br>请求体 raw JSON：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;orderId&quot;</span><span class="punctuation">:</span> <span class="string">&quot;1003&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;goodsId&quot;</span><span class="punctuation">:</span> <span class="number">668</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;num&quot;</span><span class="punctuation">:</span> <span class="number">2</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<h3 id="正常运行输出示例"><a href="#正常运行输出示例" class="headerlink" title="正常运行输出示例"></a>正常运行输出示例</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">==================== 生产者发送回执 ====================</span><br><span class="line">发送主题：order_topic</span><br><span class="line">消息分区：2</span><br><span class="line">消息Offset：0</span><br><span class="line">订单内容：&#123;&quot;orderId&quot;:&quot;1003&quot;,&quot;goodsId&quot;:668,&quot;num&quot;:2&#125;</span><br><span class="line">========================================================</span><br><span class="line"></span><br><span class="line">==================== 库存服务 消息详情 ====================</span><br><span class="line">主题：order_topic</span><br><span class="line">消息分区：2</span><br><span class="line">分区Leader纪元：纪元-0</span><br><span class="line">消息Offset：0</span><br><span class="line">订单数据：&#123;&quot;orderId&quot;:&quot;1003&quot;,&quot;goodsId&quot;:668,&quot;num&quot;:2&#125;</span><br><span class="line">业务逻辑：扣减商品库存</span><br><span class="line">==========================================================</span><br><span class="line"></span><br><span class="line">==================== 短信服务 消息详情 ====================</span><br><span class="line">主题：order_topic</span><br><span class="line">消息分区：2</span><br><span class="line">分区Leader纪元：纪元-0</span><br><span class="line">消息Offset：0</span><br><span class="line">订单数据：&#123;&quot;orderId&quot;:&quot;1003&quot;,&quot;goodsId&quot;:668,&quot;num&quot;:2&#125;</span><br><span class="line">业务逻辑：发送下单提醒短信</span><br><span class="line">==========================================================</span><br></pre></td></tr></table></figure>
+<h2 id="四、四大核心集群验证实验"><a href="#四、四大核心集群验证实验" class="headerlink" title="四、四大核心集群验证实验"></a>四、四大核心集群验证实验</h2><h3 id="实验-1：同消费组消息分摊（并发扩容）"><a href="#实验-1：同消费组消息分摊（并发扩容）" class="headerlink" title="实验 1：同消费组消息分摊（并发扩容）"></a>实验 1：同消费组消息分摊（并发扩容）</h3><ol>
+<li>复制项目，修改server.port&#x3D;8081，库存消费组保持order-demo-group不变；</li>
+<li>同时启动 8080、8081 两个实例；</li>
+<li>连续发送多条订单消息；</li>
+<li>现象：Topic 共 3 个分区，两个消费者自动分摊分区，一条消息只会被其中一个实例接收，用于业务水平扩容。</li>
+</ol>
+<h3 id="实验-2：Broker-宕机自动切换-Leader（集群高可用）"><a href="#实验-2：Broker-宕机自动切换-Leader（集群高可用）" class="headerlink" title="实验 2：Broker 宕机自动切换 Leader（集群高可用）"></a>实验 2：Broker 宕机自动切换 Leader（集群高可用）</h3><ol>
+<li>执行kafka-topics –describe查看目标分区当前 Leader Broker；</li>
+<li>停止对应容器：docker stop kafka-broker3；</li>
+<li>再次发送消息，控制台打印的 Leader 纪元会自动变更，集群选举新 Leader，消息正常收发无报错；</li>
+<li>重启宕机 Broker：docker start kafka-broker3，节点自动同步缺失副本，重新加入 ISR 列表。</li>
+</ol>
+<h3 id="实验-3：acks-参数可靠性对比"><a href="#实验-3：acks-参数可靠性对比" class="headerlink" title="实验 3：acks 参数可靠性对比"></a>实验 3：acks 参数可靠性对比</h3><ol>
+<li>acks&#x3D;1：仅写入 Leader 即返回，若写入后 Leader 立刻宕机，未同步副本的消息永久丢失；</li>
+<li>acks&#x3D;-1：等待 ISR 全部副本同步完成才返回，集群单 Broker 宕机不会丢失消息，生产环境标准配置。</li>
+</ol>
+<h3 id="实验-4：auto-offset-reset-两种重置规则"><a href="#实验-4：auto-offset-reset-两种重置规则" class="headerlink" title="实验 4：auto-offset-reset 两种重置规则"></a>实验 4：auto-offset-reset 两种重置规则</h3><ul>
+<li>latest：全新消费组，只读取项目启动后新产生的消息；</li>
+<li>earliest：全新消费组，读取分区内全部历史消息；</li>
+<li>Offset 持久化在 Broker，重启项目不会重复消费已提交 Offset 的消息。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Kafka/" rel="tag"># Kafka</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/03/theme-optimization/" rel="prev" title="博客折腾记：给 NexT 加音乐播放器、换字体和性能优化">
+      <i class="fa fa-chevron-left"></i> 博客折腾记：给 NexT 加音乐播放器、换字体和性能优化
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/07/05/PostgreSQL%20%E8%B6%85%E8%AF%A6%E7%BB%86%E9%9B%B6%E5%9F%BA%E7%A1%80%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B%EF%BC%88%E9%80%9A%E4%BF%97%E6%98%93%E6%87%82%E7%89%88%EF%BC%89/" rel="next" title="PostgreSQL 超详细零基础入门教程">
+      PostgreSQL 超详细零基础入门教程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Kafka-%E5%AE%8C%E6%95%B4%E5%AE%9E%E6%88%98%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%EF%BC%88Docker%E4%B8%89Broker%E9%9B%86%E7%BE%A4-SpringBoot3%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">Kafka 完整实战学习笔记（Docker三Broker集群 + SpringBoot3）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%AE%E5%BD%95"><span class="nav-number">1.1.</span> <span class="nav-text">目录</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81Kafka-%E6%A0%B8%E5%BF%83%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5"><span class="nav-number">1.2.</span> <span class="nav-text">一、Kafka 核心基础概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6%E5%AF%B9%E7%85%A7%E8%A1%A8"><span class="nav-number">1.2.1.</span> <span class="nav-text">1. 核心组件对照表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-acks-%E5%8F%AF%E9%9D%A0%E6%80%A7%E5%8F%82%E6%95%B0%E8%AF%B4%E6%98%8E"><span class="nav-number">1.2.2.</span> <span class="nav-text">2. acks 可靠性参数说明</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E6%A0%B8%E5%BF%83%E9%93%81%E5%88%99"><span class="nav-number">1.2.3.</span> <span class="nav-text">3. 核心铁则</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Docker-Compose-%E6%90%AD%E5%BB%BA%E4%B8%89Broker-Kafka%E9%9B%86%E7%BE%A4"><span class="nav-number">1.3.</span> <span class="nav-text">二、Docker Compose 搭建三Broker Kafka集群</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E7%9B%AE%E5%BD%95%E7%BB%93%E6%9E%84"><span class="nav-number">1.3.1.</span> <span class="nav-text">1. 目录结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E9%9B%86%E7%BE%A4%E5%AE%8C%E6%95%B4%E9%85%8D%E7%BD%AE%EF%BC%88%E8%A7%A3%E5%86%B3%E8%B7%A8%E5%AE%B9%E5%99%A8127-0-0-1%E4%BA%92%E9%80%9ABUG%EF%BC%89"><span class="nav-number">1.3.2.</span> <span class="nav-text">2. 集群完整配置（解决跨容器127.0.0.1互通BUG）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E9%9B%86%E7%BE%A4%E5%90%AF%E5%81%9C%E5%91%BD%E4%BB%A4"><span class="nav-number">1.3.3.</span> <span class="nav-text">3集群启停命令</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E5%AE%B9%E5%99%A8%E5%86%85-Kafka-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7"><span class="nav-number">1.3.4.</span> <span class="nav-text">4. 容器内 Kafka 命令行工具</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-%E5%8F%8C%E7%9B%91%E5%90%AC%E9%85%8D%E7%BD%AE%E5%8E%9F%E7%90%86"><span class="nav-number">1.3.5.</span> <span class="nav-text">5. 双监听配置原理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81SpringBoot3-5-%E6%95%B4%E5%90%88-Kafka-%E5%AE%8C%E6%95%B4%E5%AE%9E%E6%88%98%E4%BB%A3%E7%A0%81"><span class="nav-number">1.4.</span> <span class="nav-text">三、SpringBoot3.5 整合 Kafka 完整实战代码</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#application-yml-%E9%9B%86%E7%BE%A4%E9%85%8D%E7%BD%AE"><span class="nav-number">1.4.1.</span> <span class="nav-text">application.yml 集群配置</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%94%9F%E4%BA%A7%E8%80%85%E4%BB%A3%E7%A0%81%EF%BC%88%E5%85%BC%E5%AE%B9%E4%BD%8E%E7%89%88%E6%9C%AC%EF%BC%8C%E6%97%A0%E5%BC%83%E7%94%A8%E8%AD%A6%E5%91%8A%EF%BC%89"><span class="nav-number">1.5.</span> <span class="nav-text">生产者代码（兼容低版本，无弃用警告）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B6%88%E8%B4%B9%E8%80%85-1%EF%BC%9A%E5%BA%93%E5%AD%98%E6%9C%8D%E5%8A%A1%EF%BC%88%E6%B6%88%E8%B4%B9%E7%BB%84-order-demo-group%EF%BC%89"><span class="nav-number">1.5.1.</span> <span class="nav-text">消费者 1：库存服务（消费组 order-demo-group）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B6%88%E8%B4%B9%E8%80%85-2%EF%BC%9A%E7%9F%AD%E4%BF%A1%E6%9C%8D%E5%8A%A1%EF%BC%88%E7%8B%AC%E7%AB%8B%E6%B6%88%E8%B4%B9%E7%BB%84-sms-notice-group%EF%BC%89"><span class="nav-number">1.5.2.</span> <span class="nav-text">消费者 2：短信服务（独立消费组 sms-notice-group）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B5%8B%E8%AF%95-Controller"><span class="nav-number">1.5.3.</span> <span class="nav-text">测试 Controller</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8E%A5%E5%8F%A3%E6%B5%8B%E8%AF%95"><span class="nav-number">1.5.4.</span> <span class="nav-text">接口测试</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%A3%E5%B8%B8%E8%BF%90%E8%A1%8C%E8%BE%93%E5%87%BA%E7%A4%BA%E4%BE%8B"><span class="nav-number">1.5.5.</span> <span class="nav-text">正常运行输出示例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%9B%9B%E5%A4%A7%E6%A0%B8%E5%BF%83%E9%9B%86%E7%BE%A4%E9%AA%8C%E8%AF%81%E5%AE%9E%E9%AA%8C"><span class="nav-number">1.6.</span> <span class="nav-text">四、四大核心集群验证实验</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C-1%EF%BC%9A%E5%90%8C%E6%B6%88%E8%B4%B9%E7%BB%84%E6%B6%88%E6%81%AF%E5%88%86%E6%91%8A%EF%BC%88%E5%B9%B6%E5%8F%91%E6%89%A9%E5%AE%B9%EF%BC%89"><span class="nav-number">1.6.1.</span> <span class="nav-text">实验 1：同消费组消息分摊（并发扩容）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C-2%EF%BC%9ABroker-%E5%AE%95%E6%9C%BA%E8%87%AA%E5%8A%A8%E5%88%87%E6%8D%A2-Leader%EF%BC%88%E9%9B%86%E7%BE%A4%E9%AB%98%E5%8F%AF%E7%94%A8%EF%BC%89"><span class="nav-number">1.6.2.</span> <span class="nav-text">实验 2：Broker 宕机自动切换 Leader（集群高可用）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C-3%EF%BC%9Aacks-%E5%8F%82%E6%95%B0%E5%8F%AF%E9%9D%A0%E6%80%A7%E5%AF%B9%E6%AF%94"><span class="nav-number">1.6.3.</span> <span class="nav-text">实验 3：acks 参数可靠性对比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C-4%EF%BC%9Aauto-offset-reset-%E4%B8%A4%E7%A7%8D%E9%87%8D%E7%BD%AE%E8%A7%84%E5%88%99"><span class="nav-number">1.6.4.</span> <span class="nav-text">实验 4：auto-offset-reset 两种重置规则</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">25</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">64</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">12</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">13</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文系统梳理后端工程师必须掌握的计算机网络核心协议，覆盖 OSI&#x2F;TCP-IP 模型、TCP 三次握手与四次挥手、UDP 与 TCP 的本质差异、HTTP&#x2F;1.1→HTTP&#x2F;2→HTTP&#x2F;3 的演进脉络、QUIC 协议设计思想、TLS 1.3 握手优化、DNS&#x2F;WebSocket&#x2F;gRPC 等高频考点，并配套 Wireshark 抓包实战">
+<meta property="og:type" content="article">
+<meta property="og:title" content="计算机网络核心协议详解：从TCP握手到HTTP&#x2F;3与QUIC实战">
+<meta property="og:url" content="http://example.com/2026/07/21/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E6%A0%B8%E5%BF%83%E5%8D%8F%E8%AE%AE%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8ETCP%E6%8F%A1%E6%89%8B%E5%88%B0HTTP/3%E4%B8%8EQUIC%E5%AE%9E%E6%88%98/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="本文系统梳理后端工程师必须掌握的计算机网络核心协议，覆盖 OSI&#x2F;TCP-IP 模型、TCP 三次握手与四次挥手、UDP 与 TCP 的本质差异、HTTP&#x2F;1.1→HTTP&#x2F;2→HTTP&#x2F;3 的演进脉络、QUIC 协议设计思想、TLS 1.3 握手优化、DNS&#x2F;WebSocket&#x2F;gRPC 等高频考点，并配套 Wireshark 抓包实战">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-21T12:45:00.000Z">
+<meta property="article:modified_time" content="2026-07-21T12:45:29.197Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="http">
+<meta property="article:tag" content="quic">
+<meta property="article:tag" content="tcp">
+<meta property="article:tag" content="网络协议">
+<meta property="article:tag" content="计算机网络">
+<meta property="article:tag" content="面试题">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/21/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E6%A0%B8%E5%BF%83%E5%8D%8F%E8%AE%AE%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8ETCP%E6%8F%A1%E6%89%8B%E5%88%B0HTTP/3%E4%B8%8EQUIC%E5%AE%9E%E6%88%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>计算机网络核心协议详解：从TCP握手到HTTP/3与QUIC实战 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/21/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E6%A0%B8%E5%BF%83%E5%8D%8F%E8%AE%AE%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8ETCP%E6%8F%A1%E6%89%8B%E5%88%B0HTTP/3%E4%B8%8EQUIC%E5%AE%9E%E6%88%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          计算机网络核心协议详解：从TCP握手到HTTP/3与QUIC实战
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-21 20:45:00 / 修改时间：20:45:29" itemprop="dateCreated datePublished" datetime="2026-07-21T20:45:00+08:00">2026-07-21</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文系统梳理后端工程师必须掌握的计算机网络核心协议，覆盖 OSI&#x2F;TCP-IP 模型、TCP 三次握手与四次挥手、UDP 与 TCP 的本质差异、HTTP&#x2F;1.1→HTTP&#x2F;2→HTTP&#x2F;3 的演进脉络、QUIC 协议设计思想、TLS 1.3 握手优化、DNS&#x2F;WebSocket&#x2F;gRPC 等高频考点，并配套 Wireshark 抓包实战、生产调参与 8 道高频面试题，帮助读者建立完整的网络协议知识体系。</p>
+<span id="more"></span>
+
+<h1 id="计算机网络核心协议详解：从TCP握手到HTTP-3与QUIC实战"><a href="#计算机网络核心协议详解：从TCP握手到HTTP-3与QUIC实战" class="headerlink" title="计算机网络核心协议详解：从TCP握手到HTTP&#x2F;3与QUIC实战"></a>计算机网络核心协议详解：从TCP握手到HTTP&#x2F;3与QUIC实战</h1><h2 id="一、为什么后端工程师必须死磕网络协议？"><a href="#一、为什么后端工程师必须死磕网络协议？" class="headerlink" title="一、为什么后端工程师必须死磕网络协议？"></a>一、为什么后端工程师必须死磕网络协议？</h2><p>很多后端开发者把网络协议当成“面试八股”，认为只要会写 CRUD、会调框架 API 就够了。但生产环境中<strong>百分之八十的诡异问题最终都会追溯到网络层</strong>：接口偶发超时、连接池耗尽、大量 TIME_WAIT、HTTPS 握手慢、CDN 缓存不命中、WebSocket 断连、微服务间 P99 抖动……如果不懂协议底层，排错只能停留在“重启试试”或“加连接数”的层面。</p>
+<p>网络协议是分布式系统的“血管”。无论是 MySQL 的 TCP 长连接、Redis 的 RESP 协议、Nginx 的 HTTP 反向代理、Kafka 的自定义二进制协议，还是 Kubernetes 的 CNI 网络模型，底层都依赖 TCP&#x2F;IP 协议栈。掌握协议原理，才能：</p>
+<ul>
+<li>精准定位<strong>连接、延迟、丢包、拥塞</strong>四类问题</li>
+<li>合理设计<strong>超时、重试、幂等、熔断</strong>策略</li>
+<li>正确配置<strong>Nginx&#x2F;Envoy&#x2F;Gateway</strong> 的连接与缓冲区参数</li>
+<li>在面试中把“三次握手”讲出深度，而不是背口诀</li>
+</ul>
+<h2 id="二、网络分层模型：OSI-七层-vs-TCP-IP-四层"><a href="#二、网络分层模型：OSI-七层-vs-TCP-IP-四层" class="headerlink" title="二、网络分层模型：OSI 七层 vs TCP&#x2F;IP 四层"></a>二、网络分层模型：OSI 七层 vs TCP&#x2F;IP 四层</h2><h3 id="1、OSI-七层模型（理论参考）"><a href="#1、OSI-七层模型（理论参考）" class="headerlink" title="1、OSI 七层模型（理论参考）"></a>1、OSI 七层模型（理论参考）</h3><table>
+<thead>
+<tr>
+<th>层级</th>
+<th>名称</th>
+<th>核心功能</th>
+<th>典型协议&#x2F;设备</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>7</td>
+<td>应用层</td>
+<td>为用户提供网络服务接口</td>
+<td>HTTP、HTTPS、FTP、SMTP、DNS</td>
+</tr>
+<tr>
+<td>6</td>
+<td>表示层</td>
+<td>数据格式转换、加密解密、压缩</td>
+<td>TLS&#x2F;SSL、JPEG、ASCII</td>
+</tr>
+<tr>
+<td>5</td>
+<td>会话层</td>
+<td>建立、管理、终止会话</td>
+<td>NetBIOS、RPC</td>
+</tr>
+<tr>
+<td>4</td>
+<td>传输层</td>
+<td>端到端可靠&#x2F;不可靠传输</td>
+<td>TCP、UDP</td>
+</tr>
+<tr>
+<td>3</td>
+<td>网络层</td>
+<td>寻址与路由选择</td>
+<td>IP、ICMP、ARP、路由器</td>
+</tr>
+<tr>
+<td>2</td>
+<td>数据链路层</td>
+<td>帧封装、MAC 寻址、差错检测</td>
+<td>以太网、交换机、MAC</td>
+</tr>
+<tr>
+<td>1</td>
+<td>物理层</td>
+<td>比特流传输</td>
+<td>光纤、双绞线、集线器</td>
+</tr>
+</tbody></table>
+<h3 id="2、TCP-IP-四层模型（工程实用）"><a href="#2、TCP-IP-四层模型（工程实用）" class="headerlink" title="2、TCP&#x2F;IP 四层模型（工程实用）"></a>2、TCP&#x2F;IP 四层模型（工程实用）</h3><table>
+<thead>
+<tr>
+<th>层级</th>
+<th>名称</th>
+<th>关键协议</th>
+<th>数据单元</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>4</td>
+<td>应用层</td>
+<td>HTTP、HTTPS、DNS、FTP、SSH</td>
+<td>报文（Message）</td>
+</tr>
+<tr>
+<td>3</td>
+<td>传输层</td>
+<td>TCP、UDP</td>
+<td>段（Segment）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>网络层</td>
+<td>IP、ICMP、ARP、IGMP</td>
+<td>包（Packet）</td>
+</tr>
+<tr>
+<td>1</td>
+<td>网络接口层</td>
+<td>以太网、Wi-Fi、PPP</td>
+<td>帧（Frame）</td>
+</tr>
+</tbody></table>
+<p><strong>面试常考点</strong>：OSI 是理论模型，TCP&#x2F;IP 是工程实现模型。实际互联网协议栈通常按 TCP&#x2F;IP 四层理解，OSI 主要用于教学和标准化描述。</p>
+<h3 id="3、一次-HTTP-请求的分层流转"><a href="#3、一次-HTTP-请求的分层流转" class="headerlink" title="3、一次 HTTP 请求的分层流转"></a>3、一次 HTTP 请求的分层流转</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">浏览器输入 https://example.com</span><br><span class="line">  ↓</span><br><span class="line">应用层：HTTP 组装请求报文</span><br><span class="line">  ↓</span><br><span class="line">传输层：TLS 加密 → TCP 分段 → 加端口号</span><br><span class="line">  ↓</span><br><span class="line">网络层：IP 封装 → 路由选择 → 加源/目的 IP</span><br><span class="line">  ↓</span><br><span class="line">数据链路层：MAC 寻址 → 帧头帧尾 → 通过网卡发送</span><br><span class="line">  ↓</span><br><span class="line">物理层：电信号/光信号传输</span><br></pre></td></tr></table></figure>
+
+<p>每一层都会加上自己的首部信息，接收端则逐层解封装。理解这个过程，是分析抓包、排查跨层问题的基础。</p>
+<h2 id="三、TCP-核心原理：三次握手、四次挥手与可靠性"><a href="#三、TCP-核心原理：三次握手、四次挥手与可靠性" class="headerlink" title="三、TCP 核心原理：三次握手、四次挥手与可靠性"></a>三、TCP 核心原理：三次握手、四次挥手与可靠性</h2><p>TCP（Transmission Control Protocol）是面向连接、可靠、基于字节流的传输层协议。后端工程师与 TCP 打交道最多，必须理解其状态机与核心机制。</p>
+<h3 id="1、TCP-报文头关键字段"><a href="#1、TCP-报文头关键字段" class="headerlink" title="1、TCP 报文头关键字段"></a>1、TCP 报文头关键字段</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"> 0                   1                   2                   3</span><br><span class="line"> 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1</span><br><span class="line">+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</span><br><span class="line">|          Source Port          |       Destination Port        |</span><br><span class="line">+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</span><br><span class="line">|                        Sequence Number                        |</span><br><span class="line">+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</span><br><span class="line">|                    Acknowledgment Number                      |</span><br><span class="line">+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</span><br><span class="line">|  Data |           |U|A|P|R|S|F|                               |</span><br><span class="line">| Offset| Reserved  |R|C|S|S|Y|I|            Window             |</span><br><span class="line">|       |           |G|K|H|T|N|N|                               |</span><br><span class="line">+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</span><br></pre></td></tr></table></figure>
+
+<p>关键字段说明：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Source&#x2F;Destination Port</td>
+<td>源端口、目的端口，标识发送&#x2F;接收进程</td>
+</tr>
+<tr>
+<td>Sequence Number</td>
+<td>序列号，保证数据有序、去重</td>
+</tr>
+<tr>
+<td>Acknowledgment Number</td>
+<td>确认号，期望收到的下一个字节序号</td>
+</tr>
+<tr>
+<td>SYN&#x2F;ACK&#x2F;FIN&#x2F;RST</td>
+<td>连接建立、确认、关闭、重置标志位</td>
+</tr>
+<tr>
+<td>Window</td>
+<td>接收窗口大小，用于流量控制</td>
+</tr>
+<tr>
+<td>Checksum</td>
+<td>校验和，检测数据完整性</td>
+</tr>
+</tbody></table>
+<h3 id="2、TCP-三次握手（建立连接）"><a href="#2、TCP-三次握手（建立连接）" class="headerlink" title="2、TCP 三次握手（建立连接）"></a>2、TCP 三次握手（建立连接）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">客户端                                    服务器</span><br><span class="line">  |                                         |</span><br><span class="line">  |  ① SYN=1, seq=x                        |</span><br><span class="line">  | --------------------------------------&gt; |</span><br><span class="line">  |                                         |</span><br><span class="line">  |  ② SYN=1, ACK=1, seq=y, ack=x+1        |</span><br><span class="line">  | &lt;-------------------------------------- |</span><br><span class="line">  |                                         |</span><br><span class="line">  |  ③ ACK=1, seq=x+1, ack=y+1             |</span><br><span class="line">  | --------------------------------------&gt; |</span><br><span class="line">  |                                         |</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么是三次而不是两次？</strong></p>
+<p>三次握手的核心目的是<strong>同步双方的初始序列号，并防止历史失效连接请求突然到达服务器造成资源浪费</strong>。如果是两次握手：</p>
+<ul>
+<li>客户端发送 SYN 后因网络延迟未到达</li>
+<li>客户端重发 SYN 并成功建立连接、传输数据、关闭连接</li>
+<li>第一次延迟的 SYN 突然到达服务器</li>
+<li>服务器发回 ACK 并进入 ESTABLISHED，但客户端早已关闭，服务器会维护一个死连接</li>
+</ul>
+<p>三次握手通过第三次 ACK 让客户端确认服务器已收到自己的 SYN，同时服务器也能确认客户端确实想建立连接。</p>
+<p><strong>面试加分回答</strong>：三次握手还承担了“防止 SYN Flood 攻击”的基础作用，配合 SYN Cookie 机制可在半连接队列满时继续响应。</p>
+<h3 id="3、TCP-四次挥手（关闭连接）"><a href="#3、TCP-四次挥手（关闭连接）" class="headerlink" title="3、TCP 四次挥手（关闭连接）"></a>3、TCP 四次挥手（关闭连接）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">客户端                                    服务器</span><br><span class="line">  |                                         |</span><br><span class="line">  |  ① FIN=1, seq=u                        |</span><br><span class="line">  | --------------------------------------&gt; |</span><br><span class="line">  |  ② ACK=1, seq=v, ack=u+1               |</span><br><span class="line">  | &lt;-------------------------------------- |</span><br><span class="line">  |  （此时服务器可能还有数据要发）            |</span><br><span class="line">  |  ③ FIN=1, ACK=1, seq=w, ack=u+1        |</span><br><span class="line">  | &lt;-------------------------------------- |</span><br><span class="line">  |  ④ ACK=1, seq=u+1, ack=w+1             |</span><br><span class="line">  | --------------------------------------&gt; |</span><br><span class="line">  |  （客户端进入 TIME_WAIT，等待 2MSL）     |</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么需要 TIME_WAIT（2MSL）？</strong></p>
+<ol>
+<li><strong>保证最后一个 ACK 能被对方收到</strong>：如果 ACK 丢失，服务器会重发 FIN，客户端需要能在 2MSL 内重发 ACK。</li>
+<li><strong>让网络中残留的报文全部失效</strong>：防止旧连接的报文在新连接中仍然有效，避免数据混乱。</li>
+</ol>
+<p><strong>生产常见问题</strong>：高并发短连接场景下，客户端（或四层负载均衡）可能产生大量 <code>TIME_WAIT</code>，耗尽本地端口。解决方案包括：</p>
+<ul>
+<li>启用 <code>tcp_tw_reuse</code>（复用 TIME_WAIT 端口，仅对客户端生效）</li>
+<li>开启连接池，避免频繁创建&#x2F;关闭连接</li>
+<li>调大本地端口范围 <code>ip_local_port_range</code></li>
+</ul>
+<blockquote>
+<p>⚠️ 注意：Linux 4.12 之后 <code>tcp_tw_recycle</code> 已移除，不要再使用。</p>
+</blockquote>
+<h3 id="4、TCP-可靠性保障机制"><a href="#4、TCP-可靠性保障机制" class="headerlink" title="4、TCP 可靠性保障机制"></a>4、TCP 可靠性保障机制</h3><table>
+<thead>
+<tr>
+<th>机制</th>
+<th>作用</th>
+<th>典型算法&#x2F;参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>序列号与确认应答</td>
+<td>保证有序、去重、可靠到达</td>
+<td>Sequence&#x2F;Ack Number</td>
+</tr>
+<tr>
+<td>超时重传</td>
+<td>未收到 ACK 则重发</td>
+<td>RTO 动态计算</td>
+</tr>
+<tr>
+<td>滑动窗口</td>
+<td>实现流量控制，提高吞吐量</td>
+<td>Window Size</td>
+</tr>
+<tr>
+<td>拥塞控制</td>
+<td>防止网络拥塞崩溃</td>
+<td>慢启动、拥塞避免、快重传、快恢复</td>
+</tr>
+<tr>
+<td>三次握手&#x2F;四次挥手</td>
+<td>连接管理与优雅关闭</td>
+<td>SYN&#x2F;FIN&#x2F;ACK</td>
+</tr>
+</tbody></table>
+<p><strong>拥塞控制四阶段</strong>：</p>
+<ol>
+<li><strong>慢启动（Slow Start）</strong>：拥塞窗口 <code>cwnd</code> 从 1 开始，每收到一个 ACK 翻倍，呈指数增长</li>
+<li><strong>拥塞避免（Congestion Avoidance）</strong>：达到慢启动阈值 <code>ssthresh</code> 后，每 RTT 线性加 1</li>
+<li><strong>快重传（Fast Retransmit）</strong>：收到 3 个重复 ACK 立即重传，不等待 RTO 超时</li>
+<li><strong>快恢复（Fast Recovery）</strong>：快重传后 <code>ssthresh</code> 减半，<code>cwnd</code> 设置为 <code>ssthresh+3</code>，避免回到慢启动</li>
+</ol>
+<h3 id="5、TCP-粘包与拆包"><a href="#5、TCP-粘包与拆包" class="headerlink" title="5、TCP 粘包与拆包"></a>5、TCP 粘包与拆包</h3><p>TCP 是<strong>字节流协议</strong>，没有消息边界。应用层如果连续发送两条消息，接收端可能一次读到多条（粘包），也可能一条消息被拆成多次读取（拆包）。解决方案：</p>
+<ul>
+<li><strong>固定长度</strong>：每条消息固定 N 字节，不足补空</li>
+<li><strong>分隔符</strong>：如 HTTP 使用 <code>\r\n</code>，Redis 使用 <code>\r\n</code></li>
+<li><strong>长度字段+内容</strong>：消息头标明正文长度，如 Protobuf、gRPC、Kafka 协议</li>
+</ul>
+<h2 id="四、UDP：无连接、低延迟的另一面"><a href="#四、UDP：无连接、低延迟的另一面" class="headerlink" title="四、UDP：无连接、低延迟的另一面"></a>四、UDP：无连接、低延迟的另一面</h2><table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>TCP</th>
+<th>UDP</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>连接性</td>
+<td>面向连接</td>
+<td>无连接</td>
+</tr>
+<tr>
+<td>可靠性</td>
+<td>可靠传输，保证有序</td>
+<td>尽力交付，不保证顺序</td>
+</tr>
+<tr>
+<td>拥塞控制</td>
+<td>有</td>
+<td>无</td>
+</tr>
+<tr>
+<td>头部开销</td>
+<td>20~60 字节</td>
+<td>8 字节</td>
+</tr>
+<tr>
+<td>传输效率</td>
+<td>较低（握手、重传、窗口管理）</td>
+<td>极高</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>HTTP、MySQL、Redis、文件传输</td>
+<td>DNS、视频会议、游戏、物联网、QUIC</td>
+</tr>
+</tbody></table>
+<p>UDP 看似“不可靠”，但 QUIC 正是在 UDP 之上重新实现了可靠性、拥塞控制、安全加密，从而突破了 TCP 的架构限制。</p>
+<h2 id="五、HTTP-演进：从-HTTP-1-1-到-HTTP-3"><a href="#五、HTTP-演进：从-HTTP-1-1-到-HTTP-3" class="headerlink" title="五、HTTP 演进：从 HTTP&#x2F;1.1 到 HTTP&#x2F;3"></a>五、HTTP 演进：从 HTTP&#x2F;1.1 到 HTTP&#x2F;3</h2><h3 id="1、HTTP-1-1-的瓶颈"><a href="#1、HTTP-1-1-的瓶颈" class="headerlink" title="1、HTTP&#x2F;1.1 的瓶颈"></a>1、HTTP&#x2F;1.1 的瓶颈</h3><ul>
+<li><strong>队头阻塞（Head-of-Line Blocking）</strong>：同一连接上多个请求必须串行响应，前一个请求阻塞会拖慢后续所有请求</li>
+<li><strong>连接数限制</strong>：浏览器对同一域名最多 6~8 个并发 TCP 连接</li>
+<li><strong>明文传输</strong>：易被窃听、篡改</li>
+<li><strong>冗余头部</strong>：每次请求都重复发送大量 Header</li>
+</ul>
+<h3 id="2、HTTP-2-的改进"><a href="#2、HTTP-2-的改进" class="headerlink" title="2、HTTP&#x2F;2 的改进"></a>2、HTTP&#x2F;2 的改进</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>二进制分帧</td>
+<td>报文拆分为二进制帧，传输更高效</td>
+</tr>
+<tr>
+<td>多路复用</td>
+<td>同一连接上并行传输多个请求&#x2F;响应</td>
+</tr>
+<tr>
+<td>头部压缩（HPACK）</td>
+<td>减少重复 Header 传输</td>
+</tr>
+<tr>
+<td>服务器推送</td>
+<td>服务器可主动推送资源（实际用得少）</td>
+</tr>
+<tr>
+<td>流优先级</td>
+<td>客户端可指定资源加载优先级</td>
+</tr>
+</tbody></table>
+<p><strong>HTTP&#x2F;2 的致命缺陷</strong>：虽然应用层实现了多路复用，但底层仍是 TCP。一旦某个 TCP 包丢失，所有流都会阻塞，即<strong>TCP 层队头阻塞</strong>并未解决。</p>
+<h3 id="3、HTTP-3：基于-QUIC-的下一代协议"><a href="#3、HTTP-3：基于-QUIC-的下一代协议" class="headerlink" title="3、HTTP&#x2F;3：基于 QUIC 的下一代协议"></a>3、HTTP&#x2F;3：基于 QUIC 的下一代协议</h3><p>2022 年 6 月 HTTP&#x2F;3 正式标准化（RFC 9114）。到 2026 年，全球 HTTP&#x2F;3 流量占比已超过 35%，Cloudflare、Google、Meta、B 站、抖音等主流服务均已大规模部署。</p>
+<p><strong>HTTP&#x2F;2 vs HTTP&#x2F;3 协议栈对比</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">HTTP/2 协议栈：                 HTTP/3 协议栈：</span><br><span class="line">+----------------+              +----------------+</span><br><span class="line">|     HTTP/2     |              |     HTTP/3     |</span><br><span class="line">+----------------+              +----------------+</span><br><span class="line">|      TLS       |              |  TLS 1.3 (内建) |</span><br><span class="line">+----------------+              +----------------+</span><br><span class="line">|      TCP       |              |     QUIC       |</span><br><span class="line">+----------------+              +----------------+</span><br><span class="line">|      IP        |              |  UDP + IP      |</span><br><span class="line">+----------------+              +----------------+</span><br></pre></td></tr></table></figure>
+
+<h3 id="4、QUIC-协议核心优势"><a href="#4、QUIC-协议核心优势" class="headerlink" title="4、QUIC 协议核心优势"></a>4、QUIC 协议核心优势</h3><p>QUIC（Quick UDP Internet Connections）不是“UDP 上跑 TCP”，而是一个<strong>在 UDP 之上重新设计的新型传输协议</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+<th>收益</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0-RTT&#x2F;1-RTT 握手</td>
+<td>首次连接 1-RTT，复用连接 0-RTT</td>
+<td>显著降低高延迟网络的首包时间</td>
+</tr>
+<tr>
+<td>内建 TLS 1.3</td>
+<td>安全与传输握手合并</td>
+<td>减少一次完整 RTT</td>
+</tr>
+<tr>
+<td>无队头阻塞</td>
+<td>各流独立传输、独立确认</td>
+<td>单包丢失只影响对应流</td>
+</tr>
+<tr>
+<td>连接迁移</td>
+<td>基于 Connection ID 而非四元组</td>
+<td>Wi-Fi↔5G 切换不断连</td>
+</tr>
+<tr>
+<td>用户态实现</td>
+<td>部署灵活，迭代快</td>
+<td>无需等待内核升级</td>
+</tr>
+</tbody></table>
+<p><strong>生产部署注意事项</strong>：</p>
+<ul>
+<li>防火墙需开放 <strong>UDP 443 端口</strong></li>
+<li>负载均衡&#x2F;WAF 需支持 QUIC，否则可能无法识别连接</li>
+<li>CPU 开销比 TCP 高约 10%~15%（用户态加密与流管理）</li>
+<li>建议与 HTTP&#x2F;2 并存，通过 <code>Alt-Svc</code> 头协商升级</li>
+</ul>
+<h3 id="5、Nginx-启用-HTTP-3-配置示例"><a href="#5、Nginx-启用-HTTP-3-配置示例" class="headerlink" title="5、Nginx 启用 HTTP&#x2F;3 配置示例"></a>5、Nginx 启用 HTTP&#x2F;3 配置示例</h3><figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">server</span> &#123;</span><br><span class="line">    <span class="attribute">listen</span> <span class="number">443</span> quic reuseport;</span><br><span class="line">    <span class="attribute">listen</span> <span class="number">443</span> ssl;</span><br><span class="line">    </span><br><span class="line">    <span class="attribute">ssl_certificate</span>     /etc/nginx/ssl/example.crt;</span><br><span class="line">    <span class="attribute">ssl_certificate_key</span> /etc/nginx/ssl/example.key;</span><br><span class="line">    <span class="attribute">ssl_protocols</span>       TLSv1.<span class="number">3</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 告知客户端支持 HTTP/3</span></span><br><span class="line">    <span class="attribute">add_header</span> Alt-Svc <span class="string">&#x27;h3=&quot;:443&quot;; ma=86400&#x27;</span> always;</span><br><span class="line">    </span><br><span class="line">    <span class="section">location</span> / &#123;</span><br><span class="line">        <span class="attribute">proxy_pass</span> http://backend;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>需要 Nginx 1.25+ 且编译时启用 <code>--with-http_v3_module</code>。</p>
+</blockquote>
+<h2 id="六、HTTPS-与-TLS-1-3：安全握手优化"><a href="#六、HTTPS-与-TLS-1-3：安全握手优化" class="headerlink" title="六、HTTPS 与 TLS 1.3：安全握手优化"></a>六、HTTPS 与 TLS 1.3：安全握手优化</h2><h3 id="1、TLS-1-2-握手过程（2-RTT）"><a href="#1、TLS-1-2-握手过程（2-RTT）" class="headerlink" title="1、TLS 1.2 握手过程（2-RTT）"></a>1、TLS 1.2 握手过程（2-RTT）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">客户端                                  服务器</span><br><span class="line">  |                                       |</span><br><span class="line">  |  ClientHello（支持的加密套件）         |</span><br><span class="line">  | ------------------------------------&gt; |</span><br><span class="line">  |  ServerHello + Certificate + ServerKeyExchange |</span><br><span class="line">  | &lt;------------------------------------ |</span><br><span class="line">  |  ClientKeyExchange + ChangeCipherSpec |</span><br><span class="line">  | ------------------------------------&gt; |</span><br><span class="line">  |  ChangeCipherSpec + Finished          |</span><br><span class="line">  | &lt;------------------------------------ |</span><br></pre></td></tr></table></figure>
+
+<h3 id="2、TLS-1-3-握手优化（1-RTT-0-RTT）"><a href="#2、TLS-1-3-握手优化（1-RTT-0-RTT）" class="headerlink" title="2、TLS 1.3 握手优化（1-RTT &#x2F; 0-RTT）"></a>2、TLS 1.3 握手优化（1-RTT &#x2F; 0-RTT）</h3><p>TLS 1.3 将握手压缩到 1-RTT，并支持会话复用时的 0-RTT。同时移除了大量过时且不安全的加密算法（如 MD5、SHA-1、RSA 密钥交换），强制使用前向安全（Forward Secrecy）。</p>
+<p><strong>生产建议</strong>：</p>
+<ul>
+<li>服务器优先启用 TLS 1.3，兼容 TLS 1.2</li>
+<li>使用 ECDSA 证书可降低握手大小和 CPU 开销</li>
+<li>开启 OCSP Stapling 加速证书状态校验</li>
+<li>配置 HSTS 头强制 HTTPS 访问</li>
+</ul>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">ssl_protocols</span> TLSv1.<span class="number">2</span> TLSv1.<span class="number">3</span>;</span><br><span class="line"><span class="attribute">ssl_ciphers</span> <span class="string">&#x27;TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:ECDHE-ECDSA-AES128-GCM-SHA256&#x27;</span>;</span><br><span class="line"><span class="attribute">ssl_prefer_server_ciphers</span> <span class="literal">on</span>;</span><br><span class="line"><span class="attribute">add_header</span> Strict-Transport-Security <span class="string">&quot;max-age=63072000; includeSubDomains; preload&quot;</span> always;</span><br></pre></td></tr></table></figure>
+
+<h2 id="七、DNS、WebSocket-与-gRPC"><a href="#七、DNS、WebSocket-与-gRPC" class="headerlink" title="七、DNS、WebSocket 与 gRPC"></a>七、DNS、WebSocket 与 gRPC</h2><h3 id="1、DNS-解析流程"><a href="#1、DNS-解析流程" class="headerlink" title="1、DNS 解析流程"></a>1、DNS 解析流程</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">浏览器缓存 → 操作系统缓存 → hosts 文件</span><br><span class="line">  ↓</span><br><span class="line">本地 DNS 服务器（递归查询）</span><br><span class="line">  ↓</span><br><span class="line">根域名服务器 → 顶级域服务器（.com） → 权威域名服务器</span><br><span class="line">  ↓</span><br><span class="line">返回 IP 地址</span><br></pre></td></tr></table></figure>
+
+<p><strong>后端需要关注的 DNS 问题</strong>：</p>
+<ul>
+<li>DNS 缓存导致的 IP 切换延迟</li>
+<li>多级 CNAME 增加解析耗时</li>
+<li>DNS 轮询无法感知后端健康状态</li>
+<li>建议高可用场景使用 HTTPDNS 或 DNS over HTTPS&#x2F;QUIC</li>
+</ul>
+<h3 id="2、WebSocket"><a href="#2、WebSocket" class="headerlink" title="2、WebSocket"></a>2、WebSocket</h3><p>WebSocket 提供<strong>全双工、长连接</strong>通信，适合实时推送场景（IM、在线协作、股票行情）。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">握手阶段：基于 HTTP/1.1 升级协议</span><br><span class="line">GET /chat HTTP/1.1</span><br><span class="line">Host: example.com</span><br><span class="line">Upgrade: websocket</span><br><span class="line">Connection: Upgrade</span><br><span class="line">Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==</span><br><span class="line"></span><br><span class="line">响应：</span><br><span class="line">HTTP/1.1 101 Switching Protocols</span><br><span class="line">Upgrade: websocket</span><br><span class="line">Connection: Upgrade</span><br><span class="line">Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</span><br></pre></td></tr></table></figure>
+
+<p>生产注意：Nginx 反向代理 WebSocket 时需要配置 <code>proxy_http_version 1.1</code> 和 <code>Upgrade</code>、<code>Connection</code> 头。</p>
+<h3 id="3、gRPC"><a href="#3、gRPC" class="headerlink" title="3、gRPC"></a>3、gRPC</h3><p>gRPC 基于 HTTP&#x2F;2 + Protobuf，支持四种通信模式：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Unary</td>
+<td>一元调用：请求-响应</td>
+</tr>
+<tr>
+<td>Server Streaming</td>
+<td>服务端流：一次请求，多次响应</td>
+</tr>
+<tr>
+<td>Client Streaming</td>
+<td>客户端流：多次请求，一次响应</td>
+</tr>
+<tr>
+<td>Bidirectional Streaming</td>
+<td>双向流：全双工持续通信</td>
+</tr>
+</tbody></table>
+<p>2026 年，gRPC over HTTP&#x2F;3（QUIC）正逐步进入生产视野，可显著改善移动弱网环境下的流式调用稳定性。</p>
+<h2 id="八、Wireshark-抓包实战：看一次-TCP-三次握手"><a href="#八、Wireshark-抓包实战：看一次-TCP-三次握手" class="headerlink" title="八、Wireshark 抓包实战：看一次 TCP 三次握手"></a>八、Wireshark 抓包实战：看一次 TCP 三次握手</h2><h3 id="1、过滤表达式"><a href="#1、过滤表达式" class="headerlink" title="1、过滤表达式"></a>1、过滤表达式</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ip.addr == 192.168.1.100 &amp;&amp; tcp.port == 80</span><br></pre></td></tr></table></figure>
+
+<h3 id="2、典型三次握手报文"><a href="#2、典型三次握手报文" class="headerlink" title="2、典型三次握手报文"></a>2、典型三次握手报文</h3><table>
+<thead>
+<tr>
+<th>No.</th>
+<th>Source</th>
+<th>Destination</th>
+<th>Protocol</th>
+<th>Info</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>192.168.1.5</td>
+<td>104.18.24.46</td>
+<td>TCP</td>
+<td>54321 → 80 [SYN] Seq&#x3D;0</td>
+</tr>
+<tr>
+<td>2</td>
+<td>104.18.24.46</td>
+<td>192.168.1.5</td>
+<td>TCP</td>
+<td>80 → 54321 [SYN, ACK] Seq&#x3D;0 Ack&#x3D;1</td>
+</tr>
+<tr>
+<td>3</td>
+<td>192.168.1.5</td>
+<td>104.18.24.46</td>
+<td>TCP</td>
+<td>54321 → 80 [ACK] Seq&#x3D;1 Ack&#x3D;1</td>
+</tr>
+</tbody></table>
+<p>通过 <code>tcp.flags.syn==1</code> 可快速定位握手阶段，通过 <code>tcp.analysis.retransmission</code> 可筛选重传报文。</p>
+<h2 id="九、生产环境网络调优-checklist"><a href="#九、生产环境网络调优-checklist" class="headerlink" title="九、生产环境网络调优 checklist"></a>九、生产环境网络调优 checklist</h2><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>参数&#x2F;配置</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>高并发短连接</td>
+<td><code>net.ipv4.tcp_tw_reuse=1</code></td>
+<td>客户端复用 TIME_WAIT 端口</td>
+</tr>
+<tr>
+<td>提升吞吐</td>
+<td><code>net.core.rmem_max/wmem_max</code></td>
+<td>增大 TCP 读写缓冲区</td>
+</tr>
+<tr>
+<td>快速失败</td>
+<td><code>net.ipv4.tcp_syn_retries=2</code></td>
+<td>减少 SYN 重试次数</td>
+</tr>
+<tr>
+<td>连接保活</td>
+<td><code>net.ipv4.tcp_keepalive_time=300</code></td>
+<td>5 分钟无数据开始探测</td>
+</tr>
+<tr>
+<td>Nginx 长连接</td>
+<td><code>keepalive_timeout 65; keepalive_requests 1000;</code></td>
+<td>维持后端长连接</td>
+</tr>
+<tr>
+<td>应用超时</td>
+<td>连接超时、读取超时、写入超时分层配置</td>
+<td>避免级联阻塞</td>
+</tr>
+</tbody></table>
+<h2 id="十、高频面试题（8-道）"><a href="#十、高频面试题（8-道）" class="headerlink" title="十、高频面试题（8 道）"></a>十、高频面试题（8 道）</h2><h3 id="1、TCP-三次握手可以携带数据吗？"><a href="#1、TCP-三次握手可以携带数据吗？" class="headerlink" title="1、TCP 三次握手可以携带数据吗？"></a>1、TCP 三次握手可以携带数据吗？</h3><p><strong>答</strong>：第三次握手（ACK 包）可以携带数据；第一、二次握手不建议携带数据，主要是防止 SYN Flood 攻击浪费服务器资源。</p>
+<h3 id="2、为什么-TCP-挥手需要四次？"><a href="#2、为什么-TCP-挥手需要四次？" class="headerlink" title="2、为什么 TCP 挥手需要四次？"></a>2、为什么 TCP 挥手需要四次？</h3><p><strong>答</strong>：因为 TCP 是全双工通信，每个方向都需要单独关闭。服务器收到 FIN 后可能还有数据要发送，所以 ACK 和 FIN 不能合并，必须分两次发送。</p>
+<h3 id="3、HTTP-2-解决了-HTTP-1-1-的队头阻塞吗？"><a href="#3、HTTP-2-解决了-HTTP-1-1-的队头阻塞吗？" class="headerlink" title="3、HTTP&#x2F;2 解决了 HTTP&#x2F;1.1 的队头阻塞吗？"></a>3、HTTP&#x2F;2 解决了 HTTP&#x2F;1.1 的队头阻塞吗？</h3><p><strong>答</strong>：解决了应用层队头阻塞（同一连接多路复用），但没有解决传输层队头阻塞。HTTP&#x2F;3 通过 QUIC 才真正消除了 TCP 层队头阻塞。</p>
+<h3 id="4、QUIC-为什么运行在-UDP-上而不是直接改造-TCP？"><a href="#4、QUIC-为什么运行在-UDP-上而不是直接改造-TCP？" class="headerlink" title="4、QUIC 为什么运行在 UDP 上而不是直接改造 TCP？"></a>4、QUIC 为什么运行在 UDP 上而不是直接改造 TCP？</h3><p><strong>答</strong>：TCP 实现在操作系统内核中，升级和部署周期极长；UDP 简单且内核已支持，QUIC 在用户态实现可靠传输、拥塞控制、加密，便于快速迭代和大规模部署。</p>
+<h3 id="5、什么是-TIME-WAIT-状态？如何优化？"><a href="#5、什么是-TIME-WAIT-状态？如何优化？" class="headerlink" title="5、什么是 TIME_WAIT 状态？如何优化？"></a>5、什么是 TIME_WAIT 状态？如何优化？</h3><p><strong>答</strong>：TIME_WAIT 是主动关闭方在发送最后一个 ACK 后进入的状态，持续 2MSL。优化方式包括使用连接池、开启 <code>tcp_tw_reuse</code>、调大端口范围，服务端不宜主动关闭连接。</p>
+<h3 id="6、TLS-1-3-相比-TLS-1-2-有哪些改进？"><a href="#6、TLS-1-3-相比-TLS-1-2-有哪些改进？" class="headerlink" title="6、TLS 1.3 相比 TLS 1.2 有哪些改进？"></a>6、TLS 1.3 相比 TLS 1.2 有哪些改进？</h3><p><strong>答</strong>：握手从 2-RTT 优化到 1-RTT（复用 0-RTT），移除了不安全的加密套件，强制前向安全，加密更多握手消息，提升安全性和性能。</p>
+<h3 id="7、DNS-解析慢怎么排查？"><a href="#7、DNS-解析慢怎么排查？" class="headerlink" title="7、DNS 解析慢怎么排查？"></a>7、DNS 解析慢怎么排查？</h3><p><strong>答</strong>：可用 <code>dig +trace</code> 查看递归解析路径，检查本地缓存、CNAME 层级、DNS 服务器 RTT，必要时换用 HTTPDNS 或增加 DNS 预解析。</p>
+<h3 id="8、TCP-和-UDP-分别适合什么场景？"><a href="#8、TCP-和-UDP-分别适合什么场景？" class="headerlink" title="8、TCP 和 UDP 分别适合什么场景？"></a>8、TCP 和 UDP 分别适合什么场景？</h3><p><strong>答</strong>：TCP 适合需要可靠传输、顺序保障的场景，如 HTTP、数据库、文件传输；UDP 适合低延迟、可容忍丢包、需要广播&#x2F;多播的场景，如 DNS、音视频、游戏、QUIC。</p>
+<h2 id="十一、总结"><a href="#十一、总结" class="headerlink" title="十一、总结"></a>十一、总结</h2><p>计算机网络协议是后端工程师的底层内功。本文从 OSI&#x2F;TCP-IP 分层出发，深入讲解了 TCP 的三次握手、四次挥手、滑动窗口、拥塞控制，对比了 UDP 与 TCP 的适用场景，梳理了 HTTP&#x2F;1.1→HTTP&#x2F;2→HTTP&#x2F;3 的演进逻辑，重点剖析了 QUIC 协议如何解决 TCP 队头阻塞与连接迁移问题，并补充了 TLS 1.3、DNS、WebSocket、gRPC 等高频考点。</p>
+<p>掌握这些内容后，再面对 Nginx 超时配置、连接池参数调优、微服务间延迟抖动、HTTPS 握手失败等问题时，就能从协议层面快速定位根因，而不是凭经验盲目试参。建议配合 Wireshark 实际抓包观察握手、挥手、重传过程，理论结合实践才能真正内化。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag"># 面试题</a>
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag"># 计算机网络</a>
+              <a href="/tags/tcp/" rel="tag"># tcp</a>
+              <a href="/tags/http/" rel="tag"># http</a>
+              <a href="/tags/quic/" rel="tag"># quic</a>
+              <a href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag"># 网络协议</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/21/Spring%20Security%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83%E5%88%B0%20JWT%20%E4%B8%8E%20OAuth2%20%E5%AE%9E%E6%88%98/" rel="prev" title="Spring Security 详解：从认证授权到 JWT 与 OAuth2 实战">
+      <i class="fa fa-chevron-left"></i> Spring Security 详解：从认证授权到 JWT 与 OAuth2 实战
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/07/22/Prometheus%20+%20Grafana%20%E7%9B%91%E6%8E%A7%E5%AE%9E%E6%88%98%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E6%8C%87%E6%A0%87%E9%87%87%E9%9B%86%E5%88%B0%E5%91%8A%E8%AD%A6%E9%80%9A%E7%9F%A5/" rel="next" title="Prometheus + Grafana 监控实战详解：从指标采集到告警通知">
+      Prometheus + Grafana 监控实战详解：从指标采集到告警通知 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E6%A0%B8%E5%BF%83%E5%8D%8F%E8%AE%AE%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8ETCP%E6%8F%A1%E6%89%8B%E5%88%B0HTTP-3%E4%B8%8EQUIC%E5%AE%9E%E6%88%98"><span class="nav-number">1.</span> <span class="nav-text">计算机网络核心协议详解：从TCP握手到HTTP&#x2F;3与QUIC实战</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B%E5%B8%88%E5%BF%85%E9%A1%BB%E6%AD%BB%E7%A3%95%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%EF%BC%9F"><span class="nav-number">1.1.</span> <span class="nav-text">一、为什么后端工程师必须死磕网络协议？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E7%BD%91%E7%BB%9C%E5%88%86%E5%B1%82%E6%A8%A1%E5%9E%8B%EF%BC%9AOSI-%E4%B8%83%E5%B1%82-vs-TCP-IP-%E5%9B%9B%E5%B1%82"><span class="nav-number">1.2.</span> <span class="nav-text">二、网络分层模型：OSI 七层 vs TCP&#x2F;IP 四层</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81OSI-%E4%B8%83%E5%B1%82%E6%A8%A1%E5%9E%8B%EF%BC%88%E7%90%86%E8%AE%BA%E5%8F%82%E8%80%83%EF%BC%89"><span class="nav-number">1.2.1.</span> <span class="nav-text">1、OSI 七层模型（理论参考）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81TCP-IP-%E5%9B%9B%E5%B1%82%E6%A8%A1%E5%9E%8B%EF%BC%88%E5%B7%A5%E7%A8%8B%E5%AE%9E%E7%94%A8%EF%BC%89"><span class="nav-number">1.2.2.</span> <span class="nav-text">2、TCP&#x2F;IP 四层模型（工程实用）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81%E4%B8%80%E6%AC%A1-HTTP-%E8%AF%B7%E6%B1%82%E7%9A%84%E5%88%86%E5%B1%82%E6%B5%81%E8%BD%AC"><span class="nav-number">1.2.3.</span> <span class="nav-text">3、一次 HTTP 请求的分层流转</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81TCP-%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%EF%BC%9A%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B%E3%80%81%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B%E4%B8%8E%E5%8F%AF%E9%9D%A0%E6%80%A7"><span class="nav-number">1.3.</span> <span class="nav-text">三、TCP 核心原理：三次握手、四次挥手与可靠性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81TCP-%E6%8A%A5%E6%96%87%E5%A4%B4%E5%85%B3%E9%94%AE%E5%AD%97%E6%AE%B5"><span class="nav-number">1.3.1.</span> <span class="nav-text">1、TCP 报文头关键字段</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81TCP-%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B%EF%BC%88%E5%BB%BA%E7%AB%8B%E8%BF%9E%E6%8E%A5%EF%BC%89"><span class="nav-number">1.3.2.</span> <span class="nav-text">2、TCP 三次握手（建立连接）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81TCP-%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B%EF%BC%88%E5%85%B3%E9%97%AD%E8%BF%9E%E6%8E%A5%EF%BC%89"><span class="nav-number">1.3.3.</span> <span class="nav-text">3、TCP 四次挥手（关闭连接）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81TCP-%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%9C%BA%E5%88%B6"><span class="nav-number">1.3.4.</span> <span class="nav-text">4、TCP 可靠性保障机制</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5%E3%80%81TCP-%E7%B2%98%E5%8C%85%E4%B8%8E%E6%8B%86%E5%8C%85"><span class="nav-number">1.3.5.</span> <span class="nav-text">5、TCP 粘包与拆包</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81UDP%EF%BC%9A%E6%97%A0%E8%BF%9E%E6%8E%A5%E3%80%81%E4%BD%8E%E5%BB%B6%E8%BF%9F%E7%9A%84%E5%8F%A6%E4%B8%80%E9%9D%A2"><span class="nav-number">1.4.</span> <span class="nav-text">四、UDP：无连接、低延迟的另一面</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81HTTP-%E6%BC%94%E8%BF%9B%EF%BC%9A%E4%BB%8E-HTTP-1-1-%E5%88%B0-HTTP-3"><span class="nav-number">1.5.</span> <span class="nav-text">五、HTTP 演进：从 HTTP&#x2F;1.1 到 HTTP&#x2F;3</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81HTTP-1-1-%E7%9A%84%E7%93%B6%E9%A2%88"><span class="nav-number">1.5.1.</span> <span class="nav-text">1、HTTP&#x2F;1.1 的瓶颈</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81HTTP-2-%E7%9A%84%E6%94%B9%E8%BF%9B"><span class="nav-number">1.5.2.</span> <span class="nav-text">2、HTTP&#x2F;2 的改进</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81HTTP-3%EF%BC%9A%E5%9F%BA%E4%BA%8E-QUIC-%E7%9A%84%E4%B8%8B%E4%B8%80%E4%BB%A3%E5%8D%8F%E8%AE%AE"><span class="nav-number">1.5.3.</span> <span class="nav-text">3、HTTP&#x2F;3：基于 QUIC 的下一代协议</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81QUIC-%E5%8D%8F%E8%AE%AE%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8A%BF"><span class="nav-number">1.5.4.</span> <span class="nav-text">4、QUIC 协议核心优势</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5%E3%80%81Nginx-%E5%90%AF%E7%94%A8-HTTP-3-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B"><span class="nav-number">1.5.5.</span> <span class="nav-text">5、Nginx 启用 HTTP&#x2F;3 配置示例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81HTTPS-%E4%B8%8E-TLS-1-3%EF%BC%9A%E5%AE%89%E5%85%A8%E6%8F%A1%E6%89%8B%E4%BC%98%E5%8C%96"><span class="nav-number">1.6.</span> <span class="nav-text">六、HTTPS 与 TLS 1.3：安全握手优化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81TLS-1-2-%E6%8F%A1%E6%89%8B%E8%BF%87%E7%A8%8B%EF%BC%882-RTT%EF%BC%89"><span class="nav-number">1.6.1.</span> <span class="nav-text">1、TLS 1.2 握手过程（2-RTT）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81TLS-1-3-%E6%8F%A1%E6%89%8B%E4%BC%98%E5%8C%96%EF%BC%881-RTT-0-RTT%EF%BC%89"><span class="nav-number">1.6.2.</span> <span class="nav-text">2、TLS 1.3 握手优化（1-RTT &#x2F; 0-RTT）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81DNS%E3%80%81WebSocket-%E4%B8%8E-gRPC"><span class="nav-number">1.7.</span> <span class="nav-text">七、DNS、WebSocket 与 gRPC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81DNS-%E8%A7%A3%E6%9E%90%E6%B5%81%E7%A8%8B"><span class="nav-number">1.7.1.</span> <span class="nav-text">1、DNS 解析流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81WebSocket"><span class="nav-number">1.7.2.</span> <span class="nav-text">2、WebSocket</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81gRPC"><span class="nav-number">1.7.3.</span> <span class="nav-text">3、gRPC</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81Wireshark-%E6%8A%93%E5%8C%85%E5%AE%9E%E6%88%98%EF%BC%9A%E7%9C%8B%E4%B8%80%E6%AC%A1-TCP-%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B"><span class="nav-number">1.8.</span> <span class="nav-text">八、Wireshark 抓包实战：看一次 TCP 三次握手</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E8%BF%87%E6%BB%A4%E8%A1%A8%E8%BE%BE%E5%BC%8F"><span class="nav-number">1.8.1.</span> <span class="nav-text">1、过滤表达式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E5%85%B8%E5%9E%8B%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B%E6%8A%A5%E6%96%87"><span class="nav-number">1.8.2.</span> <span class="nav-text">2、典型三次握手报文</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E7%BD%91%E7%BB%9C%E8%B0%83%E4%BC%98-checklist"><span class="nav-number">1.9.</span> <span class="nav-text">九、生产环境网络调优 checklist</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%81%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%EF%BC%888-%E9%81%93%EF%BC%89"><span class="nav-number">1.10.</span> <span class="nav-text">十、高频面试题（8 道）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81TCP-%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B%E5%8F%AF%E4%BB%A5%E6%90%BA%E5%B8%A6%E6%95%B0%E6%8D%AE%E5%90%97%EF%BC%9F"><span class="nav-number">1.10.1.</span> <span class="nav-text">1、TCP 三次握手可以携带数据吗？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88-TCP-%E6%8C%A5%E6%89%8B%E9%9C%80%E8%A6%81%E5%9B%9B%E6%AC%A1%EF%BC%9F"><span class="nav-number">1.10.2.</span> <span class="nav-text">2、为什么 TCP 挥手需要四次？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81HTTP-2-%E8%A7%A3%E5%86%B3%E4%BA%86-HTTP-1-1-%E7%9A%84%E9%98%9F%E5%A4%B4%E9%98%BB%E5%A1%9E%E5%90%97%EF%BC%9F"><span class="nav-number">1.10.3.</span> <span class="nav-text">3、HTTP&#x2F;2 解决了 HTTP&#x2F;1.1 的队头阻塞吗？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81QUIC-%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%90%E8%A1%8C%E5%9C%A8-UDP-%E4%B8%8A%E8%80%8C%E4%B8%8D%E6%98%AF%E7%9B%B4%E6%8E%A5%E6%94%B9%E9%80%A0-TCP%EF%BC%9F"><span class="nav-number">1.10.4.</span> <span class="nav-text">4、QUIC 为什么运行在 UDP 上而不是直接改造 TCP？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AF-TIME-WAIT-%E7%8A%B6%E6%80%81%EF%BC%9F%E5%A6%82%E4%BD%95%E4%BC%98%E5%8C%96%EF%BC%9F"><span class="nav-number">1.10.5.</span> <span class="nav-text">5、什么是 TIME_WAIT 状态？如何优化？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6%E3%80%81TLS-1-3-%E7%9B%B8%E6%AF%94-TLS-1-2-%E6%9C%89%E5%93%AA%E4%BA%9B%E6%94%B9%E8%BF%9B%EF%BC%9F"><span class="nav-number">1.10.6.</span> <span class="nav-text">6、TLS 1.3 相比 TLS 1.2 有哪些改进？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7%E3%80%81DNS-%E8%A7%A3%E6%9E%90%E6%85%A2%E6%80%8E%E4%B9%88%E6%8E%92%E6%9F%A5%EF%BC%9F"><span class="nav-number">1.10.7.</span> <span class="nav-text">7、DNS 解析慢怎么排查？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8%E3%80%81TCP-%E5%92%8C-UDP-%E5%88%86%E5%88%AB%E9%80%82%E5%90%88%E4%BB%80%E4%B9%88%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.10.8.</span> <span class="nav-text">8、TCP 和 UDP 分别适合什么场景？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%80%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">1.11.</span> <span class="nav-text">十一、总结</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">25</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">64</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">12</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">13</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>
