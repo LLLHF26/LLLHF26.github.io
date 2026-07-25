@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="MyBatis 是国内 Java 后端最流行的持久层框架，没有之一。本文从 JDBC 原始开发的痛点出发，层层深入 MyBatis 的核心架构与工作流程（SqlSessionFactory → Executor → StatementHandler → ResultSetHandler 全链路），详解 Mapper 映射、动态 SQL、一二级缓存、插件拦截器机制，再到 MyBatis-Plus 的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MyBatis 详解：从核心原理到 MyBatis-Plus 实战全指南">
+<meta property="og:url" content="http://example.com/2026/07/25/MyBatis%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E5%88%B0%20MyBatis-Plus%20%E5%AE%9E%E6%88%98%E5%85%A8%E6%8C%87%E5%8D%97/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="MyBatis 是国内 Java 后端最流行的持久层框架，没有之一。本文从 JDBC 原始开发的痛点出发，层层深入 MyBatis 的核心架构与工作流程（SqlSessionFactory → Executor → StatementHandler → ResultSetHandler 全链路），详解 Mapper 映射、动态 SQL、一二级缓存、插件拦截器机制，再到 MyBatis-Plus 的">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-25T04:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-25T04:23:28.279Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="java">
+<meta property="article:tag" content="mybatis">
+<meta property="article:tag" content="mybatis-plus">
+<meta property="article:tag" content="orm">
+<meta property="article:tag" content="springboot">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="数据库">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/25/MyBatis%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E5%88%B0%20MyBatis-Plus%20%E5%AE%9E%E6%88%98%E5%85%A8%E6%8C%87%E5%8D%97/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>MyBatis 详解：从核心原理到 MyBatis-Plus 实战全指南 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/25/MyBatis%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E5%88%B0%20MyBatis-Plus%20%E5%AE%9E%E6%88%98%E5%85%A8%E6%8C%87%E5%8D%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MyBatis 详解：从核心原理到 MyBatis-Plus 实战全指南
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-25 12:00:00 / 修改时间：12:23:28" itemprop="dateCreated datePublished" datetime="2026-07-25T12:00:00+08:00">2026-07-25</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>MyBatis 是国内 Java 后端最流行的持久层框架，没有之一。本文从 JDBC 原始开发的痛点出发，层层深入 MyBatis 的核心架构与工作流程（SqlSessionFactory → Executor → StatementHandler → ResultSetHandler 全链路），详解 Mapper 映射、动态 SQL、一二级缓存、插件拦截器机制，再到 MyBatis-Plus 的条件构造器、分页、自动填充、逻辑删除、乐观锁等增强能力，最后梳理 2026 年最新版本特性（MyBatis 3.5.19&#x2F;MyBatis-Plus 3.5.17&#x2F;GraalVM Native Image）、生产级优化指南和高频面试题。读完这篇文章，你对 MyBatis 的理解将从”会用”升级到”精通”。</p>
+<span id="more"></span>
+
+<h1 id="MyBatis-详解：从核心原理到-MyBatis-Plus-实战全指南"><a href="#MyBatis-详解：从核心原理到-MyBatis-Plus-实战全指南" class="headerlink" title="MyBatis 详解：从核心原理到 MyBatis-Plus 实战全指南"></a>MyBatis 详解：从核心原理到 MyBatis-Plus 实战全指南</h1><h2 id="一、从一个问题开始：为什么需要-MyBatis？"><a href="#一、从一个问题开始：为什么需要-MyBatis？" class="headerlink" title="一、从一个问题开始：为什么需要 MyBatis？"></a>一、从一个问题开始：为什么需要 MyBatis？</h2><h3 id="1、JDBC-的”原罪”"><a href="#1、JDBC-的”原罪”" class="headerlink" title="1、JDBC 的”原罪”"></a>1、JDBC 的”原罪”</h3><p>在 MyBatis 诞生之前，Java 操作数据库只能靠 JDBC。一个最简单的”根据 ID 查用户”，代码长这样：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> User <span class="title function_">getUserById</span><span class="params">(Long id)</span> &#123;</span><br><span class="line">    <span class="type">Connection</span> <span class="variable">conn</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">PreparedStatement</span> <span class="variable">ps</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">ResultSet</span> <span class="variable">rs</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">User</span> <span class="variable">user</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 1. 加载驱动</span></span><br><span class="line">        Class.forName(<span class="string">&quot;com.mysql.cj.jdbc.Driver&quot;</span>);</span><br><span class="line">        <span class="comment">// 2. 获取连接</span></span><br><span class="line">        conn = DriverManager.getConnection(url, username, password);</span><br><span class="line">        <span class="comment">// 3. 创建 Statement（注意 SQL 注入风险）</span></span><br><span class="line">        ps = conn.prepareStatement(<span class="string">&quot;SELECT id, username, email, age FROM t_user WHERE id = ?&quot;</span>);</span><br><span class="line">        ps.setLong(<span class="number">1</span>, id);</span><br><span class="line">        <span class="comment">// 4. 执行查询</span></span><br><span class="line">        rs = ps.executeQuery();</span><br><span class="line">        <span class="comment">// 5. 手动映射结果</span></span><br><span class="line">        <span class="keyword">if</span> (rs.next()) &#123;</span><br><span class="line">            user = <span class="keyword">new</span> <span class="title class_">User</span>();</span><br><span class="line">            user.setId(rs.getLong(<span class="string">&quot;id&quot;</span>));</span><br><span class="line">            user.setUsername(rs.getString(<span class="string">&quot;username&quot;</span>));</span><br><span class="line">            user.setEmail(rs.getString(<span class="string">&quot;email&quot;</span>));</span><br><span class="line">            user.setAge(rs.getInt(<span class="string">&quot;age&quot;</span>));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        <span class="comment">// 6. 手动释放资源（恶心！）</span></span><br><span class="line">        <span class="keyword">try</span> &#123; <span class="keyword">if</span> (rs != <span class="literal">null</span>) rs.close(); &#125; <span class="keyword">catch</span> (SQLException e) &#123; &#125;</span><br><span class="line">        <span class="keyword">try</span> &#123; <span class="keyword">if</span> (ps != <span class="literal">null</span>) ps.close(); &#125; <span class="keyword">catch</span> (SQLException e) &#123; &#125;</span><br><span class="line">        <span class="keyword">try</span> &#123; <span class="keyword">if</span> (conn != <span class="literal">null</span>) conn.close(); &#125; <span class="keyword">catch</span> (SQLException e) &#123; &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> user;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>JDBC 的痛点非常直观</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>痛点</th>
+<th>具体表现</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>代码冗余</td>
+<td>每个方法都要写 getConnection → try-catch-finally → close 的模板代码</td>
+</tr>
+<tr>
+<td>硬编码 SQL</td>
+<td>SQL 写在 Java 字符串中，修改 SQL 必须重新编译</td>
+</tr>
+<tr>
+<td>手动结果映射</td>
+<td>需要逐个 <code>rs.getXxx()</code> 再 <code>setXxx()</code>，字段多了就是噩梦</td>
+</tr>
+<tr>
+<td>资源管理</td>
+<td>Connection&#x2F;Statement&#x2F;ResultSet 的关闭顺序必须正确，否则会��漏</td>
+</tr>
+<tr>
+<td>动态 SQL 困难</td>
+<td>拼接 WHERE 条件时一堆 <code>if</code> + 字符串拼接，极易出错</td>
+</tr>
+<tr>
+<td>事务管理繁琐</td>
+<td>connection.setAutoCommit(false) + commit&#x2F;rollback，代码侵入性强</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>一句话总结</strong>：JDBC 的代码有 80% 都是重复的”仪式性代码”，真正的业务逻辑只占 20%。</p>
+</blockquote>
+<h3 id="2、ORM-框架的演进路线"><a href="#2、ORM-框架的演进路线" class="headerlink" title="2、ORM 框架的演进路线"></a>2、ORM 框架的演进路线</h3><p>Java 持久层框架的发展经历了三个阶段：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">JDBC 直连 → Spring JdbcTemplate（简化资源管理）→ MyBatis / Hibernate（ORM 框架）</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>Spring JdbcTemplate</strong>：帮我们管理了 Connection 的获取与释放，使用 <code>RowMapper</code> 做结果映射，写法比原生 JDBC 简洁很多。但它仍然需要手写 SQL 字符串，动态 SQL 依然是一堆 <code>StringBuilder</code>。</li>
+<li><strong>Hibernate</strong>：全自动 ORM，通过 HQL 和对象关系映射自动生成 SQL，开发者不需要写一行 SQL。但代价是学习曲线陡峭、复杂查询性能难以控制、N+1 查询问题。</li>
+<li><strong>MyBatis</strong>：<strong>半自动 ORM</strong> —— 开发者自己写 SQL，框架帮你做参数映射、结果映射、连接管理。保留了 SQL 的灵活性，又消灭了 JDBC 的模板代码。</li>
+</ul>
+<blockquote>
+<p>MyBatis 的核心理念是 <strong>“SQL 是第一公民”</strong>。它不生成 SQL，不隐藏 SQL，而是让你用最舒服的方式写 SQL。</p>
+</blockquote>
+<hr>
+<h2 id="二、MyBatis-核心架构：三层设计"><a href="#二、MyBatis-核心架构：三层设计" class="headerlink" title="二、MyBatis 核心架构：三层设计"></a>二、MyBatis 核心架构：三层设计</h2><p>MyBatis 的功能架构可以分为清晰的三层：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────┐</span><br><span class="line">│              接口层 (API Layer)                   │</span><br><span class="line">│  SqlSession API  │  Mapper 接口代理               │</span><br><span class="line">│  (传统方式)       │  (推荐方式)                    │</span><br><span class="line">├─────────────────────────────────────────────────┤</span><br><span class="line">│            数据处理层 (Data Processing)           │</span><br><span class="line">│  参数映射  │  SQL 解析  │  SQL 执行  │  结果映射    │</span><br><span class="line">├─────────────────────────────────────────────────┤</span><br><span class="line">│            基础支撑层 (Foundation)                │</span><br><span class="line">│  连接管理  │  事务管理  │  配置加载  │  缓存管理    │</span><br><span class="line">└─────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<p><strong>接口层</strong>：对外暴露两种使用方式 —— 传统的 <code>SqlSession</code> API（<code>sqlSession.selectOne(&quot;namespace.id&quot;, param)</code>）和 Mapper 接口代理（<code>userMapper.selectById(1L)</code>）。现代开发几乎只用后者。</p>
+<p><strong>数据处理层</strong>：MyBatis 的核心。负责参数映射（<code>#{}</code> → PreparedStatement 占位符、<code>${}</code> → 字符串替换）、动态 SQL 解析（<code>&lt;if&gt;/&lt;foreach&gt;/&lt;where&gt;</code> 等标签）、SQL 执行（通过 Executor 交给 JDBC）、结果映射（ResultSet → Java 对象&#x2F;Map）。</p>
+<p><strong>基础支撑层</strong>：提供连接池（默认 PooledDataSource）、事务管理（JDBC&#x2F;MANAGED）、配置加载（XML 解析为 Configuration 对象）、缓存支持（一级缓存&#x2F;二级缓存）。</p>
+<hr>
+<h2 id="三、MyBatis-工作流程：一条-SQL-的完整旅程"><a href="#三、MyBatis-工作流程：一条-SQL-的完整旅程" class="headerlink" title="三、MyBatis 工作流程：一条 SQL 的完整旅程"></a>三、MyBatis 工作流程：一条 SQL 的完整旅程</h2><p>当你在 Service 层调用 <code>userMapper.selectById(1L)</code> 时，MyBatis 内部发生了什么？以下是完整的执行链路：</p>
+<h3 id="1、Mapper-代理对象的创建"><a href="#1、Mapper-代理对象的创建" class="headerlink" title="1、Mapper 代理对象的创建"></a>1、Mapper 代理对象的创建</h3><p><code>userMapper</code> 并不是一个真正的实现类对象，而是 MyBatis 通过 <strong>JDK 动态代理</strong> 创建的一个代理对象：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// MyBatis 内部：MapperProxyFactory.newInstance()</span></span><br><span class="line"><span class="keyword">public</span> T <span class="title function_">newInstance</span><span class="params">(SqlSession sqlSession)</span> &#123;</span><br><span class="line">    MapperProxy&lt;T&gt; mapperProxy = <span class="keyword">new</span> <span class="title class_">MapperProxy</span>&lt;&gt;(sqlSession, mapperInterface, methodCache);</span><br><span class="line">    <span class="keyword">return</span> (T) Proxy.newProxyInstance(</span><br><span class="line">        mapperInterface.getClassLoader(),</span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">Class</span>[]&#123;mapperInterface&#125;,</span><br><span class="line">        mapperProxy</span><br><span class="line">    );</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当你调用 <code>userMapper.selectById(1L)</code> 时，实际上进入了 <code>MapperProxy.invoke()</code> 方法。</p>
+<h3 id="2、完整执行流程（9-步）"><a href="#2、完整执行流程（9-步）" class="headerlink" title="2、完整执行流程（9 步）"></a>2、完整执行流程（9 步）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">userMapper.selectById(1L)</span><br><span class="line">        │</span><br><span class="line">        ▼</span><br><span class="line">① MapperProxy.invoke()          ← JDK 动态代理拦截</span><br><span class="line">        │</span><br><span class="line">        ▼</span><br><span class="line">② MapperMethod.execute()        ← 判断 SQL 类型（SELECT/INSERT/UPDATE/DELETE）</span><br><span class="line">        │</span><br><span class="line">        ▼</span><br><span class="line">③ SqlSession.selectOne()        ← 调用 SqlSession（默认 DefaultSqlSession）</span><br><span class="line">        │</span><br><span class="line">        ▼</span><br><span class="line">④ Configuration.getMappedStatement(&quot;namespace.id&quot;)  ← 获取 MappedStatement（封装了 SQL 的所有元信息）</span><br><span class="line">        │</span><br><span class="line">        ▼</span><br><span class="line">⑤ Executor.query()              ← 执行器（SimpleExecutor/ReuseExecutor/BatchExecutor）</span><br><span class="line">        │                          ★ 一级缓存查询（如果命中直接返回）</span><br><span class="line">        │                          ★ 二级缓存查询（如果开启了二级缓存）</span><br><span class="line">        ▼</span><br><span class="line">⑥ StatementHandler              ← 创建 Statement、参数设置、执行 SQL</span><br><span class="line">        │  ├─ ParameterHandler   ← 参数映射（Java 对象 → JDBC 参数）</span><br><span class="line">        │  ├─ 执行 JDBC          ← PreparedStatement.executeQuery()</span><br><span class="line">        │  └─ ResultSetHandler   ← 结果映射（ResultSet → Java 对象）</span><br><span class="line">        ▼</span><br><span class="line">⑦ TypeHandler                   ← 类型转换（JDBC 类型 ↔ Java 类型）</span><br><span class="line">        │</span><br><span class="line">        ▼</span><br><span class="line">⑧ 结果放入缓存                   ← 一级缓存（SqlSession 级别，默认开启）</span><br><span class="line">        │</span><br><span class="line">        ▼</span><br><span class="line">⑨ 返回结果对象                   ← 返回给调用方</span><br></pre></td></tr></table></figure>
+
+<p><strong>核心对象职责</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>核心对象</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Configuration</code></td>
+<td>MyBatis 的全局配置对象，存储所有配置信息（包括 MappedStatement 的 Map、TypeHandler 注册表、拦截器链等）</td>
+</tr>
+<tr>
+<td><code>MappedStatement</code></td>
+<td>封装一条 SQL 的所有元信息：SQL 语句、参数类型、返回类型、StatementType、缓存配置等</td>
+</tr>
+<tr>
+<td><code>SqlSession</code></td>
+<td>一次数据库会话，提供 CRUD 方法。生命周期应为”请求级”，用完即关</td>
+</tr>
+<tr>
+<td><code>Executor</code></td>
+<td>SQL 执行器，负责缓存维护、事务管理、执行 SQL。三种实现：SimpleExecutor（默认，每次新建 Statement）、ReuseExecutor（复用 Statement）、BatchExecutor（批处理）</td>
+</tr>
+<tr>
+<td><code>StatementHandler</code></td>
+<td>封装对 JDBC Statement 的操作：创建 Statement、参数设置、执行查询</td>
+</tr>
+<tr>
+<td><code>ParameterHandler</code></td>
+<td>将 Java 参数对象设置到 PreparedStatement 的占位符中</td>
+</tr>
+<tr>
+<td><code>ResultSetHandler</code></td>
+<td>将 JDBC ResultSet 映射为 Java 对象或 Map</td>
+</tr>
+<tr>
+<td><code>TypeHandler</code></td>
+<td>JDBC 类型与 Java 类型之间的双向转换</td>
+</tr>
+</tbody></table>
+<h3 id="3、Executor-的三种实现"><a href="#3、Executor-的三种实现" class="headerlink" title="3、Executor 的三种实现"></a>3、Executor 的三种实现</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SimpleExecutor（默认）：每次执行都创建新的 PreparedStatement</span></span><br><span class="line"><span class="comment">// 优点：简单、无状态、线程安全</span></span><br><span class="line"><span class="comment">// 缺点：Statement 不复用</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ReuseExecutor：缓存 PreparedStatement，同一个 SQL 复用 Statement</span></span><br><span class="line"><span class="comment">// 优点：减少 Statement 创建开销</span></span><br><span class="line"><span class="comment">// 缺点：需要注意 Statement 缓存的生命周期</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// BatchExecutor：批量执行 SQL（只对 INSERT/UPDATE/DELETE 有效）</span></span><br><span class="line"><span class="comment">// 优点：批量操作性能极高</span></span><br><span class="line"><span class="comment">// 缺点：不会自动执行，需要手动 flush</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>配置方式</strong>：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">settings</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;defaultExecutorType&quot;</span> <span class="attr">value</span>=<span class="string">&quot;REUSE&quot;</span>/&gt;</span>  <span class="comment">&lt;!-- SIMPLE / REUSE / BATCH --&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">settings</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="四、Mapper-映射：XML-vs-注解"><a href="#四、Mapper-映射：XML-vs-注解" class="headerlink" title="四、Mapper 映射：XML vs 注解"></a>四、Mapper 映射：XML vs 注解</h2><h3 id="1、XML-映射：MyBatis-的灵魂"><a href="#1、XML-映射：MyBatis-的灵魂" class="headerlink" title="1、XML 映射：MyBatis 的灵魂"></a>1、XML 映射：MyBatis 的灵魂</h3><p>虽然很多人吐槽 XML 繁琐，但 XML 映射方式至今仍是处理复杂 SQL 的最佳选择。它让 SQL 与 Java 代码完全解耦，一条 SQL 改错了不会影响别的逻辑。</p>
+<p><strong>核心标签</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>标签</th>
+<th>作用</th>
+<th>常用属性</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;select&gt;</code></td>
+<td>查询语句</td>
+<td>id、resultType、resultMap、parameterType、fetchSize</td>
+</tr>
+<tr>
+<td><code>&lt;insert&gt;</code></td>
+<td>插入语句</td>
+<td>id、useGeneratedKeys、keyProperty、keyColumn</td>
+</tr>
+<tr>
+<td><code>&lt;update&gt;</code></td>
+<td>更新语句</td>
+<td>id、parameterType</td>
+</tr>
+<tr>
+<td><code>&lt;delete&gt;</code></td>
+<td>删除语句</td>
+<td>id、parameterType</td>
+</tr>
+<tr>
+<td><code>&lt;sql&gt;</code></td>
+<td>可重用的 SQL 片段</td>
+<td>id</td>
+</tr>
+<tr>
+<td><code>&lt;include&gt;</code></td>
+<td>引用 SQL 片段</td>
+<td>refid</td>
+</tr>
+<tr>
+<td><code>&lt;resultMap&gt;</code></td>
+<td>自定义结果映射（解决字段名不一致、关联查询）</td>
+<td>id、type、autoMapping</td>
+</tr>
+</tbody></table>
+<h3 id="2、-vs-：面试必考"><a href="#2、-vs-：面试必考" class="headerlink" title="2、#{} vs ${}：面试必考"></a>2、<code>#{}</code> vs <code>${}</code>：面试必考</h3><p>这是 MyBatis 最经典的问题之一，很多人即便用过也未必能说清楚本质区别：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- #&#123;&#125;：预编译占位符，安全，防 SQL 注入 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">select</span> <span class="attr">id</span>=<span class="string">&quot;getById&quot;</span> <span class="attr">resultType</span>=<span class="string">&quot;User&quot;</span>&gt;</span></span><br><span class="line">    SELECT * FROM t_user WHERE id = #&#123;id&#125;</span><br><span class="line"><span class="tag">&lt;/<span class="name">select</span>&gt;</span></span><br><span class="line"><span class="comment">&lt;!-- 实际执行的 SQL：SELECT * FROM t_user WHERE id = ? --&gt;</span></span><br><span class="line"><span class="comment">&lt;!-- JDBC 会将其编译为 PreparedStatement，参数通过 setXxx() 安全传入 --&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- $&#123;&#125;：字符串替换，不安全，有 SQL 注入风险 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">select</span> <span class="attr">id</span>=<span class="string">&quot;getByName&quot;</span> <span class="attr">resultType</span>=<span class="string">&quot;User&quot;</span>&gt;</span></span><br><span class="line">    SELECT * FROM t_user WHERE username = &#x27;$&#123;username&#125;&#x27;</span><br><span class="line"><span class="tag">&lt;/<span class="name">select</span>&gt;</span></span><br><span class="line"><span class="comment">&lt;!-- 实际执行的 SQL：SELECT * FROM t_user WHERE username = &#x27;admin&#x27; --&gt;</span></span><br><span class="line"><span class="comment">&lt;!-- 如果 username 的值是 &quot;admin&#x27; OR &#x27;1&#x27;=&#x27;1&quot;，则直接拼出永真条件！ --&gt;</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th><code>#{}</code></th>
+<th><code>${}</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>原理</td>
+<td>预编译占位符（<code>?</code>）</td>
+<td>字符串直接拼接</td>
+</tr>
+<tr>
+<td>SQL 注入</td>
+<td>安全（自动转义）</td>
+<td>不安全（无转义）</td>
+</tr>
+<tr>
+<td>使用场景</td>
+<td>WHERE 条件值、INSERT&#x2F;UPDATE 的字段值</td>
+<td>动态表名、动态列名、ORDER BY 字段名、LIKE 模糊匹配（需拼接 <code>%</code>）</td>
+</tr>
+<tr>
+<td>类型处理</td>
+<td>TypeHandler 自动转换</td>
+<td>无类型处理，直接拼字符串</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>黄金法则</strong>：能用 <code>#{}</code> 的地方绝不用 <code>${}</code>。只有当你确实需要让 SQL 本身发生变化（如表名、列名、排序字段）时，才用 <code>${}</code>，且必须对参数做白名单校验。</p>
+</blockquote>
+<h3 id="3、ResultMap：解决字段映射的终极方案"><a href="#3、ResultMap：解决字段映射的终极方案" class="headerlink" title="3、ResultMap：解决字段映射的终极方案"></a>3、ResultMap：解决字段映射的终极方案</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 场景：数据库字段 create_time（下划线） → Java 属性 createTime（驼峰） --&gt;</span></span><br><span class="line"><span class="comment">&lt;!-- 方案一：开启全局驼峰映射（简单场景） --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">settings</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;mapUnderscoreToCamelCase&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">settings</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 方案二：自定义 ResultMap（关联查询/嵌套对象） --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">resultMap</span> <span class="attr">id</span>=<span class="string">&quot;userResultMap&quot;</span> <span class="attr">type</span>=<span class="string">&quot;com.example.entity.User&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">id</span> <span class="attr">column</span>=<span class="string">&quot;id&quot;</span> <span class="attr">property</span>=<span class="string">&quot;id&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">result</span> <span class="attr">column</span>=<span class="string">&quot;username&quot;</span> <span class="attr">property</span>=<span class="string">&quot;username&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">result</span> <span class="attr">column</span>=<span class="string">&quot;create_time&quot;</span> <span class="attr">property</span>=<span class="string">&quot;createTime&quot;</span>/&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 一对一关联 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">association</span> <span class="attr">property</span>=<span class="string">&quot;profile&quot;</span> <span class="attr">javaType</span>=<span class="string">&quot;UserProfile&quot;</span></span></span><br><span class="line"><span class="tag">                 <span class="attr">column</span>=<span class="string">&quot;id&quot;</span> <span class="attr">select</span>=<span class="string">&quot;com.example.mapper.ProfileMapper.getByUserId&quot;</span>/&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 一对多关联 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">collection</span> <span class="attr">property</span>=<span class="string">&quot;orders&quot;</span> <span class="attr">ofType</span>=<span class="string">&quot;Order&quot;</span></span></span><br><span class="line"><span class="tag">                <span class="attr">column</span>=<span class="string">&quot;id&quot;</span> <span class="attr">select</span>=<span class="string">&quot;com.example.mapper.OrderMapper.getByUserId&quot;</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">resultMap</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong><code>association</code> vs <code>collection</code> 本质区别</strong>：</p>
+<ul>
+<li><code>association</code>：一对一&#x2F;多对一，返回单个对象。使用 <code>javaType</code> 指定类型。</li>
+<li><code>collection</code>：一对多，返回集合。使用 <code>ofType</code> 指定集合元素类型。</li>
+</ul>
+<h3 id="4、注解开发：简单场景的轻骑兵"><a href="#4、注解开发：简单场景的轻骑兵" class="headerlink" title="4、注解开发：简单场景的轻骑兵"></a>4、注解开发：简单场景的轻骑兵</h3><p>对于简单的 CRUD，注解方式可以让代码非常清爽：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Mapper</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">UserMapper</span> &#123;</span><br><span class="line">    <span class="meta">@Select(&quot;SELECT * FROM t_user WHERE id = #&#123;id&#125;&quot;)</span></span><br><span class="line">    User <span class="title function_">selectById</span><span class="params">(Long id)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Insert(&quot;INSERT INTO t_user(username, email, age) VALUES(#&#123;username&#125;, #&#123;email&#125;, #&#123;age&#125;)&quot;)</span></span><br><span class="line">    <span class="meta">@Options(useGeneratedKeys = true, keyProperty = &quot;id&quot;)</span></span><br><span class="line">    <span class="type">int</span> <span class="title function_">insert</span><span class="params">(User user)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Select(&quot;SELECT * FROM t_user WHERE age &gt; #&#123;minAge&#125; AND status = #&#123;status&#125;&quot;)</span></span><br><span class="line">    List&lt;User&gt; <span class="title function_">selectByAgeAndStatus</span><span class="params">(<span class="meta">@Param(&quot;minAge&quot;)</span> <span class="type">int</span> minAge, <span class="meta">@Param(&quot;status&quot;)</span> String status)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>最佳实践</strong>：简单 CRUD 用注解，复杂查询（多表关联、动态条件）用 XML。两者可以共存，MyBatis 不强制二选一。</p>
+</blockquote>
+<hr>
+<h2 id="五、动态-SQL：MyBatis-的王牌能力"><a href="#五、动态-SQL：MyBatis-的王牌能力" class="headerlink" title="五、动态 SQL：MyBatis 的王牌能力"></a>五、动态 SQL：MyBatis 的王牌能力</h2><p>动态 SQL 是 MyBatis 被广泛使用的最重要原因之一。相比在 Java 代码中用 StringBuilder 拼接 WHERE 条件，XML 动态标签让 SQL 构造变得安全、可读、可维护。</p>
+<h3 id="1、核心标签速查"><a href="#1、核心标签速查" class="headerlink" title="1、核心标签速查"></a>1、核心标签速查</h3><table>
+<thead>
+<tr>
+<th>标签</th>
+<th>作用</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;if&gt;</code></td>
+<td>条件判断</td>
+<td><code>&lt;if test=&quot;username != null and username != &#39;&#39;&quot;&gt;AND username = #{username}&lt;/if&gt;</code></td>
+</tr>
+<tr>
+<td><code>&lt;where&gt;</code></td>
+<td>自动处理 AND&#x2F;OR 前缀，无匹配时省略 WHERE</td>
+<td>包裹多个 <code>&lt;if&gt;</code>，第一个匹配的 AND 会被自动移除</td>
+</tr>
+<tr>
+<td><code>&lt;set&gt;</code></td>
+<td>自动处理 UPDATE 的逗号后缀</td>
+<td><code>&lt;set&gt;&lt;if test=&quot;username!=null&quot;&gt;username=#{username},&lt;/if&gt;&lt;/set&gt;</code></td>
+</tr>
+<tr>
+<td><code>&lt;foreach&gt;</code></td>
+<td>遍历集合生成 IN 子句或批量插入</td>
+<td><code>IN &lt;foreach collection=&quot;ids&quot; item=&quot;id&quot; open=&quot;(&quot; close=&quot;)&quot; separator=&quot;,&quot;&gt;#{id}&lt;/foreach&gt;</code></td>
+</tr>
+<tr>
+<td><code>&lt;choose&gt;/&lt;when&gt;/&lt;otherwise&gt;</code></td>
+<td>多分支选择（等价于 Java switch）</td>
+<td>从多个条件中只选一个满足的</td>
+</tr>
+<tr>
+<td><code>&lt;trim&gt;</code></td>
+<td>自定义前缀&#x2F;后缀处理（<code>&lt;where&gt;</code> 和 <code>&lt;set&gt;</code> 的本质）</td>
+<td><code>&lt;trim prefix=&quot;WHERE&quot; prefixOverrides=&quot;AND&quot;&gt;</code></td>
+</tr>
+<tr>
+<td><code>&lt;bind&gt;</code></td>
+<td>创建变量（如 LIKE 模糊匹配的 <code>%</code> 拼接）</td>
+<td><code>&lt;bind name=&quot;pattern&quot; value=&quot;&#39;%&#39; + keyword + &#39;%&#39;&quot;/&gt;</code></td>
+</tr>
+</tbody></table>
+<h3 id="2、实战：复杂多条件查询"><a href="#2、实战：复杂多条件查询" class="headerlink" title="2、实战：复杂多条件查询"></a>2、实战：复杂多条件查询</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">select</span> <span class="attr">id</span>=<span class="string">&quot;selectByConditions&quot;</span> <span class="attr">resultType</span>=<span class="string">&quot;User&quot;</span>&gt;</span></span><br><span class="line">    SELECT * FROM t_user</span><br><span class="line">    <span class="tag">&lt;<span class="name">where</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">if</span> <span class="attr">test</span>=<span class="string">&quot;username != null and username != &#x27;&#x27;&quot;</span>&gt;</span></span><br><span class="line">            AND username LIKE CONCAT(&#x27;%&#x27;, #&#123;username&#125;, &#x27;%&#x27;)</span><br><span class="line">        <span class="tag">&lt;/<span class="name">if</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">if</span> <span class="attr">test</span>=<span class="string">&quot;minAge != null&quot;</span>&gt;</span></span><br><span class="line">            AND age <span class="symbol">&amp;gt;</span>= #&#123;minAge&#125;</span><br><span class="line">        <span class="tag">&lt;/<span class="name">if</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">if</span> <span class="attr">test</span>=<span class="string">&quot;maxAge != null&quot;</span>&gt;</span></span><br><span class="line">            AND age <span class="symbol">&amp;lt;</span>= #&#123;maxAge&#125;</span><br><span class="line">        <span class="tag">&lt;/<span class="name">if</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">if</span> <span class="attr">test</span>=<span class="string">&quot;status != null&quot;</span>&gt;</span></span><br><span class="line">            AND status = #&#123;status&#125;</span><br><span class="line">        <span class="tag">&lt;/<span class="name">if</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">if</span> <span class="attr">test</span>=<span class="string">&quot;deptIds != null and deptIds.size() &gt; 0&quot;</span>&gt;</span></span><br><span class="line">            AND dept_id IN</span><br><span class="line">            <span class="tag">&lt;<span class="name">foreach</span> <span class="attr">collection</span>=<span class="string">&quot;deptIds&quot;</span> <span class="attr">item</span>=<span class="string">&quot;deptId&quot;</span> <span class="attr">open</span>=<span class="string">&quot;(&quot;</span> <span class="attr">close</span>=<span class="string">&quot;)&quot;</span> <span class="attr">separator</span>=<span class="string">&quot;,&quot;</span>&gt;</span></span><br><span class="line">                #&#123;deptId&#125;</span><br><span class="line">            <span class="tag">&lt;/<span class="name">foreach</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">if</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">where</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">if</span> <span class="attr">test</span>=<span class="string">&quot;orderBy != null and orderBy != &#x27;&#x27;&quot;</span>&gt;</span></span><br><span class="line">        ORDER BY $&#123;orderBy&#125;</span><br><span class="line">        <span class="tag">&lt;<span class="name">if</span> <span class="attr">test</span>=<span class="string">&quot;sortDirection != null&quot;</span>&gt;</span>$&#123;sortDirection&#125;<span class="tag">&lt;/<span class="name">if</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">if</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">select</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3、批量操作"><a href="#3、批量操作" class="headerlink" title="3、批量操作"></a>3、批量操作</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 批量插入 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">insert</span> <span class="attr">id</span>=<span class="string">&quot;batchInsert&quot;</span> <span class="attr">parameterType</span>=<span class="string">&quot;list&quot;</span>&gt;</span></span><br><span class="line">    INSERT INTO t_user(username, email, age) VALUES</span><br><span class="line">    <span class="tag">&lt;<span class="name">foreach</span> <span class="attr">collection</span>=<span class="string">&quot;list&quot;</span> <span class="attr">item</span>=<span class="string">&quot;user&quot;</span> <span class="attr">separator</span>=<span class="string">&quot;,&quot;</span>&gt;</span></span><br><span class="line">        (#&#123;user.username&#125;, #&#123;user.email&#125;, #&#123;user.age&#125;)</span><br><span class="line">    <span class="tag">&lt;/<span class="name">foreach</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">insert</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 批量更新（一条 SQL 实现多条记录的更新） --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">update</span> <span class="attr">id</span>=<span class="string">&quot;batchUpdateStatus&quot;</span>&gt;</span></span><br><span class="line">    UPDATE t_user SET status =</span><br><span class="line">    <span class="tag">&lt;<span class="name">foreach</span> <span class="attr">collection</span>=<span class="string">&quot;list&quot;</span> <span class="attr">item</span>=<span class="string">&quot;item&quot;</span> <span class="attr">open</span>=<span class="string">&quot;CASE id&quot;</span> <span class="attr">close</span>=<span class="string">&quot;END&quot;</span>&gt;</span></span><br><span class="line">        WHEN #&#123;item.id&#125; THEN #&#123;item.status&#125;</span><br><span class="line">    <span class="tag">&lt;/<span class="name">foreach</span>&gt;</span></span><br><span class="line">    WHERE id IN</span><br><span class="line">    <span class="tag">&lt;<span class="name">foreach</span> <span class="attr">collection</span>=<span class="string">&quot;list&quot;</span> <span class="attr">item</span>=<span class="string">&quot;item&quot;</span> <span class="attr">open</span>=<span class="string">&quot;(&quot;</span> <span class="attr">close</span>=<span class="string">&quot;)&quot;</span> <span class="attr">separator</span>=<span class="string">&quot;,&quot;</span>&gt;</span></span><br><span class="line">        #&#123;item.id&#125;</span><br><span class="line">    <span class="tag">&lt;/<span class="name">foreach</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">update</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="六、MyBatis-缓存机制"><a href="#六、MyBatis-缓存机制" class="headerlink" title="六、MyBatis 缓存机制"></a>六、MyBatis 缓存机制</h2><h3 id="1、一级缓存（Local-Cache）"><a href="#1、一级缓存（Local-Cache）" class="headerlink" title="1、一级缓存（Local Cache）"></a>1、一级缓存（Local Cache）</h3><p><strong>默认开启，SqlSession 级别，无法关闭（只能控制作用域）。</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">SqlSession</span> <span class="variable">sqlSession</span> <span class="operator">=</span> sqlSessionFactory.openSession();</span><br><span class="line"><span class="type">UserMapper</span> <span class="variable">mapper</span> <span class="operator">=</span> sqlSession.getMapper(UserMapper.class);</span><br><span class="line"></span><br><span class="line"><span class="type">User</span> <span class="variable">user1</span> <span class="operator">=</span> mapper.selectById(<span class="number">1L</span>);  <span class="comment">// 查询数据库，结果放入一级缓存</span></span><br><span class="line"><span class="type">User</span> <span class="variable">user2</span> <span class="operator">=</span> mapper.selectById(<span class="number">1L</span>);  <span class="comment">// 同一 SqlSession 内，命中缓存，不再查库</span></span><br><span class="line">System.out.println(user1 == user2);  <span class="comment">// true（同一对象引用）</span></span><br><span class="line"></span><br><span class="line">sqlSession.close();                  <span class="comment">// 缓存失效</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>一级缓存失效的场景</strong>：</p>
+<ul>
+<li>不同的 SqlSession</li>
+<li>同一个 SqlSession 但查询条件不同</li>
+<li>同一个 SqlSession 执行了 INSERT&#x2F;UPDATE&#x2F;DELETE（会清空缓存）</li>
+<li>手动调用了 <code>sqlSession.clearCache()</code></li>
+</ul>
+<blockquote>
+<p><strong>坑点</strong>：Spring 整合 MyBatis 时，每次请求 SqlSession 都不一样（Spring 管理的 SqlSession 是请求级别的），所以一级缓存<strong>在 Spring 环境下基本上没用</strong>。不要指望它能提升性能。</p>
+</blockquote>
+<h3 id="2、二级缓存（Second-Level-Cache）"><a href="#2、二级缓存（Second-Level-Cache）" class="headerlink" title="2、二级缓存（Second Level Cache）"></a>2、二级缓存（Second Level Cache）</h3><p><strong>默认关闭，需要手动开启。Namespace 级别，跨 SqlSession 共享。</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 第一步：全局开启二级缓存 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">settings</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;cacheEnabled&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">settings</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 第二步：在 Mapper XML 中声明使用缓存 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">mapper</span> <span class="attr">namespace</span>=<span class="string">&quot;com.example.mapper.UserMapper&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">cache</span></span></span><br><span class="line"><span class="tag">        <span class="attr">eviction</span>=<span class="string">&quot;LRU&quot;</span>              &lt;!<span class="attr">--</span> <span class="attr">淘汰策略</span>：<span class="attr">LRU</span>/<span class="attr">FIFO</span>/<span class="attr">SOFT</span>/<span class="attr">WEAK</span> <span class="attr">--</span>&gt;</span></span><br><span class="line">        flushInterval=&quot;60000&quot;       <span class="comment">&lt;!-- 刷新间隔（毫秒） --&gt;</span></span><br><span class="line">        size=&quot;512&quot;                  <span class="comment">&lt;!-- 最多缓存 512 个对象引用 --&gt;</span></span><br><span class="line">        readOnly=&quot;true&quot;             <span class="comment">&lt;!-- 只读缓存（性能更高，不可修改） --&gt;</span></span><br><span class="line">    /&gt;</span><br><span class="line"><span class="tag">&lt;/<span class="name">mapper</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 第三步：需要缓存的查询声明 useCache=&quot;true&quot;（默认就是 true） --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">select</span> <span class="attr">id</span>=<span class="string">&quot;selectById&quot;</span> <span class="attr">resultType</span>=<span class="string">&quot;User&quot;</span> <span class="attr">useCache</span>=<span class="string">&quot;true&quot;</span>&gt;</span></span><br><span class="line">    SELECT * FROM t_user WHERE id = #&#123;id&#125;</span><br><span class="line"><span class="tag">&lt;/<span class="name">select</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>二级缓存工作原理</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">SqlSession1 ──查询──→ 二级缓存(未命中) ──→ 数据库 ──→ 写入二级缓存 ──→ 返回结果</span><br><span class="line">SqlSession1.close() ──→ 一级缓存写入二级缓存</span><br><span class="line"></span><br><span class="line">SqlSession2 ──查询──→ 二级缓存(命中) ──→ 返回结果（不查数据库）</span><br></pre></td></tr></table></figure>
+
+<p><strong>二级缓存的注意事项（踩坑清单）</strong>：</p>
+<ul>
+<li>返回的对象必须实现 <code>Serializable</code>（因为二级缓存需要序列化存储）。</li>
+<li>多表关联查询可能读到脏数据（别的 Namespace 更新了关联表，但本 Namespace 的缓存没有失效）。</li>
+<li><strong>生产环境中谨慎使用</strong>：分布式场景下 MyBatis 二级缓存无法同步，推荐用 Redis 等外部缓存。</li>
+<li>适合：读多写少、数据变化不频繁的字典表、配置表。</li>
+</ul>
+<hr>
+<h2 id="七、MyBatis-插件机制（Interceptor）"><a href="#七、MyBatis-插件机制（Interceptor）" class="headerlink" title="七、MyBatis 插件机制（Interceptor）"></a>七、MyBatis 插件机制（Interceptor）</h2><p>MyBatis 通过<strong>责任链模式 + 动态代理</strong>实现了插件拦截机制。你可以拦截 MyBatis 四大核心对象的任意方法：</p>
+<table>
+<thead>
+<tr>
+<th>可拦截对象</th>
+<th>可拦截方法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Executor</code></td>
+<td>update、query、flushStatements、commit、rollback、getTransaction、close、isClosed</td>
+</tr>
+<tr>
+<td><code>ParameterHandler</code></td>
+<td>getParameterObject、setParameters</td>
+</tr>
+<tr>
+<td><code>ResultSetHandler</code></td>
+<td>handleResultSets、handleOutputParameters</td>
+</tr>
+<tr>
+<td><code>StatementHandler</code></td>
+<td>prepare、parameterize、batch、update、query</td>
+</tr>
+</tbody></table>
+<h3 id="自定义分页插件（示例）"><a href="#自定义分页插件（示例）" class="headerlink" title="自定义分页插件（示例）"></a>自定义分页插件（示例）</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Intercepts(&#123;</span></span><br><span class="line"><span class="meta">    @Signature(type = StatementHandler.class, method = &quot;prepare&quot;, args = &#123;Connection.class, Integer.class&#125;)</span></span><br><span class="line"><span class="meta">&#125;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">PaginationInterceptor</span> <span class="keyword">implements</span> <span class="title class_">Interceptor</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Object <span class="title function_">intercept</span><span class="params">(Invocation invocation)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="type">StatementHandler</span> <span class="variable">handler</span> <span class="operator">=</span> (StatementHandler) invocation.getTarget();</span><br><span class="line">        <span class="type">MetaObject</span> <span class="variable">metaObject</span> <span class="operator">=</span> SystemMetaObject.forObject(handler);</span><br><span class="line">        <span class="type">MappedStatement</span> <span class="variable">ms</span> <span class="operator">=</span> (MappedStatement) metaObject.getValue(<span class="string">&quot;delegate.mappedStatement&quot;</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 只拦截查询语句</span></span><br><span class="line">        <span class="keyword">if</span> (ms.getSqlCommandType() != SqlCommandType.SELECT) &#123;</span><br><span class="line">            <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 从参数中获取分页信息（pageNum, pageSize）</span></span><br><span class="line">        <span class="comment">// 修改原始 SQL 为带 LIMIT 的分页 SQL</span></span><br><span class="line">        <span class="type">BoundSql</span> <span class="variable">boundSql</span> <span class="operator">=</span> handler.getBoundSql();</span><br><span class="line">        <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> boundSql.getSql();</span><br><span class="line">        <span class="type">String</span> <span class="variable">pageSql</span> <span class="operator">=</span> sql + <span class="string">&quot; LIMIT &quot;</span> + pageSize + <span class="string">&quot; OFFSET &quot;</span> + (pageNum - <span class="number">1</span>) * pageSize;</span><br><span class="line">        metaObject.setValue(<span class="string">&quot;delegate.boundSql.sql&quot;</span>, pageSql);</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">return</span> invocation.proceed();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 注册插件</span></span><br><span class="line">&lt;plugins&gt;</span><br><span class="line">    &lt;plugin interceptor=<span class="string">&quot;com.example.plugin.PaginationInterceptor&quot;</span>/&gt;</span><br><span class="line">&lt;/plugins&gt;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>实际上，MyBatis-Plus 已经内置了成熟的分页插件（<code>PaginationInnerInterceptor</code>），不需要自己实现。</p>
+</blockquote>
+<hr>
+<h2 id="八、MyBatis-Plus：让-MyBatis-更好用"><a href="#八、MyBatis-Plus：让-MyBatis-更好用" class="headerlink" title="八、MyBatis-Plus：让 MyBatis 更好用"></a>八、MyBatis-Plus：让 MyBatis 更好用</h2><p>如果说 MyBatis 是一把锋利的刀，那 <strong>MyBatis-Plus（MP）就是给这把刀配上了全套厨房电器</strong>。最新稳定版是 <strong>3.5.17（2026-07-07 发布）</strong>，它让开发者告别了手写 XML 的 CRUD。</p>
+<h3 id="1、核心增强能力速览"><a href="#1、核心增强能力速览" class="headerlink" title="1、核心增强能力速览"></a>1、核心增强能力速览</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>原生 MyBatis</th>
+<th>MyBatis-Plus</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单表 CRUD</td>
+<td>需要写 Mapper 接口 + XML</td>
+<td>继承 <code>BaseMapper&lt;T&gt;</code>，CRUD 全自动</td>
+</tr>
+<tr>
+<td>条件构造</td>
+<td>手动拼接 WHERE 字符串</td>
+<td>Lambda 表达式链式调用，类型安全</td>
+</tr>
+<tr>
+<td>分页</td>
+<td>需要集成 PageHelper</td>
+<td>内置分页插件，一行代码</td>
+</tr>
+<tr>
+<td>主键策略</td>
+<td>需要手动管理</td>
+<td><code>@TableId(type = IdType.ASSIGN_ID)</code> 雪花算法</td>
+</tr>
+<tr>
+<td>自动填充</td>
+<td>需要手动设值</td>
+<td><code>@TableField(fill = FieldFill.INSERT)</code> 自动填充</td>
+</tr>
+<tr>
+<td>逻辑删除</td>
+<td>需要手写 WHERE status&#x3D;1</td>
+<td><code>@TableLogic</code> 注解，SQL 自动追加条件</td>
+</tr>
+<tr>
+<td>乐观锁</td>
+<td>需要手动拼接 version</td>
+<td><code>@Version</code> 注解，update 自动带版本号比对</td>
+</tr>
+<tr>
+<td>代码生成器</td>
+<td>无</td>
+<td>根据表结构一键生成 Entity&#x2F;Mapper&#x2F;Service&#x2F;Controller</td>
+</tr>
+</tbody></table>
+<h3 id="2、BaseMapper：几乎消灭单表-CRUD"><a href="#2、BaseMapper：几乎消灭单表-CRUD" class="headerlink" title="2、BaseMapper：几乎消灭单表 CRUD"></a>2、BaseMapper：几乎消灭单表 CRUD</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Mapper</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">UserMapper</span> <span class="keyword">extends</span> <span class="title class_">BaseMapper</span>&lt;User&gt; &#123;</span><br><span class="line">    <span class="comment">// 不需要写任何方法！BaseMapper 自带以下方法：</span></span><br><span class="line">    <span class="comment">// insert(), deleteById(), deleteByMap(), delete(), deleteBatchIds()</span></span><br><span class="line">    <span class="comment">// updateById(), update()</span></span><br><span class="line">    <span class="comment">// selectById(), selectBatchIds(), selectByMap(), selectOne()</span></span><br><span class="line">    <span class="comment">// selectList(), selectCount(), selectMaps(), selectPage()</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 只写 BaseMapper 无法满足的复杂查询</span></span><br><span class="line">    <span class="meta">@Select(&quot;SELECT * FROM t_user WHERE email = #&#123;email&#125;&quot;)</span></span><br><span class="line">    User <span class="title function_">selectByEmail</span><span class="params">(String email)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3、LambdaQueryWrapper：告别字符串硬编码"><a href="#3、LambdaQueryWrapper：告别字符串硬编码" class="headerlink" title="3、LambdaQueryWrapper：告别字符串硬编码"></a>3、LambdaQueryWrapper：告别字符串硬编码</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 传统方式（字段名是字符串，重构时容易漏改）</span></span><br><span class="line">QueryWrapper&lt;User&gt; wrapper1 = <span class="keyword">new</span> <span class="title class_">QueryWrapper</span>&lt;&gt;();</span><br><span class="line">wrapper1.eq(<span class="string">&quot;username&quot;</span>, <span class="string">&quot;admin&quot;</span>).gt(<span class="string">&quot;age&quot;</span>, <span class="number">18</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// Lambda 方式（类型安全，重构自动生效★★★★★）</span></span><br><span class="line">LambdaQueryWrapper&lt;User&gt; wrapper2 = <span class="keyword">new</span> <span class="title class_">LambdaQueryWrapper</span>&lt;&gt;();</span><br><span class="line">wrapper2.eq(User::getUsername, <span class="string">&quot;admin&quot;</span>)</span><br><span class="line">        .gt(User::getAge, <span class="number">18</span>)</span><br><span class="line">        .in(User::getDeptId, Arrays.asList(<span class="number">1L</span>, <span class="number">2L</span>, <span class="number">3L</span>))</span><br><span class="line">        .like(User::getEmail, <span class="string">&quot;qq.com&quot;</span>)</span><br><span class="line">        .orderByDesc(User::getCreateTime);</span><br><span class="line"></span><br><span class="line">List&lt;User&gt; users = userMapper.selectList(wrapper2);</span><br></pre></td></tr></table></figure>
+
+<p><strong>Lambda 方式为什么好</strong>：</p>
+<ul>
+<li>字段名从 <code>User::getUsername</code> 方法引用推断，不是字符串，IDE 重构时自动同步。</li>
+<li>编译期就能发现字段名错误，不需要等到运行时。</li>
+<li>代码提示友好，打 <code>.</code> 就能看到所有可用字段。</li>
+</ul>
+<h3 id="4、分页插件"><a href="#4、分页插件" class="headerlink" title="4、分页插件"></a>4、分页插件</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 配置分页插件（Spring Boot 3.x）</span></span><br><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MybatisPlusConfig</span> &#123;</span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> MybatisPlusInterceptor <span class="title function_">mybatisPlusInterceptor</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">MybatisPlusInterceptor</span> <span class="variable">interceptor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MybatisPlusInterceptor</span>();</span><br><span class="line">        <span class="comment">// 分页插件</span></span><br><span class="line">        interceptor.addInnerInterceptor(<span class="keyword">new</span> <span class="title class_">PaginationInnerInterceptor</span>(DbType.MYSQL));</span><br><span class="line">        <span class="comment">// 防止全表更新与删除插件（安全插件，强烈推荐）</span></span><br><span class="line">        interceptor.addInnerInterceptor(<span class="keyword">new</span> <span class="title class_">BlockAttackInnerInterceptor</span>());</span><br><span class="line">        <span class="keyword">return</span> interceptor;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用</span></span><br><span class="line">Page&lt;User&gt; page = <span class="keyword">new</span> <span class="title class_">Page</span>&lt;&gt;(<span class="number">1</span>, <span class="number">10</span>);  <span class="comment">// 第 1 页，每页 10 条</span></span><br><span class="line">Page&lt;User&gt; result = userMapper.selectPage(page,</span><br><span class="line">    <span class="keyword">new</span> <span class="title class_">LambdaQueryWrapper</span>&lt;User&gt;().gt(User::getAge, <span class="number">18</span>));</span><br><span class="line">System.out.println(<span class="string">&quot;总记录数：&quot;</span> + result.getTotal());</span><br><span class="line">System.out.println(<span class="string">&quot;总页数：&quot;</span> + result.getPages());</span><br><span class="line">result.getRecords().forEach(System.out::println);</span><br></pre></td></tr></table></figure>
+
+<h3 id="5、自动填充"><a href="#5、自动填充" class="headerlink" title="5、自动填充"></a>5、自动填充</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 实体类</span></span><br><span class="line"><span class="meta">@Data</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">User</span> &#123;</span><br><span class="line">    <span class="meta">@TableId(type = IdType.ASSIGN_ID)</span></span><br><span class="line">    <span class="keyword">private</span> Long id;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@TableField(fill = FieldFill.INSERT)</span>          <span class="comment">// 插入时自动填充</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime createTime;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@TableField(fill = FieldFill.INSERT_UPDATE)</span>   <span class="comment">// 插入和更新时自动填充</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime updateTime;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 填充处理器</span></span><br><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyMetaObjectHandler</span> <span class="keyword">implements</span> <span class="title class_">MetaObjectHandler</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">insertFill</span><span class="params">(MetaObject metaObject)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.strictInsertFill(metaObject, <span class="string">&quot;createTime&quot;</span>, LocalDateTime.class, LocalDateTime.now());</span><br><span class="line">        <span class="built_in">this</span>.strictInsertFill(metaObject, <span class="string">&quot;updateTime&quot;</span>, LocalDateTime.class, LocalDateTime.now());</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">updateFill</span><span class="params">(MetaObject metaObject)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.strictUpdateFill(metaObject, <span class="string">&quot;updateTime&quot;</span>, LocalDateTime.class, LocalDateTime.now());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="6、逻辑删除与乐观锁"><a href="#6、逻辑删除与乐观锁" class="headerlink" title="6、逻辑删除与乐观锁"></a>6、逻辑删除与乐观锁</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 逻辑删除</span></span><br><span class="line"><span class="meta">@Data</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">User</span> &#123;</span><br><span class="line">    <span class="meta">@TableLogic</span></span><br><span class="line">    <span class="keyword">private</span> Integer deleted;  <span class="comment">// 0-未删除, 1-已删除</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// userMapper.deleteById(1L);</span></span><br><span class="line"><span class="comment">// 实际生成的 SQL：UPDATE t_user SET deleted = 1 WHERE id = 1 AND deleted = 0</span></span><br><span class="line"><span class="comment">// userMapper.selectList(wrapper);</span></span><br><span class="line"><span class="comment">// 实际 SELECT 自动追加 WHERE deleted = 0</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ==========================================</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 乐观锁</span></span><br><span class="line"><span class="meta">@Data</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Product</span> &#123;</span><br><span class="line">    <span class="meta">@Version</span></span><br><span class="line">    <span class="keyword">private</span> Integer version;  <span class="comment">// 版本号字段</span></span><br><span class="line">    <span class="keyword">private</span> Integer stock;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 更新时：</span></span><br><span class="line"><span class="comment">// UPDATE t_product SET stock = 99, version = version + 1</span></span><br><span class="line"><span class="comment">// WHERE id = 1 AND version = 3</span></span><br><span class="line"><span class="comment">// 如果 version 不匹配（被其他事务修改过），更新影响行数为 0，抛出异常</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="7、代码生成器"><a href="#7、代码生成器" class="headerlink" title="7、代码生成器"></a>7、代码生成器</h3><p>MyBatis-Plus 3.5.17 的代码生成器支持可视化配置，也可以通过代码配置：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">FastAutoGenerator.create(<span class="string">&quot;jdbc:mysql://localhost:3306/mybatis_plus&quot;</span>, <span class="string">&quot;root&quot;</span>, <span class="string">&quot;password&quot;</span>)</span><br><span class="line">    .globalConfig(builder -&gt; builder.author(<span class="string">&quot;你的名字&quot;</span>).outputDir(<span class="string">&quot;D:/code&quot;</span>))</span><br><span class="line">    .packageConfig(builder -&gt; builder.parent(<span class="string">&quot;com.example&quot;</span>).moduleName(<span class="string">&quot;user&quot;</span>))</span><br><span class="line">    .strategyConfig(builder -&gt; builder.addInclude(<span class="string">&quot;t_user&quot;</span>, <span class="string">&quot;t_order&quot;</span>)  <span class="comment">// 指定表名</span></span><br><span class="line">                                    .entityBuilder().enableLombok()</span><br><span class="line">                                    .mapperBuilder().enableMapperAnnotation()</span><br><span class="line">                                    .serviceBuilder().formatServiceFileName(<span class="string">&quot;%sService&quot;</span>))</span><br><span class="line">    .execute();</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="九、2026-年-MyBatis-生态最新动态"><a href="#九、2026-年-MyBatis-生态最新动态" class="headerlink" title="九、2026 年 MyBatis 生态最新动态"></a>九、2026 年 MyBatis 生态最新动态</h2><h3 id="1、MyBatis-3-5-19（2026-01-02）"><a href="#1、MyBatis-3-5-19（2026-01-02）" class="headerlink" title="1、MyBatis 3.5.19（2026-01-02）"></a>1、MyBatis 3.5.19（2026-01-02）</h3><ul>
+<li>回滚了 3.5.18 中 PR #3349 引入的回归问题（Invocation 误用安全漏洞相关）。</li>
+<li>这是 3.5 系列 Java 8 分支的最新修订版。3.6.0（Java 11&#x2F;17 基线）仍在早期规划中。</li>
+<li>增强虚拟线程兼容性（3.5.16 引入）、降低自动映射内存占用。</li>
+</ul>
+<h3 id="2、MyBatis-Plus-3-5-17（2026-07-07）——-重大更新"><a href="#2、MyBatis-Plus-3-5-17（2026-07-07）——-重大更新" class="headerlink" title="2、MyBatis-Plus 3.5.17（2026-07-07）—— 重大更新"></a>2、MyBatis-Plus 3.5.17（2026-07-07）—— 重大更新</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ★ 新增 GraalVM Native Image 支持</span></span><br><span class="line"><span class="comment">// 新增 mybatis-plus-spring-boot-native-image 模块</span></span><br><span class="line"><span class="comment">// Demo: https://gitee.com/baomidou/mybatis-plus-native-image-demo</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ★ 新增 Groovy/Kotlin 对 LambdaQueryWrapper 的支持</span></span><br><span class="line"><span class="comment">// Groovy:</span></span><br><span class="line"><span class="type">def</span> <span class="variable">wrapper</span> <span class="operator">=</span> Wrappers.&lt;User&gt;lambdaQuery().eq(User::username, <span class="string">&quot;admin&quot;</span>)</span><br><span class="line"><span class="comment">// Kotlin:</span></span><br><span class="line"><span class="type">val</span> <span class="variable">wrapper</span> <span class="operator">=</span> lambdaQuery&lt;User&gt; &#123; eq(User::username, <span class="string">&quot;admin&quot;</span>) &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ★ 新增 MybatisEnumTypeHandler 缓存处理机制</span></span><br><span class="line"><span class="comment">// ★ 新增 Wrapper 自动识别 typeHandler 类型处理器</span></span><br><span class="line"><span class="comment">// ★ 新增 eqOrIsNull 方法（等于指定值或为 NULL）</span></span><br><span class="line"><span class="comment">// ★ 新增游标查询 selectWithCursor 方法</span></span><br><span class="line"><span class="comment">// ★ 优化 selectOne 避免误用导致内存泄漏</span></span><br><span class="line"><span class="comment">// ★ JDK 9+ 模块化支持（mybatis-plus-spring 包名调整）</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3、MyBatis-Dynamic-SQL-2-0-0（2026-03-11）"><a href="#3、MyBatis-Dynamic-SQL-2-0-0（2026-03-11）" class="headerlink" title="3、MyBatis Dynamic SQL 2.0.0（2026-03-11）"></a>3、MyBatis Dynamic SQL 2.0.0（2026-03-11）</h3><ul>
+<li>最低 Java 版本要求提升到 <strong>Java 17</strong>。</li>
+<li>DSL 全面重构：<code>org.mybatis.dynamic.sql.dsl</code> 新包，旧 DSL 将在下个主版本移除。</li>
+<li>Kotlin 支持使用新版 DSL（对用户透明）。</li>
+<li>废弃了泛型函数风格，推荐 <code>map()</code> 方法替代。</li>
+</ul>
+<h3 id="4、行业趋势"><a href="#4、行业趋势" class="headerlink" title="4、行业趋势"></a>4、行业趋势</h3><ul>
+<li><strong>GraalVM Native Image</strong> 成为 MyBatis-Plus 2026 重点方向，Spring Boot 3.x + GraalVM 编译为原生二进制，启动时间从秒级降到毫秒级。</li>
+<li><strong>虚拟线程</strong>（Virtual Threads）持续渗透：MyBatis 3.5.16+ 增强了虚拟线程兼容性，配合 Spring Boot 3.x 使用虚拟线程可以显著提升数据库操作的吞吐量。</li>
+<li><strong>XML 式微</strong>：注解 + Lambda 流式 API 渐渐成为主流。MyBatis-Plus &#x2F; MyBatis-Flex 等增强工具让”零 XML”开发成为可能。</li>
+<li><strong>AI 辅助 SQL 生成</strong>：社区开始出现结合 LLM 自动生成 MyBatis 映射代码的工具，但生产落地仍需谨慎评估。</li>
+</ul>
+<hr>
+<h2 id="十、生产环境最佳实践"><a href="#十、生产环境最佳实践" class="headerlink" title="十、生产环境最佳实践"></a>十、生产环境最佳实践</h2><h3 id="1、配置优化"><a href="#1、配置优化" class="headerlink" title="1、配置优化"></a>1、配置优化</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">settings</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 开启驼峰映射，避免每个字段都写 resultMap --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;mapUnderscoreToCamelCase&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">&lt;!-- 懒加载（按需加载关联对象） --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;lazyLoadingEnabled&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;aggressiveLazyLoading&quot;</span> <span class="attr">value</span>=<span class="string">&quot;false&quot;</span>/&gt;</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">&lt;!-- 日志输出（生产环境建议使用 SLF4J，方便接入 ELK） --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;logImpl&quot;</span> <span class="attr">value</span>=<span class="string">&quot;SLF4J&quot;</span>/&gt;</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">&lt;!-- 返回 null 值字段（前端处理更方便） --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;callSettersOnNulls&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">&lt;!-- 使用列标签而非列名（解决别名不生效的问题） --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">setting</span> <span class="attr">name</span>=<span class="string">&quot;useColumnLabel&quot;</span> <span class="attr">value</span>=<span class="string">&quot;true&quot;</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">settings</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2、性能优化清单"><a href="#2、性能优化清单" class="headerlink" title="2、性能优化清单"></a>2、性能优化清单</h3><table>
+<thead>
+<tr>
+<th>优化项</th>
+<th>具体措施</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>避免 <code>SELECT *</code></strong></td>
+<td>只查需要的字段，减少网络传输和内存占用</td>
+</tr>
+<tr>
+<td><strong>合理使用懒加载</strong></td>
+<td>关联对象不需要时不要查（<code>fetchType = FetchType.LAZY</code>）</td>
+</tr>
+<tr>
+<td><strong>批量操作用 BATCH 模式</strong></td>
+<td>批量插入&#x2F;更新时创建 BatchSqlSession，性能提升 5-10 倍</td>
+</tr>
+<tr>
+<td><strong>大数据量用游标查询</strong></td>
+<td>MyBatis-Plus 3.5.17 新增 <code>selectWithCursor</code>，逐条处理避免内存溢出</td>
+</tr>
+<tr>
+<td><strong>分页插件只对查询生效</strong></td>
+<td>不需要分页的查询不要用分页包装</td>
+</tr>
+<tr>
+<td><strong>连接池调优</strong></td>
+<td>HikariCP：<code>maximumPoolSize = 2*CPU核数+1</code>，<code>connectionTimeout = 30000</code></td>
+</tr>
+<tr>
+<td><strong>索引优化</strong></td>
+<td>MyBatis 不能替你建索引，确保 WHERE&#x2F;JOIN&#x2F;ORDER BY 字段有合适索引</td>
+</tr>
+<tr>
+<td><strong>慎用二级缓存</strong></td>
+<td>分布式环境用 Redis 替代 MyBatis 自带二级缓存</td>
+</tr>
+</tbody></table>
+<h3 id="3、SQL-注入防护"><a href="#3、SQL-注入防护" class="headerlink" title="3、SQL 注入防护"></a>3、SQL 注入防护</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 危险：用 $&#123;&#125; 拼接用户输入（绝对禁止）</span></span><br><span class="line">wrapper.apply(<span class="string">&quot;username = &#x27;&quot;</span> + userInput + <span class="string">&quot;&#x27;&quot;</span>);  <span class="comment">// SQL 注入！</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 安全：使用 LambdaQueryWrapper 的方法，内部用 #&#123;&#125; </span></span><br><span class="line">wrapper.eq(User::getUsername, userInput);  <span class="comment">// 安全</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 必须拼接 ORDER BY 时的白名单校验</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Set&lt;String&gt; ALLOWED_COLUMNS = Set.of(<span class="string">&quot;id&quot;</span>, <span class="string">&quot;username&quot;</span>, <span class="string">&quot;create_time&quot;</span>);</span><br><span class="line"><span class="keyword">public</span> List&lt;User&gt; <span class="title function_">selectOrdered</span><span class="params">(String orderBy)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (orderBy == <span class="literal">null</span> || !ALLOWED_COLUMNS.contains(orderBy)) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;非法排序字段: &quot;</span> + orderBy);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> mapper.selectList(<span class="keyword">new</span> <span class="title class_">LambdaQueryWrapper</span>&lt;User&gt;()</span><br><span class="line">        .last(<span class="string">&quot;ORDER BY &quot;</span> + orderBy));  <span class="comment">// 白名单校验后才拼接</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4、事务管理"><a href="#4、事务管理" class="headerlink" title="4、事务管理"></a>4、事务管理</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="comment">// MyBatis-Plus 配合 Spring 的 @Transactional 使用</span></span><br><span class="line">    <span class="meta">@Transactional(rollbackFor = Exception.class)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">createOrder</span><span class="params">(Order order)</span> &#123;</span><br><span class="line">        <span class="comment">// 减库存</span></span><br><span class="line">        productMapper.deductStock(order.getProductId(), order.getQuantity());</span><br><span class="line">        <span class="comment">// 创建订单</span></span><br><span class="line">        orderMapper.insert(order);</span><br><span class="line">        <span class="comment">// 如果任一操作失败，全部回滚</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>注意</strong>：<code>@Transactional</code> 默认只对 RuntimeException 和 Error 回滚，遇到 checked exception 不会回滚。实际项目中建议加上 <code>rollbackFor = Exception.class</code>。</p>
+</blockquote>
+<hr>
+<h2 id="十一、MyBatis-vs-JPA-Hibernate：如何选型？"><a href="#十一、MyBatis-vs-JPA-Hibernate：如何选型？" class="headerlink" title="十一、MyBatis vs JPA&#x2F;Hibernate：如何选型？"></a>十一、MyBatis vs JPA&#x2F;Hibernate：如何选型？</h2><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>MyBatis</th>
+<th>JPA&#x2F;Hibernate</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>定位</strong></td>
+<td>半自动 ORM（SQL 第一公民）</td>
+<td>全自动 ORM（对象第一公民）</td>
+</tr>
+<tr>
+<td><strong>SQL 控制</strong></td>
+<td>完全控制，手写 SQL</td>
+<td>框架生成，HQL&#x2F;JPQL 辅助</td>
+</tr>
+<tr>
+<td><strong>学习曲线</strong></td>
+<td>低（基本上就是写 SQL）</td>
+<td>高（需要理解 EntityManager、PersistenceContext、缓存策略等）</td>
+</tr>
+<tr>
+<td><strong>复杂查询</strong></td>
+<td>灵活（动态 SQL + 手写优化）</td>
+<td>复杂（Criteria API 可读性差，原生 SQL 退回到 MyBatis 模式）</td>
+</tr>
+<tr>
+<td><strong>多表关联</strong></td>
+<td>手动 JOIN + ResultMap 映射</td>
+<td><code>@OneToMany</code>&#x2F;<code>@ManyToMany</code> 自动关联（小心 N+1）</td>
+</tr>
+<tr>
+<td><strong>数据库移植</strong></td>
+<td>差（SQL 语法与数据库绑定）</td>
+<td>好（Hibernate 方言自动适配）</td>
+</tr>
+<tr>
+<td><strong>性能调优</strong></td>
+<td>精细控制，SQL 级别优化</td>
+<td>黑盒较多，需要深入理解 Hibernate 内部机制</td>
+</tr>
+<tr>
+<td><strong>适用场景</strong></td>
+<td>互联网项目、报表系统、数据量大且 SQL 复杂</td>
+<td>传统企业应用、数据库频繁更换、快速原型</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>选型建议</strong>：国内互联网公司 80% 以上用 MyBatis&#x2F;MyBatis-Plus，如果你在写对 SQL 性能有严苛要求的系统（报表、数据分析、高并发交易），MyBatis 是首选。</p>
+</blockquote>
+<hr>
+<h2 id="十二、高频面试题"><a href="#十二、高频面试题" class="headerlink" title="十二、高频面试题"></a>十二、高频面试题</h2><h3 id="Q1：MyBatis-的工作原理是什么？"><a href="#Q1：MyBatis-的工作原理是什么？" class="headerlink" title="Q1：MyBatis 的工作原理是什么？"></a>Q1：MyBatis 的工作原理是什么？</h3><p>MyBatis 通过 <code>SqlSessionFactoryBuilder</code> 加载配置文件构建 <code>SqlSessionFactory</code>，每次数据库操作从 Factory 获取 <code>SqlSession</code>。SqlSession 内部通过 <code>Executor</code> 执行 SQL，Executor 委托 <code>StatementHandler</code> 创建 JDBC Statement，由 <code>ParameterHandler</code> 设置参数、<code>ResultSetHandler</code> 处理结果映射。Mapper 接口通过 JDK 动态代理创建代理对象，方法调用时由 <code>MapperProxy</code> 拦截并路由到对应的 <code>MappedStatement</code>。</p>
+<h3 id="Q2：-和-的区别是什么？"><a href="#Q2：-和-的区别是什么？" class="headerlink" title="Q2：#{} 和 ${} 的区别是什么？"></a>Q2：<code>#{}</code> 和 <code>${}</code> 的区别是什么？</h3><p><code>#{}</code> 是预编译占位符，MyBatis 将其替换为 <code>?</code>，通过 PreparedStatement 的 <code>setXxx()</code> 方法安全传参，天然防 SQL 注入。<code>${}</code> 是字符串直接拼接，不具备防注入能力。<code>#{}</code> 用于 WHERE 条件值，<code>${}</code> 仅在需要动态改变 SQL 结构（如表名、列名、ORDER BY 字段）时使用，且必须配合白名单校验。</p>
+<h3 id="Q3：MyBatis-的一二级缓存有什么区别？"><a href="#Q3：MyBatis-的一二级缓存有什么区别？" class="headerlink" title="Q3：MyBatis 的一二级缓存有什么区别？"></a>Q3：MyBatis 的一二级缓存有什么区别？</h3><p>一级缓存是 SqlSession 级别的，默认开启，生命周期与 SqlSession 绑定。二级缓存是 Mapper（Namespace）级别的，需要手动配置开启，跨 SqlSession 共享，需要实体类实现 Serializable。在 Spring 整合环境中，一级缓存基本无效（每次请求有不同的 SqlSession）。分布式环境不推荐使用 MyBatis 二级缓存，建议用 Redis 等外部缓存。</p>
+<h3 id="Q4：MyBatis-的插件机制能拦截哪些对象？原理是什么？"><a href="#Q4：MyBatis-的插件机制能拦截哪些对象？原理是什么？" class="headerlink" title="Q4：MyBatis 的插件机制能拦截哪些对象？原理是什么？"></a>Q4：MyBatis 的插件机制能拦截哪些对象？原理是什么？</h3><p>能拦截四大核心对象：<code>Executor</code>、<code>StatementHandler</code>、<code>ParameterHandler</code>、<code>ResultSetHandler</code>。原理是<strong>责任链模式 + JDK 动态代理</strong>：每个插件通过 <code>@Intercepts</code> 注解声明拦截目标，MyBatis 初始化时为目标对象生成代理，调用时经过插件链的层层拦截。分页插件（PageHelper &#x2F; PaginationInnerInterceptor）就是通过拦截 Executor 的 query 方法实现的。</p>
+<h3 id="Q5：MyBatis-Plus-的逻辑删除原理是什么？"><a href="#Q5：MyBatis-Plus-的逻辑删除原理是什么？" class="headerlink" title="Q5：MyBatis-Plus 的逻辑删除原理是什么？"></a>Q5：MyBatis-Plus 的逻辑删除原理是什么？</h3><p>在实体类字段上加 <code>@TableLogic</code> 注解。执行 <code>deleteById()</code> 时，MP 不会生成 DELETE 语句，而是生成 <code>UPDATE SET deleted = 1 WHERE id = ? AND deleted = 0</code>。执行 SELECT 查询时，MP 自动在 WHERE 条件后追加 <code>AND deleted = 0</code>，对开发者完全透明。</p>
+<h3 id="Q6：如何解决-MyBatis-中实体类字段名与数据库字段名不一致的问题？"><a href="#Q6：如何解决-MyBatis-中实体类字段名与数据库字段名不一致的问题？" class="headerlink" title="Q6：如何解决 MyBatis 中实体类字段名与数据库字段名不一致的问题？"></a>Q6：如何解决 MyBatis 中实体类字段名与数据库字段名不一致的问题？</h3><p>三种方案：① 在 <code>settings</code> 中设置 <code>mapUnderscoreToCamelCase=true</code>（驼峰自动映射）；② 在 SQL 中使用 <code>AS</code> 别名：<code>SELECT user_name AS userName FROM ...</code>；③ 使用 <code>&lt;resultMap&gt;</code> 显式指定 column → property 的映射关系。</p>
+<h3 id="Q7：MyBatis-批量插入有哪几种方式？哪种最好？"><a href="#Q7：MyBatis-批量插入有哪几种方式？哪种最好？" class="headerlink" title="Q7：MyBatis 批量插入有哪几种方式？哪种最好？"></a>Q7：MyBatis 批量插入有哪几种方式？哪种最好？</h3><p>三种方式：① <code>&lt;foreach&gt;</code> 拼接单条 INSERT 多行 VALUES — 简单但 SQL 过长时有性能问题；② <code>BatchExecutor</code> 模式 — 推荐，JDBC 批量提交，性能最优；③ MyBatis-Plus 的 <code>saveBatch()</code> — 最方便，底层用批量提交，推荐日常使用。</p>
+<h3 id="Q8：为什么-Spring-整合-MyBatis-后一级缓存失效？"><a href="#Q8：为什么-Spring-整合-MyBatis-后一级缓存失效？" class="headerlink" title="Q8：为什么 Spring 整合 MyBatis 后一级缓存失效？"></a>Q8：为什么 Spring 整合 MyBatis 后一级缓存失效？</h3><p>Spring 管理 SqlSession 的生命周期为”请求级”：每次请求开启一个新 SqlSession，请求结束关闭。而一级缓存是 SqlSession 级别的，跨 SqlSession 无法共享。所以 Spring 环境下，即便同一个请求内多次调用同一个 Mapper 方法，也会每次都查数据库（如果不在同一个事务内）。解决方案：使用 <code>@Transactional</code> 确保同一事务内复用同一个 SqlSession，此时一级缓存仍有效。</p>
+<hr>
+<h2 id="十三、总结"><a href="#十三、总结" class="headerlink" title="十三、总结"></a>十三、总结</h2><p>MyBatis 之所以能成为国内 Java 后端的事实标准，核心在于它<strong>尊重 SQL</strong>——不隐藏、不生成、不黑盒。开发者保留了对 SQL 的完全控制权，同时 MyBatis 帮你消灭了 JDBC 的模板代码。而 MyBatis-Plus 在此基础上更进一步，让单表 CRUD 几乎可以不写一行 SQL。</p>
+<p>2026 年，MyBatis 生态的三大趋势值得关注：<strong>GraalVM Native Image 支持</strong>（编译为原生二进制，毫秒级启动）、<strong>虚拟线程</strong>（提升高并发场景下的数据库吞吐量）、以及 <strong>DSL 重构</strong>（Java 17+ 的现代化代码风格）。对于后端开发者来说，深入掌握 MyBatis 的原理和 MyBatis-Plus 的运用，是面试和日常开发的必备技能。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/java/" rel="tag"># java</a>
+              <a href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag"># 后端</a>
+              <a href="/tags/springboot/" rel="tag"># springboot</a>
+              <a href="/tags/mybatis/" rel="tag"># mybatis</a>
+              <a href="/tags/mybatis-plus/" rel="tag"># mybatis-plus</a>
+              <a href="/tags/orm/" rel="tag"># orm</a>
+              <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag"># 数据库</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/24/Service%20Mesh%20%E6%9C%8D%E5%8A%A1%E7%BD%91%E6%A0%BC%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20Istio%20%E5%88%B0%20Ambient%20Mode%20%E7%9A%84%E4%BA%91%E5%8E%9F%E7%94%9F%E6%B2%BB%E7%90%86%E5%AE%9E%E6%88%98/" rel="prev" title="Service Mesh 服务网格详解：从 Istio 到 Ambient Mode 的云原生治理实战">
+      <i class="fa fa-chevron-left"></i> Service Mesh 服务网格详解：从 Istio 到 Ambient Mode 的云原生治理实战
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#MyBatis-%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E5%88%B0-MyBatis-Plus-%E5%AE%9E%E6%88%98%E5%85%A8%E6%8C%87%E5%8D%97"><span class="nav-number">1.</span> <span class="nav-text">MyBatis 详解：从核心原理到 MyBatis-Plus 实战全指南</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%BB%8E%E4%B8%80%E4%B8%AA%E9%97%AE%E9%A2%98%E5%BC%80%E5%A7%8B%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-MyBatis%EF%BC%9F"><span class="nav-number">1.1.</span> <span class="nav-text">一、从一个问题开始：为什么需要 MyBatis？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81JDBC-%E7%9A%84%E2%80%9D%E5%8E%9F%E7%BD%AA%E2%80%9D"><span class="nav-number">1.1.1.</span> <span class="nav-text">1、JDBC 的”原罪”</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81ORM-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%BC%94%E8%BF%9B%E8%B7%AF%E7%BA%BF"><span class="nav-number">1.1.2.</span> <span class="nav-text">2、ORM 框架的演进路线</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81MyBatis-%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84%EF%BC%9A%E4%B8%89%E5%B1%82%E8%AE%BE%E8%AE%A1"><span class="nav-number">1.2.</span> <span class="nav-text">二、MyBatis 核心架构：三层设计</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81MyBatis-%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B%EF%BC%9A%E4%B8%80%E6%9D%A1-SQL-%E7%9A%84%E5%AE%8C%E6%95%B4%E6%97%85%E7%A8%8B"><span class="nav-number">1.3.</span> <span class="nav-text">三、MyBatis 工作流程：一条 SQL 的完整旅程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81Mapper-%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9B%E5%BB%BA"><span class="nav-number">1.3.1.</span> <span class="nav-text">1、Mapper 代理对象的创建</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E5%AE%8C%E6%95%B4%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B%EF%BC%889-%E6%AD%A5%EF%BC%89"><span class="nav-number">1.3.2.</span> <span class="nav-text">2、完整执行流程（9 步）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81Executor-%E7%9A%84%E4%B8%89%E7%A7%8D%E5%AE%9E%E7%8E%B0"><span class="nav-number">1.3.3.</span> <span class="nav-text">3、Executor 的三种实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81Mapper-%E6%98%A0%E5%B0%84%EF%BC%9AXML-vs-%E6%B3%A8%E8%A7%A3"><span class="nav-number">1.4.</span> <span class="nav-text">四、Mapper 映射：XML vs 注解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81XML-%E6%98%A0%E5%B0%84%EF%BC%9AMyBatis-%E7%9A%84%E7%81%B5%E9%AD%82"><span class="nav-number">1.4.1.</span> <span class="nav-text">1、XML 映射：MyBatis 的灵魂</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81-vs-%EF%BC%9A%E9%9D%A2%E8%AF%95%E5%BF%85%E8%80%83"><span class="nav-number">1.4.2.</span> <span class="nav-text">2、#{} vs ${}：面试必考</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81ResultMap%EF%BC%9A%E8%A7%A3%E5%86%B3%E5%AD%97%E6%AE%B5%E6%98%A0%E5%B0%84%E7%9A%84%E7%BB%88%E6%9E%81%E6%96%B9%E6%A1%88"><span class="nav-number">1.4.3.</span> <span class="nav-text">3、ResultMap：解决字段映射的终极方案</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81%E6%B3%A8%E8%A7%A3%E5%BC%80%E5%8F%91%EF%BC%9A%E7%AE%80%E5%8D%95%E5%9C%BA%E6%99%AF%E7%9A%84%E8%BD%BB%E9%AA%91%E5%85%B5"><span class="nav-number">1.4.4.</span> <span class="nav-text">4、注解开发：简单场景的轻骑兵</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%8A%A8%E6%80%81-SQL%EF%BC%9AMyBatis-%E7%9A%84%E7%8E%8B%E7%89%8C%E8%83%BD%E5%8A%9B"><span class="nav-number">1.5.</span> <span class="nav-text">五、动态 SQL：MyBatis 的王牌能力</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E6%A0%B8%E5%BF%83%E6%A0%87%E7%AD%BE%E9%80%9F%E6%9F%A5"><span class="nav-number">1.5.1.</span> <span class="nav-text">1、核心标签速查</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E5%AE%9E%E6%88%98%EF%BC%9A%E5%A4%8D%E6%9D%82%E5%A4%9A%E6%9D%A1%E4%BB%B6%E6%9F%A5%E8%AF%A2"><span class="nav-number">1.5.2.</span> <span class="nav-text">2、实战：复杂多条件查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81%E6%89%B9%E9%87%8F%E6%93%8D%E4%BD%9C"><span class="nav-number">1.5.3.</span> <span class="nav-text">3、批量操作</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81MyBatis-%E7%BC%93%E5%AD%98%E6%9C%BA%E5%88%B6"><span class="nav-number">1.6.</span> <span class="nav-text">六、MyBatis 缓存机制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E4%B8%80%E7%BA%A7%E7%BC%93%E5%AD%98%EF%BC%88Local-Cache%EF%BC%89"><span class="nav-number">1.6.1.</span> <span class="nav-text">1、一级缓存（Local Cache）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E4%BA%8C%E7%BA%A7%E7%BC%93%E5%AD%98%EF%BC%88Second-Level-Cache%EF%BC%89"><span class="nav-number">1.6.2.</span> <span class="nav-text">2、二级缓存（Second Level Cache）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81MyBatis-%E6%8F%92%E4%BB%B6%E6%9C%BA%E5%88%B6%EF%BC%88Interceptor%EF%BC%89"><span class="nav-number">1.7.</span> <span class="nav-text">七、MyBatis 插件机制（Interceptor）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E5%88%86%E9%A1%B5%E6%8F%92%E4%BB%B6%EF%BC%88%E7%A4%BA%E4%BE%8B%EF%BC%89"><span class="nav-number">1.7.1.</span> <span class="nav-text">自定义分页插件（示例）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81MyBatis-Plus%EF%BC%9A%E8%AE%A9-MyBatis-%E6%9B%B4%E5%A5%BD%E7%94%A8"><span class="nav-number">1.8.</span> <span class="nav-text">八、MyBatis-Plus：让 MyBatis 更好用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E6%A0%B8%E5%BF%83%E5%A2%9E%E5%BC%BA%E8%83%BD%E5%8A%9B%E9%80%9F%E8%A7%88"><span class="nav-number">1.8.1.</span> <span class="nav-text">1、核心增强能力速览</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81BaseMapper%EF%BC%9A%E5%87%A0%E4%B9%8E%E6%B6%88%E7%81%AD%E5%8D%95%E8%A1%A8-CRUD"><span class="nav-number">1.8.2.</span> <span class="nav-text">2、BaseMapper：几乎消灭单表 CRUD</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81LambdaQueryWrapper%EF%BC%9A%E5%91%8A%E5%88%AB%E5%AD%97%E7%AC%A6%E4%B8%B2%E7%A1%AC%E7%BC%96%E7%A0%81"><span class="nav-number">1.8.3.</span> <span class="nav-text">3、LambdaQueryWrapper：告别字符串硬编码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81%E5%88%86%E9%A1%B5%E6%8F%92%E4%BB%B6"><span class="nav-number">1.8.4.</span> <span class="nav-text">4、分页插件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5%E3%80%81%E8%87%AA%E5%8A%A8%E5%A1%AB%E5%85%85"><span class="nav-number">1.8.5.</span> <span class="nav-text">5、自动填充</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6%E3%80%81%E9%80%BB%E8%BE%91%E5%88%A0%E9%99%A4%E4%B8%8E%E4%B9%90%E8%A7%82%E9%94%81"><span class="nav-number">1.8.6.</span> <span class="nav-text">6、逻辑删除与乐观锁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7%E3%80%81%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90%E5%99%A8"><span class="nav-number">1.8.7.</span> <span class="nav-text">7、代码生成器</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%812026-%E5%B9%B4-MyBatis-%E7%94%9F%E6%80%81%E6%9C%80%E6%96%B0%E5%8A%A8%E6%80%81"><span class="nav-number">1.9.</span> <span class="nav-text">九、2026 年 MyBatis 生态最新动态</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81MyBatis-3-5-19%EF%BC%882026-01-02%EF%BC%89"><span class="nav-number">1.9.1.</span> <span class="nav-text">1、MyBatis 3.5.19（2026-01-02）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81MyBatis-Plus-3-5-17%EF%BC%882026-07-07%EF%BC%89%E2%80%94%E2%80%94-%E9%87%8D%E5%A4%A7%E6%9B%B4%E6%96%B0"><span class="nav-number">1.9.2.</span> <span class="nav-text">2、MyBatis-Plus 3.5.17（2026-07-07）—— 重大更新</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81MyBatis-Dynamic-SQL-2-0-0%EF%BC%882026-03-11%EF%BC%89"><span class="nav-number">1.9.3.</span> <span class="nav-text">3、MyBatis Dynamic SQL 2.0.0（2026-03-11）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81%E8%A1%8C%E4%B8%9A%E8%B6%8B%E5%8A%BF"><span class="nav-number">1.9.4.</span> <span class="nav-text">4、行业趋势</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%81%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="nav-number">1.10.</span> <span class="nav-text">十、生产环境最佳实践</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96"><span class="nav-number">1.10.1.</span> <span class="nav-text">1、配置优化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E6%B8%85%E5%8D%95"><span class="nav-number">1.10.2.</span> <span class="nav-text">2、性能优化清单</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81SQL-%E6%B3%A8%E5%85%A5%E9%98%B2%E6%8A%A4"><span class="nav-number">1.10.3.</span> <span class="nav-text">3、SQL 注入防护</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86"><span class="nav-number">1.10.4.</span> <span class="nav-text">4、事务管理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%80%E3%80%81MyBatis-vs-JPA-Hibernate%EF%BC%9A%E5%A6%82%E4%BD%95%E9%80%89%E5%9E%8B%EF%BC%9F"><span class="nav-number">1.11.</span> <span class="nav-text">十一、MyBatis vs JPA&#x2F;Hibernate：如何选型？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.12.</span> <span class="nav-text">十二、高频面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Q1%EF%BC%9AMyBatis-%E7%9A%84%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-number">1.12.1.</span> <span class="nav-text">Q1：MyBatis 的工作原理是什么？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q2%EF%BC%9A-%E5%92%8C-%E7%9A%84%E5%8C%BA%E5%88%AB%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-number">1.12.2.</span> <span class="nav-text">Q2：#{} 和 ${} 的区别是什么？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q3%EF%BC%9AMyBatis-%E7%9A%84%E4%B8%80%E4%BA%8C%E7%BA%A7%E7%BC%93%E5%AD%98%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="nav-number">1.12.3.</span> <span class="nav-text">Q3：MyBatis 的一二级缓存有什么区别？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q4%EF%BC%9AMyBatis-%E7%9A%84%E6%8F%92%E4%BB%B6%E6%9C%BA%E5%88%B6%E8%83%BD%E6%8B%A6%E6%88%AA%E5%93%AA%E4%BA%9B%E5%AF%B9%E8%B1%A1%EF%BC%9F%E5%8E%9F%E7%90%86%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-number">1.12.4.</span> <span class="nav-text">Q4：MyBatis 的插件机制能拦截哪些对象？原理是什么？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q5%EF%BC%9AMyBatis-Plus-%E7%9A%84%E9%80%BB%E8%BE%91%E5%88%A0%E9%99%A4%E5%8E%9F%E7%90%86%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-number">1.12.5.</span> <span class="nav-text">Q5：MyBatis-Plus 的逻辑删除原理是什么？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q6%EF%BC%9A%E5%A6%82%E4%BD%95%E8%A7%A3%E5%86%B3-MyBatis-%E4%B8%AD%E5%AE%9E%E4%BD%93%E7%B1%BB%E5%AD%97%E6%AE%B5%E5%90%8D%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AD%97%E6%AE%B5%E5%90%8D%E4%B8%8D%E4%B8%80%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-number">1.12.6.</span> <span class="nav-text">Q6：如何解决 MyBatis 中实体类字段名与数据库字段名不一致的问题？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q7%EF%BC%9AMyBatis-%E6%89%B9%E9%87%8F%E6%8F%92%E5%85%A5%E6%9C%89%E5%93%AA%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F%EF%BC%9F%E5%93%AA%E7%A7%8D%E6%9C%80%E5%A5%BD%EF%BC%9F"><span class="nav-number">1.12.7.</span> <span class="nav-text">Q7：MyBatis 批量插入有哪几种方式？哪种最好？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q8%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88-Spring-%E6%95%B4%E5%90%88-MyBatis-%E5%90%8E%E4%B8%80%E7%BA%A7%E7%BC%93%E5%AD%98%E5%A4%B1%E6%95%88%EF%BC%9F"><span class="nav-number">1.12.8.</span> <span class="nav-text">Q8：为什么 Spring 整合 MyBatis 后一级缓存失效？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%89%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">1.13.</span> <span class="nav-text">十三、总结</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">26</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">68</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">23</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis/" rel="tag">mybatis</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis-plus/" rel="tag">mybatis-plus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/orm/" rel="tag">orm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">13</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">13</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>
