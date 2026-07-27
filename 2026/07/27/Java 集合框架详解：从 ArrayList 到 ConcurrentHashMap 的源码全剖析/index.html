@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Java 集合框架（Java Collections Framework, JCF）是 JDK 中最常用、面试提问频率最高的模块之一。从 ArrayList 的动态扩容到 HashMap 的红黑树，从 ConcurrentHashMap 的分段锁到 Java 21 的 SequencedCollection，每一个细节都可能是后端面试的”拦路虎”。本文从集合框架总览出发，逐层拆解 List &amp;#x">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java 集合框架详解：从 ArrayList 到 ConcurrentHashMap 的源码全剖析">
+<meta property="og:url" content="http://example.com/2026/07/27/Java%20%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20ArrayList%20%E5%88%B0%20ConcurrentHashMap%20%E7%9A%84%E6%BA%90%E7%A0%81%E5%85%A8%E5%89%96%E6%9E%90/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="Java 集合框架（Java Collections Framework, JCF）是 JDK 中最常用、面试提问频率最高的模块之一。从 ArrayList 的动态扩容到 HashMap 的红黑树，从 ConcurrentHashMap 的分段锁到 Java 21 的 SequencedCollection，每一个细节都可能是后端面试的”拦路虎”。本文从集合框架总览出发，逐层拆解 List &amp;#x">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-27T04:30:15.000Z">
+<meta property="article:modified_time" content="2026-07-26T05:09:03.088Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="java">
+<meta property="article:tag" content="jdk">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="源码">
+<meta property="article:tag" content="集合框架">
+<meta property="article:tag" content="面试题">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/27/Java%20%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20ArrayList%20%E5%88%B0%20ConcurrentHashMap%20%E7%9A%84%E6%BA%90%E7%A0%81%E5%85%A8%E5%89%96%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Java 集合框架详解：从 ArrayList 到 ConcurrentHashMap 的源码全剖析 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/27/Java%20%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20ArrayList%20%E5%88%B0%20ConcurrentHashMap%20%E7%9A%84%E6%BA%90%E7%A0%81%E5%85%A8%E5%89%96%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Java 集合框架详解：从 ArrayList 到 ConcurrentHashMap 的源码全剖析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-07-27 12:30:15" itemprop="dateCreated datePublished" datetime="2026-07-27T12:30:15+08:00">2026-07-27</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-07-26 13:09:03" itemprop="dateModified" datetime="2026-07-26T13:09:03+08:00">2026-07-26</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Java 集合框架（Java Collections Framework, JCF）是 JDK 中最常用、面试提问频率最高的模块之一。从 ArrayList 的动态扩容到 HashMap 的红黑树，从 ConcurrentHashMap 的分段锁到 Java 21 的 SequencedCollection，每一个细节都可能是后端面试的”拦路虎”。本文从集合框架总览出发，逐层拆解 List &#x2F; Set &#x2F; Map &#x2F; Queue 四大接口的经典实现，配套 JDK 源码逐行解读、性能对比、生产避坑与 8 道高频面试题。读完本文，你将真正”看穿”集合框架，而不是只会用 <code>list.add()</code>。</p>
+<span id="more"></span>
+
+<h1 id="Java-集合框架详解：从-ArrayList-到-ConcurrentHashMap-的源码全剖析"><a href="#Java-集合框架详解：从-ArrayList-到-ConcurrentHashMap-的源码全剖析" class="headerlink" title="Java 集合框架详解：从 ArrayList 到 ConcurrentHashMap 的源码全剖析"></a>Java 集合框架详解：从 ArrayList 到 ConcurrentHashMap 的源码全剖析</h1><h2 id="一、为什么集合框架是-Java-后端的”必修课”"><a href="#一、为什么集合框架是-Java-后端的”必修课”" class="headerlink" title="一、为什么集合框架是 Java 后端的”必修课”"></a>一、为什么集合框架是 Java 后端的”必修课”</h2><h3 id="1-1-业务中高频到”无处不在”"><a href="#1-1-业务中高频到”无处不在”" class="headerlink" title="1.1 业务中高频到”无处不在”"></a>1.1 业务中高频到”无处不在”</h3><p>打开任何一份 Java 后端代码，<code>import java.util.*</code> 几乎都会出现。集合承担了三大职责：</p>
+<ul>
+<li><strong>数据暂存</strong>：用户列表、订单缓存、消息堆积</li>
+<li><strong>算法骨架</strong>：排序、查找、去重、统计</li>
+<li><strong>并发协作</strong>：生产者-消费者、阻塞队列、线程安全容器</li>
+</ul>
+<p>如果对集合的实现原理只停留在”会用 API”层面，遇到下面这些场景就会翻车：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>错误预期</th>
+<th>真实结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>100 万条数据频繁插入删除</td>
+<td>用 ArrayList</td>
+<td>O(n) 的数组拷贝，CPU 飙到 100%</td>
+</tr>
+<tr>
+<td>多线程并发写 Map</td>
+<td>用 HashMap</td>
+<td>死循环（JDK 7）&#x2F; 数据丢失（JDK 8+）</td>
+</tr>
+<tr>
+<td>需要有序且去重</td>
+<td>随手用 HashSet</td>
+<td>失去插入顺序，遍历结果不可控</td>
+</tr>
+<tr>
+<td>千万级数据统计 TopK</td>
+<td>遍历全表</td>
+<td>内存溢出 OOM</td>
+</tr>
+</tbody></table>
+<h3 id="1-2-面试官最爱的”八连问”"><a href="#1-2-面试官最爱的”八连问”" class="headerlink" title="1.2 面试官最爱的”八连问”"></a>1.2 面试官最爱的”八连问”</h3><blockquote>
+<ol>
+<li>ArrayList 和 LinkedList 有什么区别？底层数据结构是什么？</li>
+<li>HashMap 底层是怎么实现的？为什么用红黑树而不是 AVL？</li>
+<li>HashMap 是线程安全的吗？多线程下会出什么问题？</li>
+<li>ConcurrentHashMap 在 JDK 7 和 JDK 8 的实现有什么不同？</li>
+<li>为什么 ConcurrentHashMap 读操作不需要加锁？</li>
+<li>什么是 fail-fast？什么是 fail-safe？两者区别？</li>
+<li>集合类有哪些线程安全版本？分别适用什么场景？</li>
+<li>Java 8 &#x2F; 17 &#x2F; 21 集合框架有哪些新特性？</li>
+</ol>
+</blockquote>
+<p>能否流畅回答这些问题，决定了你能否拿到 P6+ 的 offer。</p>
+<h2 id="二、集合框架总览与继承体系"><a href="#二、集合框架总览与继承体系" class="headerlink" title="二、集合框架总览与继承体系"></a>二、集合框架总览与继承体系</h2><h3 id="2-1-一张图看懂-JCF-全貌"><a href="#2-1-一张图看懂-JCF-全貌" class="headerlink" title="2.1 一张图看懂 JCF 全貌"></a>2.1 一张图看懂 JCF 全貌</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">             Collection&lt;E&gt;                          Map&lt;K,V&gt;</span><br><span class="line">            /     |      \                         /      \</span><br><span class="line">           /      |       \                       /        \</span><br><span class="line">          /       |        \                     /          \</span><br><span class="line">     List&lt;E&gt;   Set&lt;E&gt;    Queue&lt;E&gt;           SortedMap    ConcurrentMap</span><br><span class="line">      / \       / \       /    \                |              |</span><br><span class="line">     /   \     /   \     /      \            TreeMap     ConcurrentHashMap</span><br><span class="line">ArrayList LinkedList HashSet TreeSet Deque    ...</span><br><span class="line">                                     |</span><br><span class="line">                               LinkedList / ArrayDeque</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-接口-vs-实现类"><a href="#2-2-接口-vs-实现类" class="headerlink" title="2.2 接口 vs 实现类"></a>2.2 接口 vs 实现类</h3><p>Java 集合框架遵循”面向接口编程”原则，建议开发时尽量面向接口声明：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 推荐：面向接口编程</span></span><br><span class="line">List&lt;String&gt; list = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">Map&lt;String, Object&gt; map = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 不推荐：依赖具体实现</span></span><br><span class="line">ArrayList&lt;String&gt; list2 = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br></pre></td></tr></table></figure>
+
+<p>这样做的好处是：<strong>未来切换实现时，改动最小</strong>（如 <code>new ArrayList&lt;&gt;()</code> → <code>new LinkedList&lt;&gt;()</code>）。</p>
+<h3 id="2-3-三大特征关键词"><a href="#2-3-三大特征关键词" class="headerlink" title="2.3 三大特征关键词"></a>2.3 三大特征关键词</h3><table>
+<thead>
+<tr>
+<th>关键词</th>
+<th>含义</th>
+<th>典型实现</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>有序性</strong></td>
+<td>遍历顺序 &#x3D; 插入顺序</td>
+<td>List、LinkedHashSet、LinkedHashMap</td>
+</tr>
+<tr>
+<td><strong>唯一性</strong></td>
+<td>元素不可重复</td>
+<td>Set、Map 的 key</td>
+</tr>
+<tr>
+<td><strong>可排序</strong></td>
+<td>按某种规则自动排序</td>
+<td>TreeSet、TreeMap（自然&#x2F;定制排序）</td>
+</tr>
+</tbody></table>
+<h2 id="三、List-家族：有序可重复的列表"><a href="#三、List-家族：有序可重复的列表" class="headerlink" title="三、List 家族：有序可重复的列表"></a>三、List 家族：有序可重复的列表</h2><h3 id="3-1-ArrayList：动态数组的”王者”"><a href="#3-1-ArrayList：动态数组的”王者”" class="headerlink" title="3.1 ArrayList：动态数组的”王者”"></a>3.1 ArrayList：动态数组的”王者”</h3><h4 id="3-1-1-底层数据结构"><a href="#3-1-1-底层数据结构" class="headerlink" title="3.1.1 底层数据结构"></a>3.1.1 底层数据结构</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// JDK 17 源码（节选）</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ArrayList</span>&lt;E&gt; <span class="keyword">extends</span> <span class="title class_">AbstractList</span>&lt;E&gt;</span><br><span class="line">        <span class="keyword">implements</span> <span class="title class_">List</span>&lt;E&gt;, RandomAccess, Cloneable, java.io.Serializable &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">transient</span> Object[] elementData;  <span class="comment">// 核心：Object 数组</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> size;                <span class="comment">// 实际元素个数</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-1-2-扩容机制（核心面试点）"><a href="#3-1-2-扩容机制（核心面试点）" class="headerlink" title="3.1.2 扩容机制（核心面试点）"></a>3.1.2 扩容机制（核心面试点）</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. add 时检查容量</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">add</span><span class="params">(E e)</span> &#123;</span><br><span class="line">    modCount++;</span><br><span class="line">    add(e, elementData, size);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">add</span><span class="params">(E e, Object[] elementData, <span class="type">int</span> s)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (s == elementData.length)  <span class="comment">// 容量已满</span></span><br><span class="line">        elementData = grow();      <span class="comment">// 触发扩容</span></span><br><span class="line">    elementData[s] = e;</span><br><span class="line">    size = s + <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. grow() 扩容逻辑（JDK 17 简化版）</span></span><br><span class="line"><span class="keyword">private</span> Object[] grow() &#123;</span><br><span class="line">    <span class="keyword">return</span> grow(size + <span class="number">1</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> Object[] grow(<span class="type">int</span> minCapacity) &#123;</span><br><span class="line">    <span class="type">int</span> <span class="variable">oldCapacity</span> <span class="operator">=</span> elementData.length;</span><br><span class="line">    <span class="keyword">if</span> (oldCapacity &gt; <span class="number">0</span> || elementData != DEFAULTCAPACITY_EMPTY_ELEMENTDATA) &#123;</span><br><span class="line">        <span class="type">int</span> <span class="variable">newCapacity</span> <span class="operator">=</span> ArraysSupport.newLength(oldCapacity,</span><br><span class="line">                minCapacity - oldCapacity,       <span class="comment">// 最小增长量</span></span><br><span class="line">                oldCapacity &gt;&gt; <span class="number">1</span>);               <span class="comment">// 首选增长量 = 50%</span></span><br><span class="line">        <span class="type">return</span> <span class="variable">elementData</span> <span class="operator">=</span> Arrays.copyOf(elementData, newCapacity);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="type">return</span> <span class="variable">elementData</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Object</span>[Math.max(DEFAULT_CAPACITY, minCapacity)];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>关键结论</strong>：</p>
+<ul>
+<li>初始容量（JDK 1.8+）：<code>new ArrayList&lt;&gt;()</code> 默认是<strong>空数组</strong>，第一次 add 时才扩容为 10</li>
+<li>扩容倍数：<strong>1.5 倍</strong>（oldCapacity + oldCapacity &gt;&gt; 1）</li>
+<li>复制方式：<code>Arrays.copyOf</code> → 底层 <code>System.arraycopy</code>（native 方法）</li>
+</ul>
+<h4 id="3-1-3-性能特点"><a href="#3-1-3-性能特点" class="headerlink" title="3.1.3 性能特点"></a>3.1.3 性能特点</h4><table>
+<thead>
+<tr>
+<th>操作</th>
+<th>时间复杂度</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>get(i)</code></td>
+<td>O(1)</td>
+<td>随机访问，根据下标直接定位</td>
+</tr>
+<tr>
+<td><code>add(e)</code> 末尾追加</td>
+<td>O(1) 均摊</td>
+<td>可能触发扩容</td>
+</tr>
+<tr>
+<td><code>add(i, e)</code> 中间插入</td>
+<td>O(n)</td>
+<td>需要移动后续所有元素</td>
+</tr>
+<tr>
+<td><code>remove(i)</code></td>
+<td>O(n)</td>
+<td>需要移动后续所有元素</td>
+</tr>
+<tr>
+<td><code>contains(e)</code></td>
+<td>O(n)</td>
+<td>遍历 equals 比较</td>
+</tr>
+</tbody></table>
+<h4 id="3-1-4-最佳实践"><a href="#3-1-4-最佳实践" class="headerlink" title="3.1.4 最佳实践"></a>3.1.4 最佳实践</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 预分配容量，避免多次扩容</span></span><br><span class="line">List&lt;Order&gt; orders = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;(<span class="number">10000</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 批量添加优于循环添加</span></span><br><span class="line">List&lt;Integer&gt; list = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">list.addAll(Arrays.asList(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>));  <span class="comment">// 优于 for 循环 add</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 3. 删除使用迭代器或 removeIf，避免 ConcurrentModificationException</span></span><br><span class="line">list.removeIf(item -&gt; item.getId() &gt; <span class="number">100</span>);</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-LinkedList：双向链表的”全才”"><a href="#3-2-LinkedList：双向链表的”全才”" class="headerlink" title="3.2 LinkedList：双向链表的”全才”"></a>3.2 LinkedList：双向链表的”全才”</h3><h4 id="3-2-1-底层数据结构"><a href="#3-2-1-底层数据结构" class="headerlink" title="3.2.1 底层数据结构"></a>3.2.1 底层数据结构</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// JDK 17 源码</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">LinkedList</span>&lt;E&gt; <span class="keyword">extends</span> <span class="title class_">AbstractSequentialList</span>&lt;E&gt;</span><br><span class="line">        <span class="keyword">implements</span> <span class="title class_">List</span>&lt;E&gt;, Deque&lt;E&gt;, Cloneable, java.io.Serializable &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">transient</span> <span class="type">int</span> <span class="variable">size</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">transient</span> Node&lt;E&gt; first;   <span class="comment">// 头节点</span></span><br><span class="line">    <span class="keyword">transient</span> Node&lt;E&gt; last;    <span class="comment">// 尾节点</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Node</span>&lt;E&gt; &#123;</span><br><span class="line">        E item;</span><br><span class="line">        Node&lt;E&gt; next;</span><br><span class="line">        Node&lt;E&gt; prev;</span><br><span class="line">        Node&lt;E&gt;(Node&lt;E&gt; prev, E element, Node&lt;E&gt; next) &#123;</span><br><span class="line">            <span class="built_in">this</span>.item = element;</span><br><span class="line">            <span class="built_in">this</span>.next = next;</span><br><span class="line">            <span class="built_in">this</span>.prev = prev;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>LinkedList 同时实现了 <code>List</code> 和 <code>Deque</code> 接口，既能当列表，又能当双端队列、栈使用。</p>
+<h4 id="3-2-2-性能特点"><a href="#3-2-2-性能特点" class="headerlink" title="3.2.2 性能特点"></a>3.2.2 性能特点</h4><table>
+<thead>
+<tr>
+<th>操作</th>
+<th>时间复杂度</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>get(i)</code></td>
+<td>O(n)</td>
+<td>需要从头&#x2F;尾遍历</td>
+</tr>
+<tr>
+<td><code>addFirst/addLast</code></td>
+<td>O(1)</td>
+<td>头尾插入极快</td>
+</tr>
+<tr>
+<td><code>removeFirst/removeLast</code></td>
+<td>O(1)</td>
+<td>头尾删除极快</td>
+</tr>
+<tr>
+<td><code>add(i, e)</code> 中间插入</td>
+<td>O(n)</td>
+<td>先遍历到 i，再插入</td>
+</tr>
+<tr>
+<td><code>contains(e)</code></td>
+<td>O(n)</td>
+<td>遍历 equals</td>
+</tr>
+</tbody></table>
+<p><strong>反直觉的事实</strong>：</p>
+<ul>
+<li>现代 JVM（HotSpot）下，LinkedList 随机访问速度其实<strong>不比 ArrayList 慢太多</strong></li>
+<li>LinkedList 每个节点有 24 字节额外开销（item + prev + next + Object header），内存占用大</li>
+<li>CPU 缓存命中率低，遍历大列表 ArrayList 通常更快</li>
+</ul>
+<h3 id="3-3-怎么选？List-选型决策"><a href="#3-3-怎么选？List-选型决策" class="headerlink" title="3.3 怎么选？List 选型决策"></a>3.3 怎么选？List 选型决策</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">      需要随机访问 / 末尾追加？</span><br><span class="line">            /          \</span><br><span class="line">          Yes          No</span><br><span class="line">           |            |</span><br><span class="line">    大量中间插入删除?   大量头尾操作?</span><br><span class="line">        /     \          |</span><br><span class="line">      Yes      No        ↓</span><br><span class="line">       |        |     LinkedList</span><br><span class="line">       ↓        ↓</span><br><span class="line">LinkedList  ArrayList</span><br><span class="line">(需评估缓存)</span><br></pre></td></tr></table></figure>
+
+<p><strong>生产经验</strong>：</p>
+<ul>
+<li>99% 场景用 ArrayList 就对了</li>
+<li>只有频繁头尾操作（如实现消息队列）才用 LinkedList</li>
+<li>追求极致随机访问性能可考虑 <strong>TIntArrayList</strong>（trove4j）、<strong>fastutil</strong></li>
+</ul>
+<h3 id="3-4-CopyOnWriteArrayList：读写分离的”写时复制”"><a href="#3-4-CopyOnWriteArrayList：读写分离的”写时复制”" class="headerlink" title="3.4 CopyOnWriteArrayList：读写分离的”写时复制”"></a>3.4 CopyOnWriteArrayList：读写分离的”写时复制”</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 写操作加锁 + 复制新数组</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">add</span><span class="params">(E e)</span> &#123;</span><br><span class="line">    <span class="keyword">synchronized</span> (lock) &#123;</span><br><span class="line">        Object[] elements = getArray();</span><br><span class="line">        <span class="type">int</span> <span class="variable">len</span> <span class="operator">=</span> elements.length;</span><br><span class="line">        Object[] newElements = Arrays.copyOf(elements, len + <span class="number">1</span>);</span><br><span class="line">        newElements[len] = e;</span><br><span class="line">        setArray(newElements);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 读操作完全无锁，读取的是旧数组</span></span><br><span class="line"><span class="keyword">public</span> E <span class="title function_">get</span><span class="params">(<span class="type">int</span> index)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> get(getArray(), index);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>适用场景</strong>：读多写极少（如配置中心、监听器列表）</p>
+<p><strong>不适用</strong>：写多场景（每次写都复制数组，内存爆炸）</p>
+<h2 id="四、Set-家族：去重专家"><a href="#四、Set-家族：去重专家" class="headerlink" title="四、Set 家族：去重专家"></a>四、Set 家族：去重专家</h2><h3 id="4-1-HashSet：基于-HashMap-的”伪装者”"><a href="#4-1-HashSet：基于-HashMap-的”伪装者”" class="headerlink" title="4.1 HashSet：基于 HashMap 的”伪装者”"></a>4.1 HashSet：基于 HashMap 的”伪装者”</h3><p>HashSet 底层完全是一个 HashMap，所有元素作为 key 存储，value 是一个固定的 <code>PRESENT</code> 占位对象：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HashSet</span>&lt;E&gt; <span class="keyword">extends</span> <span class="title class_">AbstractSet</span>&lt;E&gt;</span><br><span class="line">        <span class="keyword">implements</span> <span class="title class_">Set</span>&lt;E&gt;, Cloneable, java.io.Serializable &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> HashMap&lt;E, Object&gt; map;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Object</span> <span class="variable">PRESENT</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Object</span>();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">add</span><span class="params">(E e)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> map.put(e, PRESENT) == <span class="literal">null</span>;  <span class="comment">// 实际是 HashMap.put</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>特点</strong>：无序、不重复、允许 null（只能一个 null）</p>
+<h3 id="4-2-LinkedHashSet：保留插入顺序的-Set"><a href="#4-2-LinkedHashSet：保留插入顺序的-Set" class="headerlink" title="4.2 LinkedHashSet：保留插入顺序的 Set"></a>4.2 LinkedHashSet：保留插入顺序的 Set</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 继承 HashSet，但底层是 LinkedHashMap</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">LinkedHashSet</span>&lt;E&gt; <span class="keyword">extends</span> <span class="title class_">HashSet</span>&lt;E&gt;</span><br><span class="line">        <span class="keyword">implements</span> <span class="title class_">Set</span>&lt;E&gt;, Cloneable, java.io.Serializable &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">LinkedHashSet</span><span class="params">(<span class="type">int</span> initialCapacity, <span class="type">float</span> loadFactor)</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>(initialCapacity, loadFactor, <span class="literal">true</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>LinkedHashSet 通过 LinkedHashMap 的双向链表维护插入顺序，遍历顺序 &#x3D; 插入顺序。<strong>性能比 HashSet 略低</strong>，但能保持稳定输出。</p>
+<h3 id="4-3-TreeSet：可排序的-Set"><a href="#4-3-TreeSet：可排序的-Set" class="headerlink" title="4.3 TreeSet：可排序的 Set"></a>4.3 TreeSet：可排序的 Set</h3><p>底层是 <strong>红黑树</strong>实现的 <code>TreeMap</code>，元素按自然顺序或自定义 <code>Comparator</code> 排序：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Set&lt;String&gt; set = <span class="keyword">new</span> <span class="title class_">TreeSet</span>&lt;&gt;();</span><br><span class="line">set.add(<span class="string">&quot;banana&quot;</span>);</span><br><span class="line">set.add(<span class="string">&quot;apple&quot;</span>);</span><br><span class="line">set.add(<span class="string">&quot;cherry&quot;</span>);</span><br><span class="line">System.out.println(set);  <span class="comment">// [apple, banana, cherry]  自动排序</span></span><br></pre></td></tr></table></figure>
+
+<p>时间复杂度：<code>add</code> &#x2F; <code>remove</code> &#x2F; <code>contains</code> 都是 O(log n)</p>
+<p><strong>适用场景</strong>：需要去重 + 排序 + 范围查询（<code>subSet</code> &#x2F; <code>headSet</code> &#x2F; <code>tailSet</code>）</p>
+<h3 id="4-4-Set-选型决策表"><a href="#4-4-Set-选型决策表" class="headerlink" title="4.4 Set 选型决策表"></a>4.4 Set 选型决策表</h3><table>
+<thead>
+<tr>
+<th>需求</th>
+<th>推荐实现</th>
+<th>时间复杂度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>只需去重，不在乎顺序</td>
+<td>HashSet</td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td>去重 + 保留插入顺序</td>
+<td>LinkedHashSet</td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td>去重 + 排序</td>
+<td>TreeSet</td>
+<td>O(log n)</td>
+</tr>
+<tr>
+<td>并发场景</td>
+<td>ConcurrentSkipListSet</td>
+<td>O(log n)</td>
+</tr>
+</tbody></table>
+<h2 id="五、Map-家族：键值对的核心"><a href="#五、Map-家族：键值对的核心" class="headerlink" title="五、Map 家族：键值对的核心"></a>五、Map 家族：键值对的核心</h2><p>Map 体系比 List 复杂得多，是后端面试的”重灾区”。</p>
+<h3 id="5-1-HashMap：面试必问之王"><a href="#5-1-HashMap：面试必问之王" class="headerlink" title="5.1 HashMap：面试必问之王"></a>5.1 HashMap：面试必问之王</h3><h4 id="5-1-1-JDK-8-底层结构"><a href="#5-1-1-JDK-8-底层结构" class="headerlink" title="5.1.1 JDK 8 底层结构"></a>5.1.1 JDK 8 底层结构</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">HashMap</span><br><span class="line">  └─ Node&lt;K,V&gt;[] table (数组，初始容量 16)</span><br><span class="line">      ├─ Node (链表节点，hash 冲突时拉链)</span><br><span class="line">      └─ TreeNode (红黑树节点，链表长度 ≥ 8 且数组 ≥ 64 时转换)</span><br></pre></td></tr></table></figure>
+
+<p><strong>关键参数</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HashMap</span>&lt;K,V&gt; <span class="keyword">extends</span> <span class="title class_">AbstractMap</span>&lt;K,V&gt;</span><br><span class="line">        <span class="keyword">implements</span> <span class="title class_">Map</span>&lt;K,V&gt;, Cloneable, Serializable &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">DEFAULT_INITIAL_CAPACITY</span> <span class="operator">=</span> <span class="number">1</span> &lt;&lt; <span class="number">4</span>;  <span class="comment">// 16</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">MAXIMUM_CAPACITY</span> <span class="operator">=</span> <span class="number">1</span> &lt;&lt; <span class="number">30</span>;          <span class="comment">// 2^30</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">float</span> <span class="variable">DEFAULT_LOAD_FACTOR</span> <span class="operator">=</span> <span class="number">0.75f</span>;      <span class="comment">// 扩容因子</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TREEIFY_THRESHOLD</span> <span class="operator">=</span> <span class="number">8</span>;              <span class="comment">// 树化阈值</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">UNTREEIFY_THRESHOLD</span> <span class="operator">=</span> <span class="number">6</span>;            <span class="comment">// 退链化阈值</span></span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">MIN_TREEIFY_CAPACITY</span> <span class="operator">=</span> <span class="number">64</span>;          <span class="comment">// 树化最小容量</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-1-2-关键计算公式"><a href="#5-1-2-关键计算公式" class="headerlink" title="5.1.2 关键计算公式"></a>5.1.2 关键计算公式</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. hash 计算：高 16 位异或低 16 位，让分布更均匀</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="title function_">hash</span><span class="params">(Object key)</span> &#123;</span><br><span class="line">    <span class="type">int</span> h;</span><br><span class="line">    <span class="keyword">return</span> (key == <span class="literal">null</span>) ? <span class="number">0</span> : (h = key.hashCode()) ^ (h &gt;&gt;&gt; <span class="number">16</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 数组下标：n - 1 &amp; hash（n 必须是 2 的幂，等价于取模但更快）</span></span><br><span class="line"><span class="keyword">if</span> ((p = tab[i = (n - <span class="number">1</span>) &amp; hash]) == <span class="literal">null</span>) ...</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-1-3-put-流程（核心）"><a href="#5-1-3-put-流程（核心）" class="headerlink" title="5.1.3 put 流程（核心）"></a>5.1.3 put 流程（核心）</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> V <span class="title function_">put</span><span class="params">(K key, V value)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> putVal(hash(key), key, value, <span class="literal">false</span>, <span class="literal">true</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">final</span> V <span class="title function_">putVal</span><span class="params">(<span class="type">int</span> hash, K key, V value, <span class="type">boolean</span> onlyIfAbsent, <span class="type">boolean</span> evict)</span> &#123;</span><br><span class="line">    Node&lt;K,V&gt;[] tab;</span><br><span class="line">    Node&lt;K,V&gt; p;</span><br><span class="line">    <span class="type">int</span> n, i;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 1. 数组为空则初始化</span></span><br><span class="line">    <span class="keyword">if</span> ((tab = table) == <span class="literal">null</span> || (n = tab.length) == <span class="number">0</span>)</span><br><span class="line">        n = (tab = resize()).length;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 计算下标，位置为空直接放</span></span><br><span class="line">    <span class="keyword">if</span> ((p = tab[i = (n - <span class="number">1</span>) &amp; hash]) == <span class="literal">null</span>)</span><br><span class="line">        tab[i] = newNode(hash, key, value, <span class="literal">null</span>);</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        Node&lt;K,V&gt; e;</span><br><span class="line">        K k;</span><br><span class="line">        <span class="comment">// 3. key 已存在则覆盖</span></span><br><span class="line">        <span class="keyword">if</span> (p.hash == hash &amp;&amp; ((k = p.key) == key || (key != <span class="literal">null</span> &amp;&amp; key.equals(k))))</span><br><span class="line">            e = p;</span><br><span class="line">        <span class="comment">// 4. 红黑树节点则走红黑树插入</span></span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (p <span class="keyword">instanceof</span> TreeNode)</span><br><span class="line">            e = ((TreeNode&lt;K,V&gt;)p).putTreeVal(<span class="built_in">this</span>, tab, hash, key, value);</span><br><span class="line">        <span class="comment">// 5. 链表则遍历，&gt;= 8 树化</span></span><br><span class="line">        <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">binCount</span> <span class="operator">=</span> <span class="number">0</span>; ; ++binCount) &#123;</span><br><span class="line">                <span class="keyword">if</span> ((e = p.next) == <span class="literal">null</span>) &#123;</span><br><span class="line">                    p.next = newNode(hash, key, value, <span class="literal">null</span>);</span><br><span class="line">                    <span class="keyword">if</span> (binCount &gt;= TREEIFY_THRESHOLD - <span class="number">1</span>)</span><br><span class="line">                        treeifyBin(tab, hash);  <span class="comment">// 真正树化（需数组 ≥ 64）</span></span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (e.hash == hash &amp;&amp; ((k = e.key) == key || (key != <span class="literal">null</span> &amp;&amp; key.equals(k))))</span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line">                p = e;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">if</span> (e != <span class="literal">null</span>) &#123;  <span class="comment">// 已存在 key</span></span><br><span class="line">            <span class="type">V</span> <span class="variable">oldValue</span> <span class="operator">=</span> e.value;</span><br><span class="line">            <span class="keyword">if</span> (!onlyIfAbsent || oldValue == <span class="literal">null</span>)</span><br><span class="line">                e.value = value;</span><br><span class="line">            afterNodeAccess(e);</span><br><span class="line">            <span class="keyword">return</span> oldValue;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    ++modCount;</span><br><span class="line">    <span class="keyword">if</span> (++size &gt; threshold)</span><br><span class="line">        resize();  <span class="comment">// 扩容</span></span><br><span class="line">    afterNodeInsertion(evict);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-1-4-扩容机制（resize）"><a href="#5-1-4-扩容机制（resize）" class="headerlink" title="5.1.4 扩容机制（resize）"></a>5.1.4 扩容机制（resize）</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">final</span> Node&lt;K,V&gt;[] resize() &#123;</span><br><span class="line">    Node&lt;K,V&gt;[] oldTab = table;</span><br><span class="line">    <span class="type">int</span> <span class="variable">oldCap</span> <span class="operator">=</span> (oldTab == <span class="literal">null</span>) ? <span class="number">0</span> : oldTab.length;</span><br><span class="line">    <span class="type">int</span> <span class="variable">oldThr</span> <span class="operator">=</span> threshold;</span><br><span class="line">    <span class="type">int</span> newCap, newThr = <span class="number">0</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (oldCap &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (oldCap &gt;= MAXIMUM_CAPACITY) &#123;</span><br><span class="line">            threshold = Integer.MAX_VALUE;</span><br><span class="line">            <span class="keyword">return</span> oldTab;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> ((newCap = oldCap &lt;&lt; <span class="number">1</span>) &lt; MAXIMUM_CAPACITY &amp;&amp;</span><br><span class="line">                 oldCap &gt;= DEFAULT_INITIAL_CAPACITY)</span><br><span class="line">            newThr = oldThr &lt;&lt; <span class="number">1</span>;  <span class="comment">// 2 倍</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// ... 新容量 = 旧容量 × 2</span></span><br><span class="line">    <span class="comment">// 重新计算每个节点的下标（巧妙的拆分优化）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>扩容优化</strong>：JDK 8 后，节点 rehash 时只需要看 hash 的某一位是 0 还是 1，即可确定新位置（原下标 + oldCap），不需要重新计算 hash。</p>
+<h4 id="5-1-5-为什么容量必须是-2-的幂？"><a href="#5-1-5-为什么容量必须是-2-的幂？" class="headerlink" title="5.1.5 为什么容量必须是 2 的幂？"></a>5.1.5 为什么容量必须是 2 的幂？</h4><ol>
+<li><strong>取模优化</strong>：<code>hash % n</code> → <code>hash &amp; (n - 1)</code>，位运算比取模快 10 倍</li>
+<li><strong>扩容均匀</strong>：扩容时节点要么在原位置，要么在 <code>原位置 + oldCap</code>，分布更均匀</li>
+</ol>
+<h4 id="5-1-6-为什么树化阈值是-8？"><a href="#5-1-6-为什么树化阈值是-8？" class="headerlink" title="5.1.6 为什么树化阈值是 8？"></a>5.1.6 为什么树化阈值是 8？</h4><p>源码注释说明：在<strong>随机 hash</strong>下，链表长度达到 8 的概率是 0.00000006，几乎不可能。因此选 8 是<strong>泊松分布</strong>的合理阈值，避免过早树化浪费空间。退链化阈值是 6（避免频繁树化&#x2F;退链化）。</p>
+<h4 id="5-1-7-HashMap-的”三宗罪”"><a href="#5-1-7-HashMap-的”三宗罪”" class="headerlink" title="5.1.7 HashMap 的”三宗罪”"></a>5.1.7 HashMap 的”三宗罪”</h4><ol>
+<li><strong>非线程安全</strong>：多线程并发 put 可能导致数据丢失</li>
+<li><strong>JDK 7 扩容死循环</strong>：链表头插法 + 并发扩容 → 链表成环，CPU 100%（JDK 8 改为尾插法已修复，但仍有数据不一致问题）</li>
+<li><strong>resize 阻塞</strong>：扩容时全表 rehash，高并发下卡顿明显</li>
+</ol>
+<h3 id="5-2-ConcurrentHashMap：高并发下的”扛把子”"><a href="#5-2-ConcurrentHashMap：高并发下的”扛把子”" class="headerlink" title="5.2 ConcurrentHashMap：高并发下的”扛把子”"></a>5.2 ConcurrentHashMap：高并发下的”扛把子”</h3><h4 id="5-2-1-JDK-7-vs-JDK-8-实现对比"><a href="#5-2-1-JDK-7-vs-JDK-8-实现对比" class="headerlink" title="5.2.1 JDK 7 vs JDK 8 实现对比"></a>5.2.1 JDK 7 vs JDK 8 实现对比</h4><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>JDK 7</th>
+<th>JDK 8</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>数据结构</td>
+<td>Segment[] + HashEntry[]</td>
+<td>Node[] + 链表&#x2F;红黑树</td>
+</tr>
+<tr>
+<td>锁机制</td>
+<td>分段锁（ReentrantLock）</td>
+<td>CAS + synchronized</td>
+</tr>
+<tr>
+<td>锁粒度</td>
+<td>Segment 级别（默认 16 段）</td>
+<td>Node 节点级别（更细）</td>
+</tr>
+<tr>
+<td>读操作</td>
+<td>不需要加锁（volatile）</td>
+<td>不需要加锁（volatile）</td>
+</tr>
+<tr>
+<td>并发度</td>
+<td>受 Segment 数量限制</td>
+<td>理论无上限</td>
+</tr>
+<tr>
+<td>扩容</td>
+<td>Segment 内扩容</td>
+<td>多线程协同扩容</td>
+</tr>
+</tbody></table>
+<h4 id="5-2-2-JDK-8-核心源码：put"><a href="#5-2-2-JDK-8-核心源码：put" class="headerlink" title="5.2.2 JDK 8 核心源码：put"></a>5.2.2 JDK 8 核心源码：put</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">final</span> V <span class="title function_">putVal</span><span class="params">(K key, V value, <span class="type">boolean</span> onlyIfAbsent)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (key == <span class="literal">null</span> || value == <span class="literal">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">    <span class="type">int</span> <span class="variable">hash</span> <span class="operator">=</span> spread(key.hashCode());</span><br><span class="line">    <span class="type">int</span> <span class="variable">binCount</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">for</span> (Node&lt;K,V&gt;[] tab = table;;) &#123;</span><br><span class="line">        Node&lt;K,V&gt; f; <span class="type">int</span> n, i, fh;</span><br><span class="line">        <span class="keyword">if</span> (tab == <span class="literal">null</span> || (n = tab.length) == <span class="number">0</span>)</span><br><span class="line">            tab = initTable();  <span class="comment">// CAS 初始化</span></span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> ((f = tabAt(tab, i = (n - <span class="number">1</span>) &amp; hash)) == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="comment">// 桶为空 → CAS 插入</span></span><br><span class="line">            <span class="keyword">if</span> (casTabAt(tab, i, <span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Node</span>&lt;K,V&gt;(hash, key, value, <span class="literal">null</span>)))</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> ((fh = f.hash) == MOVED)</span><br><span class="line">            tab = helpTransfer(tab, f);  <span class="comment">// 协助扩容</span></span><br><span class="line">        <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// 桶不为空 → synchronized 锁桶头节点</span></span><br><span class="line">            <span class="keyword">synchronized</span> (f) &#123;</span><br><span class="line">                <span class="keyword">if</span> (tabAt(tab, i) == f) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (fh &gt;= <span class="number">0</span>) &#123;  <span class="comment">// 链表</span></span><br><span class="line">                        <span class="comment">// ... 遍历插入</span></span><br><span class="line">                    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (f <span class="keyword">instanceof</span> TreeBin) &#123;</span><br><span class="line">                        <span class="comment">// ... 红黑树插入</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">// 检查是否需要树化</span></span><br><span class="line">            <span class="keyword">if</span> (binCount != <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="keyword">if</span> (binCount &gt;= TREEIFY_THRESHOLD)</span><br><span class="line">                    treeifyBin(tab, i);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    addCount(<span class="number">1L</span>, binCount);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>三个关键点</strong>：</p>
+<ol>
+<li><strong>CAS + synchronized 组合</strong>：<ul>
+<li>桶为空 → CAS 插入（无锁）</li>
+<li>桶不为空 → synchronized 锁桶头节点（更细粒度）</li>
+</ul>
+</li>
+<li><strong>volatile 保证可见性</strong>：<code>tabAt</code> &#x2F; <code>casTabAt</code> 用 <code>Unsafe</code> 的 volatile 读 &#x2F; CAS 操作</li>
+<li><strong>多线程协助扩容</strong>：<code>helpTransfer</code> 让空闲线程帮忙迁移数据</li>
+</ol>
+<h4 id="5-2-3-size-的”baseCount-sumCount”算法"><a href="#5-2-3-size-的”baseCount-sumCount”算法" class="headerlink" title="5.2.3 size() 的”baseCount + sumCount”算法"></a>5.2.3 size() 的”baseCount + sumCount”算法</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 通过 baseCount + CounterCell[] 分段统计</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> <span class="type">long</span> baseCount;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> CounterCell[] counterCells;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="type">int</span> <span class="title function_">size</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">long</span> <span class="variable">n</span> <span class="operator">=</span> sumCount();</span><br><span class="line">    <span class="keyword">return</span> ((n &lt; <span class="number">0L</span>) ? <span class="number">0</span> : (n &gt; (<span class="type">long</span>)Integer.MAX_VALUE) ? Integer.MAX_VALUE : (<span class="type">int</span>)n);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">final</span> <span class="type">long</span> <span class="title function_">sumCount</span><span class="params">()</span> &#123;</span><br><span class="line">    CounterCell[] as = counterCells; <span class="type">long</span> <span class="variable">sum</span> <span class="operator">=</span> baseCount;</span><br><span class="line">    <span class="keyword">if</span> (as != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">for</span> (CounterCell a : as)</span><br><span class="line">            <span class="keyword">if</span> (a != <span class="literal">null</span>) sum += a.value;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> sum;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么不用 AtomicLong？</strong> 高并发下 <code>AtomicLong</code> 单一变量 CAS 竞争激烈，CounterCell[] 通过<strong>分散热点</strong>到不同槽位提升并发度。LongAdder 正是这个思想。</p>
+<h4 id="5-2-4-为什么不允许-null-key-null-value？"><a href="#5-2-4-为什么不允许-null-key-null-value？" class="headerlink" title="5.2.4 为什么不允许 null key &#x2F; null value？"></a>5.2.4 为什么不允许 null key &#x2F; null value？</h4><blockquote>
+<p>“The main reason that nulls aren’t allowed in ConcurrentMaps is because they can’t be safely used in a concurrent context. The null check is done after the value is retrieved, so the null can’t be reliably used to indicate ‘no value’.”</p>
+</blockquote>
+<p>简单说：在并发下，<code>get(key) == null</code> 无法区分”key 不存在”还是”value 是 null”，会引发歧义。</p>
+<h3 id="5-3-LinkedHashMap：实现-LRU-缓存的”利器”"><a href="#5-3-LinkedHashMap：实现-LRU-缓存的”利器”" class="headerlink" title="5.3 LinkedHashMap：实现 LRU 缓存的”利器”"></a>5.3 LinkedHashMap：实现 LRU 缓存的”利器”</h3><p>LinkedHashMap 在 HashMap 基础上加了<strong>双向链表</strong>维护顺序：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">LinkedHashMap</span>&lt;K,V&gt; <span class="keyword">extends</span> <span class="title class_">HashMap</span>&lt;K,V&gt;</span><br><span class="line">        <span class="keyword">implements</span> <span class="title class_">Map</span>&lt;K,V&gt; &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// accessOrder=false：按插入顺序（默认）</span></span><br><span class="line">    <span class="comment">// accessOrder=true：按访问顺序（get 也会把元素移到末尾）</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">boolean</span> accessOrder;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Entry</span>&lt;K,V&gt; <span class="keyword">extends</span> <span class="title class_">HashMap</span>.Node&lt;K,V&gt; &#123;</span><br><span class="line">        Entry&lt;K,V&gt; before, after;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>实战：手写 LRU 缓存</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">LRUCache</span>&lt;K, V&gt; <span class="keyword">extends</span> <span class="title class_">LinkedHashMap</span>&lt;K, V&gt; &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">int</span> capacity;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">LRUCache</span><span class="params">(<span class="type">int</span> capacity)</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>(capacity, <span class="number">0.75f</span>, <span class="literal">true</span>);  <span class="comment">// accessOrder=true 关键</span></span><br><span class="line">        <span class="built_in">this</span>.capacity = capacity;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="type">boolean</span> <span class="title function_">removeEldestEntry</span><span class="params">(Map.Entry&lt;K, V&gt; eldest)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> size() &gt; capacity;  <span class="comment">// 超过容量自动淘汰最久未访问</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用</span></span><br><span class="line">LRUCache&lt;Integer, String&gt; cache = <span class="keyword">new</span> <span class="title class_">LRUCache</span>&lt;&gt;(<span class="number">3</span>);</span><br><span class="line">cache.put(<span class="number">1</span>, <span class="string">&quot;a&quot;</span>);</span><br><span class="line">cache.put(<span class="number">2</span>, <span class="string">&quot;b&quot;</span>);</span><br><span class="line">cache.put(<span class="number">3</span>, <span class="string">&quot;c&quot;</span>);</span><br><span class="line">cache.get(<span class="number">1</span>);          <span class="comment">// 访问 1，1 移到末尾</span></span><br><span class="line">cache.put(<span class="number">4</span>, <span class="string">&quot;d&quot;</span>);     <span class="comment">// 触发淘汰，2 被移除</span></span><br><span class="line">System.out.println(cache);  <span class="comment">// &#123;3=c, 1=a, 4=d&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-4-TreeMap：红黑树的有序-Map"><a href="#5-4-TreeMap：红黑树的有序-Map" class="headerlink" title="5.4 TreeMap：红黑树的有序 Map"></a>5.4 TreeMap：红黑树的有序 Map</h3><p>底层是 <strong>红黑树</strong>，所有 key 按自然顺序或自定义 <code>Comparator</code> 排序：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">TreeMap&lt;String, Integer&gt; map = <span class="keyword">new</span> <span class="title class_">TreeMap</span>&lt;&gt;();</span><br><span class="line">map.put(<span class="string">&quot;banana&quot;</span>, <span class="number">2</span>);</span><br><span class="line">map.put(<span class="string">&quot;apple&quot;</span>, <span class="number">1</span>);</span><br><span class="line">System.out.println(map.firstKey());  <span class="comment">// apple</span></span><br><span class="line">System.out.println(map.ceilingKey(<span class="string">&quot;c&quot;</span>));  <span class="comment">// 找不到，ceiling 是 banana</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>适用场景</strong>：需要范围查询（<code>subMap</code> &#x2F; <code>headMap</code> &#x2F; <code>tailMap</code>）、顺序遍历</p>
+<h3 id="5-5-Map-选型决策"><a href="#5-5-Map-选型决策" class="headerlink" title="5.5 Map 选型决策"></a>5.5 Map 选型决策</h3><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单线程缓存</td>
+<td>HashMap</td>
+<td>O(1) 最快</td>
+</tr>
+<tr>
+<td>单线程 + 保留顺序</td>
+<td>LinkedHashMap</td>
+<td>插入顺序可预测</td>
+</tr>
+<tr>
+<td>单线程 + 排序</td>
+<td>TreeMap</td>
+<td>自然排序 + 范围查询</td>
+</tr>
+<tr>
+<td>高并发读多写少</td>
+<td>ConcurrentHashMap</td>
+<td>JDK 8+ 性能最佳</td>
+</tr>
+<tr>
+<td>高并发 + 排序</td>
+<td>ConcurrentSkipListMap</td>
+<td>跳表实现 O(log n)</td>
+</tr>
+<tr>
+<td>线程安全历史包袱</td>
+<td>Hashtable</td>
+<td>不推荐，已被淘汰</td>
+</tr>
+<tr>
+<td>唯一性 + 弱引用</td>
+<td>WeakHashMap</td>
+<td>缓存场景防 OOM</td>
+</tr>
+</tbody></table>
+<h2 id="六、Queue-Deque-家族：队列与栈"><a href="#六、Queue-Deque-家族：队列与栈" class="headerlink" title="六、Queue &#x2F; Deque 家族：队列与栈"></a>六、Queue &#x2F; Deque 家族：队列与栈</h2><h3 id="6-1-Queue-接口速览"><a href="#6-1-Queue-接口速览" class="headerlink" title="6.1 Queue 接口速览"></a>6.1 Queue 接口速览</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Queue</span>&lt;E&gt; <span class="keyword">extends</span> <span class="title class_">Collection</span>&lt;E&gt; &#123;</span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">add</span><span class="params">(E e)</span>;       <span class="comment">// 失败抛异常</span></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">offer</span><span class="params">(E e)</span>;     <span class="comment">// 失败返回 false</span></span><br><span class="line">    E <span class="title function_">remove</span><span class="params">()</span>;             <span class="comment">// 失败抛异常</span></span><br><span class="line">    E <span class="title function_">poll</span><span class="params">()</span>;               <span class="comment">// 失败返回 null</span></span><br><span class="line">    E <span class="title function_">element</span><span class="params">()</span>;            <span class="comment">// 失败抛异常</span></span><br><span class="line">    E <span class="title function_">peek</span><span class="params">()</span>;               <span class="comment">// 失败返回 null</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>生产建议</strong>：优先使用 <code>offer</code> &#x2F; <code>poll</code> &#x2F; <code>peek</code>（不抛异常的版本），避免线上 NPE。</p>
+<h3 id="6-2-Deque（双端队列）：栈与队列的统一"><a href="#6-2-Deque（双端队列）：栈与队列的统一" class="headerlink" title="6.2 Deque（双端队列）：栈与队列的统一"></a>6.2 Deque（双端队列）：栈与队列的统一</h3><p><code>Deque</code> 接口同时支持栈和队列操作：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 当栈使用：push / pop / peek</span></span><br><span class="line">Deque&lt;Integer&gt; stack = <span class="keyword">new</span> <span class="title class_">ArrayDeque</span>&lt;&gt;();</span><br><span class="line">stack.push(<span class="number">1</span>);</span><br><span class="line">stack.push(<span class="number">2</span>);</span><br><span class="line">System.out.println(stack.pop());  <span class="comment">// 2</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 当队列使用：offer / poll / peek</span></span><br><span class="line">Deque&lt;Integer&gt; queue = <span class="keyword">new</span> <span class="title class_">ArrayDeque</span>&lt;&gt;();</span><br><span class="line">queue.offer(<span class="number">1</span>);</span><br><span class="line">queue.offer(<span class="number">2</span>);</span><br><span class="line">System.out.println(queue.poll());  <span class="comment">// 1</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么用 ArrayDeque 不用 Stack？</strong></p>
+<ul>
+<li><code>java.util.Stack</code> 继承 Vector，所有方法 synchronized，性能差</li>
+<li>ArrayDeque 是循环数组实现，更快更现代</li>
+</ul>
+<h3 id="6-3-BlockingQueue-四大家族"><a href="#6-3-BlockingQueue-四大家族" class="headerlink" title="6.3 BlockingQueue 四大家族"></a>6.3 BlockingQueue 四大家族</h3><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>行为</th>
+<th>典型场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ArrayBlockingQueue</code></td>
+<td>有界数组</td>
+<td>固定大小生产者-消费者</td>
+</tr>
+<tr>
+<td><code>LinkedBlockingQueue</code></td>
+<td>可选有界链表</td>
+<td>任务队列（默认 Integer.MAX_VALUE）</td>
+</tr>
+<tr>
+<td><code>SynchronousQueue</code></td>
+<td>不存储元素</td>
+<td>线程间直接传递</td>
+</tr>
+<tr>
+<td><code>PriorityBlockingQueue</code></td>
+<td>无界优先级</td>
+<td>任务调度</td>
+</tr>
+<tr>
+<td><code>DelayQueue</code></td>
+<td>无界延迟</td>
+<td>定时任务、缓存过期</td>
+</tr>
+</tbody></table>
+<p><strong>生产配置建议</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ThreadPoolExecutor 经典配置</span></span><br><span class="line"><span class="keyword">new</span> <span class="title class_">ThreadPoolExecutor</span>(</span><br><span class="line">    <span class="number">8</span>, <span class="number">16</span>, <span class="number">60</span>, TimeUnit.SECONDS,</span><br><span class="line">    <span class="keyword">new</span> <span class="title class_">ArrayBlockingQueue</span>&lt;&gt;(<span class="number">1000</span>),  <span class="comment">// 必须有界</span></span><br><span class="line">    <span class="keyword">new</span> <span class="title class_">ThreadPoolExecutor</span>.AbortPolicy()</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么要用有界队列？</strong> 无界队列在任务堆积时会撑爆内存（OOM），有界队列 + 拒绝策略才是生产标配。</p>
+<h2 id="七、Java-8-17-21-集合框架新特性"><a href="#七、Java-8-17-21-集合框架新特性" class="headerlink" title="七、Java 8 &#x2F; 17 &#x2F; 21 集合框架新特性"></a>七、Java 8 &#x2F; 17 &#x2F; 21 集合框架新特性</h2><h3 id="7-1-Java-8：Stream-API-与函数式编程"><a href="#7-1-Java-8：Stream-API-与函数式编程" class="headerlink" title="7.1 Java 8：Stream API 与函数式编程"></a>7.1 Java 8：Stream API 与函数式编程</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">List&lt;String&gt; names = Arrays.asList(<span class="string">&quot;Alice&quot;</span>, <span class="string">&quot;Bob&quot;</span>, <span class="string">&quot;Charlie&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 过滤 + 转换 + 收集</span></span><br><span class="line">List&lt;String&gt; filtered = names.stream()</span><br><span class="line">    .filter(s -&gt; s.length() &gt; <span class="number">3</span>)</span><br><span class="line">    .map(String::toUpperCase)</span><br><span class="line">    .collect(Collectors.toList());</span><br><span class="line"></span><br><span class="line"><span class="comment">// 分组</span></span><br><span class="line">Map&lt;Integer, List&lt;String&gt;&gt; grouped = names.stream()</span><br><span class="line">    .collect(Collectors.groupingBy(String::length));</span><br><span class="line"></span><br><span class="line"><span class="comment">// 并行流（数据量大时考虑）</span></span><br><span class="line"><span class="type">long</span> <span class="variable">count</span> <span class="operator">=</span> names.parallelStream().filter(s -&gt; s.length() &gt; <span class="number">3</span>).count();</span><br></pre></td></tr></table></figure>
+
+<p><strong>Stream 性能提醒</strong>：小数据量用普通 for 循环更快，Stream 有 lambda 调用和对象创建开销。</p>
+<h3 id="7-2-Java-17：不可变集合的工厂方法"><a href="#7-2-Java-17：不可变集合的工厂方法" class="headerlink" title="7.2 Java 17：不可变集合的工厂方法"></a>7.2 Java 17：不可变集合的工厂方法</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// JDK 9+ 新增</span></span><br><span class="line">List&lt;String&gt; list = List.of(<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>);</span><br><span class="line">Set&lt;Integer&gt; set = Set.of(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>);</span><br><span class="line">Map&lt;String, Integer&gt; map = Map.of(<span class="string">&quot;a&quot;</span>, <span class="number">1</span>, <span class="string">&quot;b&quot;</span>, <span class="number">2</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 不可变集合特性：</span></span><br><span class="line"><span class="comment">// 1. 不可修改（add/remove 抛 UnsupportedOperationException）</span></span><br><span class="line"><span class="comment">// 2. 不能存 null</span></span><br><span class="line"><span class="comment">// 3. 内存更紧凑（JVM 优化）</span></span><br><span class="line"><span class="comment">// 4. 线程安全</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>生产优势</strong>：用作常量、配置项、函数返回值，既安全又高效。</p>
+<h3 id="7-3-Java-21：Sequenced-Collection（值得期待）"><a href="#7-3-Java-21：Sequenced-Collection（值得期待）" class="headerlink" title="7.3 Java 21：Sequenced Collection（值得期待）"></a>7.3 Java 21：Sequenced Collection（值得期待）</h3><p>Java 21 引入全新的 <code>SequencedCollection</code> 接口，给所有有序集合提供统一的<strong>首尾操作 API</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">SequencedCollection&lt;String&gt; list = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;(List.of(<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>));</span><br><span class="line"></span><br><span class="line"><span class="comment">// 新增 API</span></span><br><span class="line">list.addFirst(<span class="string">&quot;z&quot;</span>);</span><br><span class="line">list.addLast(<span class="string">&quot;e&quot;</span>);</span><br><span class="line">list.removeFirst();</span><br><span class="line">list.removeLast();</span><br><span class="line">list.getFirst();</span><br><span class="line">list.getLast();</span><br><span class="line">list.reversed();  <span class="comment">// 反向视图</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// SequencedMap</span></span><br><span class="line">SequencedMap&lt;String, Integer&gt; map = <span class="keyword">new</span> <span class="title class_">LinkedHashMap</span>&lt;&gt;();</span><br><span class="line">map.putFirst(<span class="string">&quot;first&quot;</span>, <span class="number">1</span>);</span><br><span class="line">map.putLast(<span class="string">&quot;last&quot;</span>, <span class="number">99</span>);</span><br></pre></td></tr></table></figure>
+
+<p><strong>意义</strong>：以前只有 <code>Deque</code> 有 <code>addFirst/addLast</code>，现在 <code>List</code> 也有了，API 标准化。</p>
+<h2 id="八、生产避坑清单"><a href="#八、生产避坑清单" class="headerlink" title="八、生产避坑清单"></a>八、生产避坑清单</h2><h3 id="8-1-性能陷阱"><a href="#8-1-性能陷阱" class="headerlink" title="8.1 性能陷阱"></a>8.1 性能陷阱</h3><ol>
+<li><p><strong>集合初始化大小要合理</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 错误：默认 16，频繁扩容</span></span><br><span class="line">Map&lt;Long, User&gt; map = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 正确：预估大小 / 0.75 + 1</span></span><br><span class="line">Map&lt;Long, User&gt; map = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;(<span class="number">1000</span>);  <span class="comment">// 实际能存 ~750 个</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>不要在 for 循环里用 size() 判断</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 错误：每次循环都调用 size()</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; list.size(); i++) &#123; ... &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 正确：缓存到局部变量</span></span><br><span class="line"><span class="type">int</span> <span class="variable">size</span> <span class="operator">=</span> list.size();</span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; size; i++) &#123; ... &#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>遍历删除用迭代器</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 错误：ConcurrentModificationException</span></span><br><span class="line"><span class="keyword">for</span> (String s : list) &#123;</span><br><span class="line">    <span class="keyword">if</span> (s.length() &gt; <span class="number">5</span>) list.remove(s);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 正确：</span></span><br><span class="line">list.removeIf(s -&gt; s.length() &gt; <span class="number">5</span>);  <span class="comment">// JDK 8+</span></span><br><span class="line"><span class="comment">// 或</span></span><br><span class="line">Iterator&lt;String&gt; it = list.iterator();</span><br><span class="line"><span class="keyword">while</span> (it.hasNext()) &#123;</span><br><span class="line">    <span class="keyword">if</span> (it.next().length() &gt; <span class="number">5</span>) it.remove();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>超大集合慎用 ArrayList.contains</strong>：O(n) 复杂度，数据量大考虑转 HashSet：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 慢：每次都遍历</span></span><br><span class="line"><span class="keyword">if</span> (bigList.contains(target)) &#123; ... &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 快：O(1) 查找</span></span><br><span class="line">Set&lt;String&gt; set = <span class="keyword">new</span> <span class="title class_">HashSet</span>&lt;&gt;(bigList);</span><br><span class="line"><span class="keyword">if</span> (set.contains(target)) &#123; ... &#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h3 id="8-2-线程安全陷阱"><a href="#8-2-线程安全陷阱" class="headerlink" title="8.2 线程安全陷阱"></a>8.2 线程安全陷阱</h3><ol>
+<li><p><strong>HashMap 不能并发用</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 错误：JDK 7 死循环，JDK 8 数据丢失</span></span><br><span class="line">Map&lt;K, V&gt; map = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line">executorService.execute(() -&gt; map.put(...));  <span class="comment">// 多线程同时写</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 正确：</span></span><br><span class="line">Map&lt;K, V&gt; map = <span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;();</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>SimpleDateFormat 线程不安全</strong>（虽然不是集合，但常见坑）：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 错误：共享 SimpleDateFormat 实例</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">SimpleDateFormat</span> <span class="variable">sdf</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SimpleDateFormat</span>(<span class="string">&quot;yyyy-MM-dd&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 正确：ThreadLocal 或 Joda-Time</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ThreadLocal&lt;SimpleDateFormat&gt; sdf = </span><br><span class="line">    ThreadLocal.withInitial(() -&gt; <span class="keyword">new</span> <span class="title class_">SimpleDateFormat</span>(<span class="string">&quot;yyyy-MM-dd&quot;</span>));</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>Arrays.asList 限制</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">List&lt;String&gt; list = Arrays.asList(<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>);</span><br><span class="line">list.add(<span class="string">&quot;d&quot;</span>);  <span class="comment">// UnsupportedOperationException</span></span><br><span class="line">list.remove(<span class="number">0</span>); <span class="comment">// UnsupportedOperationException</span></span><br><span class="line"><span class="comment">// Arrays.asList 返回的是 Arrays.ArrayList（内部类），不支持 add/remove</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<h3 id="8-3-内存泄漏陷阱"><a href="#8-3-内存泄漏陷阱" class="headerlink" title="8.3 内存泄漏陷阱"></a>8.3 内存泄漏陷阱</h3><ol>
+<li><p><strong>监听器&#x2F;回调没移除</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 错误：Listener 永远不释放</span></span><br><span class="line">eventBus.register(myListener);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 正确：记得在生命周期结束时 unregister</span></span><br><span class="line">eventBus.unregister(myListener);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>大对象引用放入 ThreadLocal 不清理</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 错误：ThreadLocal 内存泄漏（尤其线程池场景）</span></span><br><span class="line">threadLocal.set(largeObject);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 正确：使用完调用 remove()</span></span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    threadLocal.set(largeObject);</span><br><span class="line">    <span class="comment">// ... 业务逻辑</span></span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    threadLocal.remove();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h2 id="九、8-道高频面试题精讲"><a href="#九、8-道高频面试题精讲" class="headerlink" title="九、8 道高频面试题精讲"></a>九、8 道高频面试题精讲</h2><h3 id="Q1：ArrayList-vs-LinkedList-性能对比？"><a href="#Q1：ArrayList-vs-LinkedList-性能对比？" class="headerlink" title="Q1：ArrayList vs LinkedList 性能对比？"></a>Q1：ArrayList vs LinkedList 性能对比？</h3><p><strong>答</strong>：</p>
+<ul>
+<li><strong>随机访问</strong>：<code>ArrayList</code> O(1) &gt; <code>LinkedList</code> O(n)</li>
+<li><strong>末尾追加</strong>：两者都是 O(1)，但 ArrayList 略快（CPU 缓存友好）</li>
+<li><strong>中间插入&#x2F;删除</strong>：<code>LinkedList</code> 理论 O(1)，但需先遍历到指定位置 O(n)，常数项也较大</li>
+<li><strong>内存占用</strong>：<code>ArrayList</code> 紧凑（连续内存），<code>LinkedList</code> 每个节点 24 字节额外开销</li>
+</ul>
+<p><strong>面试加分</strong>：现代 JVM 下，<code>ArrayList</code> 的 100 万级数据随机访问比 <code>LinkedList</code> 快 10 倍以上，只有<strong>极端头尾操作</strong>才用 LinkedList。</p>
+<h3 id="Q2：HashMap-底层原理？JDK-7-和-8-的区别？"><a href="#Q2：HashMap-底层原理？JDK-7-和-8-的区别？" class="headerlink" title="Q2：HashMap 底层原理？JDK 7 和 8 的区别？"></a>Q2：HashMap 底层原理？JDK 7 和 8 的区别？</h3><p><strong>答</strong>：</p>
+<ul>
+<li><strong>JDK 7</strong>：数组 + 链表，头插法，多线程并发扩容可能死循环</li>
+<li><strong>JDK 8</strong>：数组 + 链表 + 红黑树，尾插法，引入红黑树避免链表过长退化</li>
+</ul>
+<p><strong>细节</strong>：</p>
+<ul>
+<li>初始容量 16，扩容 2 倍</li>
+<li>树化阈值 8，退链化阈值 6（泊松分布考量）</li>
+<li>容量必须是 2 的幂（位运算优化）</li>
+<li>加载因子 0.75（时间空间平衡）</li>
+</ul>
+<h3 id="Q3：ConcurrentHashMap-怎么保证线程安全？JDK-8-用了什么锁？"><a href="#Q3：ConcurrentHashMap-怎么保证线程安全？JDK-8-用了什么锁？" class="headerlink" title="Q3：ConcurrentHashMap 怎么保证线程安全？JDK 8 用了什么锁？"></a>Q3：ConcurrentHashMap 怎么保证线程安全？JDK 8 用了什么锁？</h3><p><strong>答</strong>：</p>
+<ul>
+<li><strong>JDK 7</strong>：<code>Segment</code> 分段锁，默认 16 段，每段独立加锁</li>
+<li><strong>JDK 8</strong>：<code>CAS + synchronized</code>，锁粒度更细（桶节点级别）</li>
+</ul>
+<p><strong>读操作无锁</strong>的原因：<code>Node.val</code> 和 <code>Node.next</code> 用 <code>volatile</code> 修饰，保证可见性。</p>
+<p><strong>size 统计</strong>：<code>baseCount + CounterCell[]</code> 分散热点，类似 LongAdder。</p>
+<h3 id="Q4：什么是-fail-fast？什么是-fail-safe？"><a href="#Q4：什么是-fail-fast？什么是-fail-safe？" class="headerlink" title="Q4：什么是 fail-fast？什么是 fail-safe？"></a>Q4：什么是 fail-fast？什么是 fail-safe？</h3><p><strong>答</strong>：</p>
+<ul>
+<li><strong>fail-fast</strong>：集合在遍历过程中被修改，立即抛 <code>ConcurrentModificationException</code>，如 <code>ArrayList</code>、<code>HashMap</code></li>
+<li><strong>fail-safe</strong>：在原集合的<strong>副本</strong>上遍历，修改不影响遍历，如 <code>CopyOnWriteArrayList</code>、<code>ConcurrentHashMap</code></li>
+</ul>
+<p><strong>实现原理</strong>：<code>modCount</code>（修改计数器），迭代器每次 next 都会检查 <code>expectedModCount == modCount</code>。</p>
+<h3 id="Q5：HashMap-怎么计算-key-的下标？为什么用扰动函数？"><a href="#Q5：HashMap-怎么计算-key-的下标？为什么用扰动函数？" class="headerlink" title="Q5：HashMap 怎么计算 key 的下标？为什么用扰动函数？"></a>Q5：HashMap 怎么计算 key 的下标？为什么用扰动函数？</h3><p><strong>答</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="variable">hash</span> <span class="operator">=</span> (key == <span class="literal">null</span>) ? <span class="number">0</span> : (h = key.hashCode()) ^ (h &gt;&gt;&gt; <span class="number">16</span>);</span><br><span class="line"><span class="type">int</span> <span class="variable">index</span> <span class="operator">=</span> (n - <span class="number">1</span>) &amp; hash;</span><br></pre></td></tr></table></figure>
+
+<p><strong>扰动函数目的</strong>：高 16 位异或低 16 位，让 hash 高位特征也参与运算，避免大量冲突（特别是容量较小时）。</p>
+<h3 id="Q6：为什么-ConcurrentHashMap-不允许-null-key-null-value？"><a href="#Q6：为什么-ConcurrentHashMap-不允许-null-key-null-value？" class="headerlink" title="Q6：为什么 ConcurrentHashMap 不允许 null key &#x2F; null value？"></a>Q6：为什么 ConcurrentHashMap 不允许 null key &#x2F; null value？</h3><p><strong>答</strong>：并发下，<code>get(key) == null</code> 无法区分：</p>
+<ul>
+<li>key 不存在</li>
+<li>key 存在但 value 是 null</li>
+</ul>
+<p>二义性会导致 <code>containsKey</code> 和 <code>get</code> 在并发下行为不可预测。Hashtable 之所以允许 null 是因为它是全表锁，没这个问题。</p>
+<h3 id="Q7：TreeMap-底层是什么？时间复杂度？"><a href="#Q7：TreeMap-底层是什么？时间复杂度？" class="headerlink" title="Q7：TreeMap 底层是什么？时间复杂度？"></a>Q7：TreeMap 底层是什么？时间复杂度？</h3><p><strong>答</strong>：底层是 <strong>红黑树</strong>（一种自平衡二叉查找树）。</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>时间复杂度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>get</code></td>
+<td>O(log n)</td>
+</tr>
+<tr>
+<td><code>put</code></td>
+<td>O(log n)</td>
+</tr>
+<tr>
+<td><code>remove</code></td>
+<td>O(log n)</td>
+</tr>
+<tr>
+<td><code>firstKey</code> &#x2F; <code>lastKey</code></td>
+<td>O(log n)</td>
+</tr>
+<tr>
+<td><code>subMap</code></td>
+<td>O(log n)</td>
+</tr>
+</tbody></table>
+<p><strong>为什么用红黑树而不是 AVL？</strong></p>
+<ul>
+<li>AVL 严格平衡，查询快但插入删除旋转次数多</li>
+<li>红黑树近似平衡，查询稍慢但插入删除更快</li>
+<li>工业界大多数场景插入删除更多，红黑树更实用</li>
+</ul>
+<h3 id="Q8：HashSet-怎么保证元素唯一性？"><a href="#Q8：HashSet-怎么保证元素唯一性？" class="headerlink" title="Q8：HashSet 怎么保证元素唯一性？"></a>Q8：HashSet 怎么保证元素唯一性？</h3><p><strong>答</strong>：HashSet 内部是 HashMap，元素作为 key，value 是固定 PRESENT。判断重复：</p>
+<ol>
+<li>先比较 hashCode（O(1) 定位桶）</li>
+<li>再比较 equals（确认真的相同）</li>
+</ol>
+<p><strong>equals 和 hashCode 约定</strong>：</p>
+<ul>
+<li>equals 相等 → hashCode 必须相等</li>
+<li>hashCode 相等 → equals 不一定相等（哈希冲突）</li>
+</ul>
+<p><strong>生产经验</strong>：自定义类作为 key 时，必须同时重写 equals 和 hashCode，否则会重复插入。</p>
+<h2 id="十、总结：集合框架选型速查表"><a href="#十、总结：集合框架选型速查表" class="headerlink" title="十、总结：集合框架选型速查表"></a>十、总结：集合框架选型速查表</h2><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐</th>
+<th>备选</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>顺序列表（单线程）</td>
+<td>ArrayList</td>
+<td>LinkedList（极少用）</td>
+</tr>
+<tr>
+<td>并发列表</td>
+<td>CopyOnWriteArrayList（读多写少）</td>
+<td>Collections.synchronizedList</td>
+</tr>
+<tr>
+<td>快速去重</td>
+<td>HashSet</td>
+<td>LinkedHashSet（保序）</td>
+</tr>
+<tr>
+<td>排序去重</td>
+<td>TreeSet</td>
+<td>-</td>
+</tr>
+<tr>
+<td>单线程 Map</td>
+<td>HashMap</td>
+<td>LinkedHashMap &#x2F; TreeMap</td>
+</tr>
+<tr>
+<td>并发 Map</td>
+<td>ConcurrentHashMap</td>
+<td>ConcurrentSkipListMap（排序）</td>
+</tr>
+<tr>
+<td>LRU 缓存</td>
+<td>LinkedHashMap（accessOrder&#x3D;true）</td>
+<td>Guava Cache &#x2F; Caffeine</td>
+</tr>
+<tr>
+<td>阻塞队列</td>
+<td>ArrayBlockingQueue（有界）</td>
+<td>LinkedBlockingQueue</td>
+</tr>
+<tr>
+<td>优先级队列</td>
+<td>PriorityQueue</td>
+<td>PriorityBlockingQueue</td>
+</tr>
+<tr>
+<td>不可变集合</td>
+<td>List.of &#x2F; Set.of &#x2F; Map.of</td>
+<td>Collections.unmodifiableXxx</td>
+</tr>
+</tbody></table>
+<p><strong>黄金法则</strong>：</p>
+<ol>
+<li><strong>80% 场景</strong>：ArrayList + HashMap + HashSet 就能搞定</li>
+<li><strong>并发场景</strong>：用 <code>ConcurrentHashMap</code> 而不是 <code>Hashtable</code> 或 <code>Collections.synchronizedMap</code></li>
+<li><strong>不熟悉原理前</strong>：不要在多线程下用 <code>HashMap</code> &#x2F; <code>ArrayList</code> &#x2F; <code>HashSet</code></li>
+<li><strong>追求极致</strong>：了解 <code>HashMap</code> 源码才能调优，JVM 调优文章里集合分配是常见调优点</li>
+</ol>
+<blockquote>
+<p>集合框架是 Java 后端的地基，地基不牢，地动山摇。本文从源码层面梳理了 4 大接口的 15+ 经典实现，建议读者打开 IDE，对照 JDK 源码逐行 debug 一遍 <code>HashMap.put</code> 和 <code>ConcurrentHashMap.put</code>，这样理解会深得多。下一步可以学习 <strong>Java 8 Stream 高级用法</strong>、<strong>响应式编程 Reactor</strong> 或 <strong>JVM 调优</strong>，形成完整的后端知识体系。</p>
+</blockquote>
+<hr>
+<p><strong>参考</strong>：</p>
+<ul>
+<li>JDK 17 源码：<code>java.util</code> 包</li>
+<li>《Java 编程思想》第 17 章 容器</li>
+<li>《Effective Java》第 5、6 章</li>
+<li>OpenJDK 官方文档：<a target="_blank" rel="noopener" href="https://openjdk.org/collections/">https://openjdk.org/collections/</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag"># 后端</a>
+              <a href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag"># 面试题</a>
+              <a href="/tags/java/" rel="tag"># java</a>
+              <a href="/tags/%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6/" rel="tag"># 集合框架</a>
+              <a href="/tags/%E6%BA%90%E7%A0%81/" rel="tag"># 源码</a>
+              <a href="/tags/jdk/" rel="tag"># jdk</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/27/Spring%20Boot%20%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%E5%88%B0%204.0%20%E6%96%B0%E7%89%B9%E6%80%A7%E5%AE%9E%E6%88%98/" rel="prev" title="Spring Boot 核心原理详解：从自动装配到 4\.0 新特性实战">
+      <i class="fa fa-chevron-left"></i> Spring Boot 核心原理详解：从自动装配到 4\.0 新特性实战
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Java-%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E-ArrayList-%E5%88%B0-ConcurrentHashMap-%E7%9A%84%E6%BA%90%E7%A0%81%E5%85%A8%E5%89%96%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">Java 集合框架详解：从 ArrayList 到 ConcurrentHashMap 的源码全剖析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E6%98%AF-Java-%E5%90%8E%E7%AB%AF%E7%9A%84%E2%80%9D%E5%BF%85%E4%BF%AE%E8%AF%BE%E2%80%9D"><span class="nav-number">1.1.</span> <span class="nav-text">一、为什么集合框架是 Java 后端的”必修课”</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-%E4%B8%9A%E5%8A%A1%E4%B8%AD%E9%AB%98%E9%A2%91%E5%88%B0%E2%80%9D%E6%97%A0%E5%A4%84%E4%B8%8D%E5%9C%A8%E2%80%9D"><span class="nav-number">1.1.1.</span> <span class="nav-text">1.1 业务中高频到”无处不在”</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-%E9%9D%A2%E8%AF%95%E5%AE%98%E6%9C%80%E7%88%B1%E7%9A%84%E2%80%9D%E5%85%AB%E8%BF%9E%E9%97%AE%E2%80%9D"><span class="nav-number">1.1.2.</span> <span class="nav-text">1.2 面试官最爱的”八连问”</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E6%80%BB%E8%A7%88%E4%B8%8E%E7%BB%A7%E6%89%BF%E4%BD%93%E7%B3%BB"><span class="nav-number">1.2.</span> <span class="nav-text">二、集合框架总览与继承体系</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E4%B8%80%E5%BC%A0%E5%9B%BE%E7%9C%8B%E6%87%82-JCF-%E5%85%A8%E8%B2%8C"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 一张图看懂 JCF 全貌</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E6%8E%A5%E5%8F%A3-vs-%E5%AE%9E%E7%8E%B0%E7%B1%BB"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 接口 vs 实现类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E4%B8%89%E5%A4%A7%E7%89%B9%E5%BE%81%E5%85%B3%E9%94%AE%E8%AF%8D"><span class="nav-number">1.2.3.</span> <span class="nav-text">2.3 三大特征关键词</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81List-%E5%AE%B6%E6%97%8F%EF%BC%9A%E6%9C%89%E5%BA%8F%E5%8F%AF%E9%87%8D%E5%A4%8D%E7%9A%84%E5%88%97%E8%A1%A8"><span class="nav-number">1.3.</span> <span class="nav-text">三、List 家族：有序可重复的列表</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-ArrayList%EF%BC%9A%E5%8A%A8%E6%80%81%E6%95%B0%E7%BB%84%E7%9A%84%E2%80%9D%E7%8E%8B%E8%80%85%E2%80%9D"><span class="nav-number">1.3.1.</span> <span class="nav-text">3.1 ArrayList：动态数组的”王者”</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-%E5%BA%95%E5%B1%82%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">1.3.1.1.</span> <span class="nav-text">3.1.1 底层数据结构</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-%E6%89%A9%E5%AE%B9%E6%9C%BA%E5%88%B6%EF%BC%88%E6%A0%B8%E5%BF%83%E9%9D%A2%E8%AF%95%E7%82%B9%EF%BC%89"><span class="nav-number">1.3.1.2.</span> <span class="nav-text">3.1.2 扩容机制（核心面试点）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-3-%E6%80%A7%E8%83%BD%E7%89%B9%E7%82%B9"><span class="nav-number">1.3.1.3.</span> <span class="nav-text">3.1.3 性能特点</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-4-%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="nav-number">1.3.1.4.</span> <span class="nav-text">3.1.4 最佳实践</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-LinkedList%EF%BC%9A%E5%8F%8C%E5%90%91%E9%93%BE%E8%A1%A8%E7%9A%84%E2%80%9D%E5%85%A8%E6%89%8D%E2%80%9D"><span class="nav-number">1.3.2.</span> <span class="nav-text">3.2 LinkedList：双向链表的”全才”</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-%E5%BA%95%E5%B1%82%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">1.3.2.1.</span> <span class="nav-text">3.2.1 底层数据结构</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-%E6%80%A7%E8%83%BD%E7%89%B9%E7%82%B9"><span class="nav-number">1.3.2.2.</span> <span class="nav-text">3.2.2 性能特点</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E6%80%8E%E4%B9%88%E9%80%89%EF%BC%9FList-%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96"><span class="nav-number">1.3.3.</span> <span class="nav-text">3.3 怎么选？List 选型决策</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-CopyOnWriteArrayList%EF%BC%9A%E8%AF%BB%E5%86%99%E5%88%86%E7%A6%BB%E7%9A%84%E2%80%9D%E5%86%99%E6%97%B6%E5%A4%8D%E5%88%B6%E2%80%9D"><span class="nav-number">1.3.4.</span> <span class="nav-text">3.4 CopyOnWriteArrayList：读写分离的”写时复制”</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81Set-%E5%AE%B6%E6%97%8F%EF%BC%9A%E5%8E%BB%E9%87%8D%E4%B8%93%E5%AE%B6"><span class="nav-number">1.4.</span> <span class="nav-text">四、Set 家族：去重专家</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-HashSet%EF%BC%9A%E5%9F%BA%E4%BA%8E-HashMap-%E7%9A%84%E2%80%9D%E4%BC%AA%E8%A3%85%E8%80%85%E2%80%9D"><span class="nav-number">1.4.1.</span> <span class="nav-text">4.1 HashSet：基于 HashMap 的”伪装者”</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-LinkedHashSet%EF%BC%9A%E4%BF%9D%E7%95%99%E6%8F%92%E5%85%A5%E9%A1%BA%E5%BA%8F%E7%9A%84-Set"><span class="nav-number">1.4.2.</span> <span class="nav-text">4.2 LinkedHashSet：保留插入顺序的 Set</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-TreeSet%EF%BC%9A%E5%8F%AF%E6%8E%92%E5%BA%8F%E7%9A%84-Set"><span class="nav-number">1.4.3.</span> <span class="nav-text">4.3 TreeSet：可排序的 Set</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-Set-%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96%E8%A1%A8"><span class="nav-number">1.4.4.</span> <span class="nav-text">4.4 Set 选型决策表</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81Map-%E5%AE%B6%E6%97%8F%EF%BC%9A%E9%94%AE%E5%80%BC%E5%AF%B9%E7%9A%84%E6%A0%B8%E5%BF%83"><span class="nav-number">1.5.</span> <span class="nav-text">五、Map 家族：键值对的核心</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-HashMap%EF%BC%9A%E9%9D%A2%E8%AF%95%E5%BF%85%E9%97%AE%E4%B9%8B%E7%8E%8B"><span class="nav-number">1.5.1.</span> <span class="nav-text">5.1 HashMap：面试必问之王</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1-1-JDK-8-%E5%BA%95%E5%B1%82%E7%BB%93%E6%9E%84"><span class="nav-number">1.5.1.1.</span> <span class="nav-text">5.1.1 JDK 8 底层结构</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1-2-%E5%85%B3%E9%94%AE%E8%AE%A1%E7%AE%97%E5%85%AC%E5%BC%8F"><span class="nav-number">1.5.1.2.</span> <span class="nav-text">5.1.2 关键计算公式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1-3-put-%E6%B5%81%E7%A8%8B%EF%BC%88%E6%A0%B8%E5%BF%83%EF%BC%89"><span class="nav-number">1.5.1.3.</span> <span class="nav-text">5.1.3 put 流程（核心）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1-4-%E6%89%A9%E5%AE%B9%E6%9C%BA%E5%88%B6%EF%BC%88resize%EF%BC%89"><span class="nav-number">1.5.1.4.</span> <span class="nav-text">5.1.4 扩容机制（resize）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1-5-%E4%B8%BA%E4%BB%80%E4%B9%88%E5%AE%B9%E9%87%8F%E5%BF%85%E9%A1%BB%E6%98%AF-2-%E7%9A%84%E5%B9%82%EF%BC%9F"><span class="nav-number">1.5.1.5.</span> <span class="nav-text">5.1.5 为什么容量必须是 2 的幂？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1-6-%E4%B8%BA%E4%BB%80%E4%B9%88%E6%A0%91%E5%8C%96%E9%98%88%E5%80%BC%E6%98%AF-8%EF%BC%9F"><span class="nav-number">1.5.1.6.</span> <span class="nav-text">5.1.6 为什么树化阈值是 8？</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-1-7-HashMap-%E7%9A%84%E2%80%9D%E4%B8%89%E5%AE%97%E7%BD%AA%E2%80%9D"><span class="nav-number">1.5.1.7.</span> <span class="nav-text">5.1.7 HashMap 的”三宗罪”</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-ConcurrentHashMap%EF%BC%9A%E9%AB%98%E5%B9%B6%E5%8F%91%E4%B8%8B%E7%9A%84%E2%80%9D%E6%89%9B%E6%8A%8A%E5%AD%90%E2%80%9D"><span class="nav-number">1.5.2.</span> <span class="nav-text">5.2 ConcurrentHashMap：高并发下的”扛把子”</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#5-2-1-JDK-7-vs-JDK-8-%E5%AE%9E%E7%8E%B0%E5%AF%B9%E6%AF%94"><span class="nav-number">1.5.2.1.</span> <span class="nav-text">5.2.1 JDK 7 vs JDK 8 实现对比</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-2-2-JDK-8-%E6%A0%B8%E5%BF%83%E6%BA%90%E7%A0%81%EF%BC%9Aput"><span class="nav-number">1.5.2.2.</span> <span class="nav-text">5.2.2 JDK 8 核心源码：put</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-2-3-size-%E7%9A%84%E2%80%9DbaseCount-sumCount%E2%80%9D%E7%AE%97%E6%B3%95"><span class="nav-number">1.5.2.3.</span> <span class="nav-text">5.2.3 size() 的”baseCount + sumCount”算法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-2-4-%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E5%85%81%E8%AE%B8-null-key-null-value%EF%BC%9F"><span class="nav-number">1.5.2.4.</span> <span class="nav-text">5.2.4 为什么不允许 null key &#x2F; null value？</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-LinkedHashMap%EF%BC%9A%E5%AE%9E%E7%8E%B0-LRU-%E7%BC%93%E5%AD%98%E7%9A%84%E2%80%9D%E5%88%A9%E5%99%A8%E2%80%9D"><span class="nav-number">1.5.3.</span> <span class="nav-text">5.3 LinkedHashMap：实现 LRU 缓存的”利器”</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-TreeMap%EF%BC%9A%E7%BA%A2%E9%BB%91%E6%A0%91%E7%9A%84%E6%9C%89%E5%BA%8F-Map"><span class="nav-number">1.5.4.</span> <span class="nav-text">5.4 TreeMap：红黑树的有序 Map</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-5-Map-%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96"><span class="nav-number">1.5.5.</span> <span class="nav-text">5.5 Map 选型决策</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81Queue-Deque-%E5%AE%B6%E6%97%8F%EF%BC%9A%E9%98%9F%E5%88%97%E4%B8%8E%E6%A0%88"><span class="nav-number">1.6.</span> <span class="nav-text">六、Queue &#x2F; Deque 家族：队列与栈</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-Queue-%E6%8E%A5%E5%8F%A3%E9%80%9F%E8%A7%88"><span class="nav-number">1.6.1.</span> <span class="nav-text">6.1 Queue 接口速览</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-Deque%EF%BC%88%E5%8F%8C%E7%AB%AF%E9%98%9F%E5%88%97%EF%BC%89%EF%BC%9A%E6%A0%88%E4%B8%8E%E9%98%9F%E5%88%97%E7%9A%84%E7%BB%9F%E4%B8%80"><span class="nav-number">1.6.2.</span> <span class="nav-text">6.2 Deque（双端队列）：栈与队列的统一</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-3-BlockingQueue-%E5%9B%9B%E5%A4%A7%E5%AE%B6%E6%97%8F"><span class="nav-number">1.6.3.</span> <span class="nav-text">6.3 BlockingQueue 四大家族</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81Java-8-17-21-%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E6%96%B0%E7%89%B9%E6%80%A7"><span class="nav-number">1.7.</span> <span class="nav-text">七、Java 8 &#x2F; 17 &#x2F; 21 集合框架新特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-Java-8%EF%BC%9AStream-API-%E4%B8%8E%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B"><span class="nav-number">1.7.1.</span> <span class="nav-text">7.1 Java 8：Stream API 与函数式编程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-Java-17%EF%BC%9A%E4%B8%8D%E5%8F%AF%E5%8F%98%E9%9B%86%E5%90%88%E7%9A%84%E5%B7%A5%E5%8E%82%E6%96%B9%E6%B3%95"><span class="nav-number">1.7.2.</span> <span class="nav-text">7.2 Java 17：不可变集合的工厂方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-3-Java-21%EF%BC%9ASequenced-Collection%EF%BC%88%E5%80%BC%E5%BE%97%E6%9C%9F%E5%BE%85%EF%BC%89"><span class="nav-number">1.7.3.</span> <span class="nav-text">7.3 Java 21：Sequenced Collection（值得期待）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E7%94%9F%E4%BA%A7%E9%81%BF%E5%9D%91%E6%B8%85%E5%8D%95"><span class="nav-number">1.8.</span> <span class="nav-text">八、生产避坑清单</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#8-1-%E6%80%A7%E8%83%BD%E9%99%B7%E9%98%B1"><span class="nav-number">1.8.1.</span> <span class="nav-text">8.1 性能陷阱</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-2-%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E9%99%B7%E9%98%B1"><span class="nav-number">1.8.2.</span> <span class="nav-text">8.2 线程安全陷阱</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-3-%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E9%99%B7%E9%98%B1"><span class="nav-number">1.8.3.</span> <span class="nav-text">8.3 内存泄漏陷阱</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%818-%E9%81%93%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E7%B2%BE%E8%AE%B2"><span class="nav-number">1.9.</span> <span class="nav-text">九、8 道高频面试题精讲</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Q1%EF%BC%9AArrayList-vs-LinkedList-%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94%EF%BC%9F"><span class="nav-number">1.9.1.</span> <span class="nav-text">Q1：ArrayList vs LinkedList 性能对比？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q2%EF%BC%9AHashMap-%E5%BA%95%E5%B1%82%E5%8E%9F%E7%90%86%EF%BC%9FJDK-7-%E5%92%8C-8-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="nav-number">1.9.2.</span> <span class="nav-text">Q2：HashMap 底层原理？JDK 7 和 8 的区别？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q3%EF%BC%9AConcurrentHashMap-%E6%80%8E%E4%B9%88%E4%BF%9D%E8%AF%81%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%EF%BC%9FJDK-8-%E7%94%A8%E4%BA%86%E4%BB%80%E4%B9%88%E9%94%81%EF%BC%9F"><span class="nav-number">1.9.3.</span> <span class="nav-text">Q3：ConcurrentHashMap 怎么保证线程安全？JDK 8 用了什么锁？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q4%EF%BC%9A%E4%BB%80%E4%B9%88%E6%98%AF-fail-fast%EF%BC%9F%E4%BB%80%E4%B9%88%E6%98%AF-fail-safe%EF%BC%9F"><span class="nav-number">1.9.4.</span> <span class="nav-text">Q4：什么是 fail-fast？什么是 fail-safe？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q5%EF%BC%9AHashMap-%E6%80%8E%E4%B9%88%E8%AE%A1%E7%AE%97-key-%E7%9A%84%E4%B8%8B%E6%A0%87%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88%E7%94%A8%E6%89%B0%E5%8A%A8%E5%87%BD%E6%95%B0%EF%BC%9F"><span class="nav-number">1.9.5.</span> <span class="nav-text">Q5：HashMap 怎么计算 key 的下标？为什么用扰动函数？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q6%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88-ConcurrentHashMap-%E4%B8%8D%E5%85%81%E8%AE%B8-null-key-null-value%EF%BC%9F"><span class="nav-number">1.9.6.</span> <span class="nav-text">Q6：为什么 ConcurrentHashMap 不允许 null key &#x2F; null value？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q7%EF%BC%9ATreeMap-%E5%BA%95%E5%B1%82%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E6%97%B6%E9%97%B4%E5%A4%8D%E6%9D%82%E5%BA%A6%EF%BC%9F"><span class="nav-number">1.9.7.</span> <span class="nav-text">Q7：TreeMap 底层是什么？时间复杂度？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q8%EF%BC%9AHashSet-%E6%80%8E%E4%B9%88%E4%BF%9D%E8%AF%81%E5%85%83%E7%B4%A0%E5%94%AF%E4%B8%80%E6%80%A7%EF%BC%9F"><span class="nav-number">1.9.8.</span> <span class="nav-text">Q8：HashSet 怎么保证元素唯一性？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%81%E6%80%BB%E7%BB%93%EF%BC%9A%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E9%80%89%E5%9E%8B%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="nav-number">1.10.</span> <span class="nav-text">十、总结：集合框架选型速查表</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">29</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">26</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/graalvm/" rel="tag">graalvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">9</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jdk/" rel="tag">jdk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis/" rel="tag">mybatis</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis-plus/" rel="tag">mybatis-plus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/orm/" rel="tag">orm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring/" rel="tag">spring</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">16</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%BA%90%E7%A0%81/" rel="tag">源码</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/" rel="tag">自动装配</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%99%9A%E6%8B%9F%E7%BA%BF%E7%A8%8B/" rel="tag">虚拟线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6/" rel="tag">集合框架</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" rel="tag">面向对象</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">15</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>
