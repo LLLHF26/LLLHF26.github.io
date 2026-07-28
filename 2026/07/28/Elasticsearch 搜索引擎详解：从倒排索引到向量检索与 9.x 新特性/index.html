@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Elasticsearch 是全球最受欢迎的分布式搜索引擎，日均处理数十亿次搜索请求，覆盖电商商品搜索、日志分析、可观测性、安全信息检索、AI 向量检索等场景。本文从「为什么关系型数据库做不好搜索」出发，深入剖析倒排索引的核心原理（FST + Posting List + Doc Values）、Mapping 与分析器体系、Query DSL 实战、聚合分析、BM25 评分模型、集群架构与分片路">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Elasticsearch 搜索引擎详解：从倒排索引到向量检索与 9\.x 新特性">
+<meta property="og:url" content="http://example.com/2026/07/28/Elasticsearch%20%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%E5%88%B0%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E4%B8%8E%209.x%20%E6%96%B0%E7%89%B9%E6%80%A7/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="Elasticsearch 是全球最受欢迎的分布式搜索引擎，日均处理数十亿次搜索请求，覆盖电商商品搜索、日志分析、可观测性、安全信息检索、AI 向量检索等场景。本文从「为什么关系型数据库做不好搜索」出发，深入剖析倒排索引的核心原理（FST + Posting List + Doc Values）、Mapping 与分析器体系、Query DSL 实战、聚合分析、BM25 评分模型、集群架构与分片路">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-28T04:36:00.000Z">
+<meta property="article:modified_time" content="2026-07-28T04:40:17.491Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="elasticsearch">
+<meta property="article:tag" content="全文检索">
+<meta property="article:tag" content="分布式">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="向量检索">
+<meta property="article:tag" content="搜索引擎">
+<meta property="article:tag" content="面试题">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/28/Elasticsearch%20%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%E5%88%B0%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E4%B8%8E%209.x%20%E6%96%B0%E7%89%B9%E6%80%A7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Elasticsearch 搜索引擎详解：从倒排索引到向量检索与 9\.x 新特性 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/28/Elasticsearch%20%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%E5%88%B0%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E4%B8%8E%209.x%20%E6%96%B0%E7%89%B9%E6%80%A7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Elasticsearch 搜索引擎详解：从倒排索引到向量检索与 9\.x 新特性
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-28 12:36:00 / 修改时间：12:40:17" itemprop="dateCreated datePublished" datetime="2026-07-28T12:36:00+08:00">2026-07-28</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Elasticsearch 是全球最受欢迎的分布式搜索引擎，日均处理数十亿次搜索请求，覆盖电商商品搜索、日志分析、可观测性、安全信息检索、AI 向量检索等场景。本文从「为什么关系型数据库做不好搜索」出发，深入剖析倒排索引的核心原理（FST + Posting List + Doc Values）、Mapping 与分析器体系、Query DSL 实战、聚合分析、BM25 评分模型、集群架构与分片路由策略；并重点覆盖 2026 年最热门的向量检索能力（kNN &#x2F; ELSER &#x2F; DiskBBQ &#x2F; GPU 加速索引）、Spring Data Elasticsearch 集成、索引与搜索双维度性能优化，以及 Elastic 9.x 系列重大新特性。读完这篇，面试能答、生产能搭、调优有方向。</p>
+<span id="more"></span>
+
+<h1 id="Elasticsearch-搜索引擎详解：从倒排索引到向量检索与-9-x-新特性"><a href="#Elasticsearch-搜索引擎详解：从倒排索引到向量检索与-9-x-新特性" class="headerlink" title="Elasticsearch 搜索引擎详解：从倒排索引到向量检索与 9.x 新特性"></a>Elasticsearch 搜索引擎详解：从倒排索引到向量检索与 9.x 新特性</h1><h2 id="一、为什么需要-Elasticsearch？关系型数据库的搜索困境"><a href="#一、为什么需要-Elasticsearch？关系型数据库的搜索困境" class="headerlink" title="一、为什么需要 Elasticsearch？关系型数据库的搜索困境"></a>一、为什么需要 Elasticsearch？关系型数据库的搜索困境</h2><p>很多初学者的第一个疑问是：「MySQL 也有 <code>LIKE</code> 模糊查询和 <code>FULLTEXT</code> 索引，为什么还要引入 Elasticsearch？」答案藏在两种数据库截然不同的底层数据结构中。</p>
+<h3 id="1-1-关系型数据库做搜索的三大硬伤"><a href="#1-1-关系型数据库做搜索的三大硬伤" class="headerlink" title="1.1 关系型数据库做搜索的三大硬伤"></a>1.1 关系型数据库做搜索的三大硬伤</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>MySQL <code>LIKE &#39;%keyword%&#39;</code></th>
+<th>Elasticsearch 全文检索</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>索引利用</strong></td>
+<td>前缀通配 <code>%keyword</code> 无法走 B+ 树索引，全表扫描</td>
+<td>倒排索引直接定位包含关键词的文档，O(1) 查找</td>
+</tr>
+<tr>
+<td><strong>相关性排序</strong></td>
+<td>只能按字段排序，无法按匹配程度打分</td>
+<td>BM25 算法计算 TF-IDF 相关性分数，最相关的排最前</td>
+</tr>
+<tr>
+<td><strong>分词能力</strong></td>
+<td><code>FULLTEXT</code> 分词弱，中文需 ngram 插件，灵活性差</td>
+<td>内置 40+ 分词器、IK&#x2F;Pinyin 等插件，支持自定义分析器链</td>
+</tr>
+<tr>
+<td><strong>聚合分析</strong></td>
+<td><code>GROUP BY</code> 在亿级数据上性能急剧下降</td>
+<td>预计算 + 列式存储（Doc Values），亿级数据秒级聚合</td>
+</tr>
+<tr>
+<td><strong>水平扩展</strong></td>
+<td>分库分表复杂，跨分片搜索困难</td>
+<td>天然分布式，分片+副本自动路由，可线性扩展到 PB 级</td>
+</tr>
+</tbody></table>
+<h3 id="1-2-典型应用场景"><a href="#1-2-典型应用场景" class="headerlink" title="1.2 典型应用场景"></a>1.2 典型应用场景</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">电商商品搜索 → &quot;红色连衣裙&quot; → 分词 → 匹配 title/desc/category → 按销量+相关性排序</span><br><span class="line">日志分析     → 每天亿条日志 → 按时间分索引 → 聚合统计错误率趋势</span><br><span class="line">可观测性     → Metrics + Logs + Traces 三位一体 → 统一存储与查询</span><br><span class="line">AI 向量检索  → 文本/图片 Embedding 向量 → kNN 近邻搜索 → RAG 知识库</span><br><span class="line">安全分析     → SIEM 威胁 hunting → 实时关联查询亿级安全事件</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>一句话总结</strong>：MySQL 是「精确匹配 + 事务」的专家，Elasticsearch 是「模糊搜索 + 聚合分析」的专家。两者不是替代关系，而是互补——生产中常见的模式是 MySQL 存主数据，Elasticsearch 做搜索副本。</p>
+</blockquote>
+<hr>
+<h2 id="二、倒排索引：Elasticsearch-的核心数据结构"><a href="#二、倒排索引：Elasticsearch-的核心数据结构" class="headerlink" title="二、倒排索引：Elasticsearch 的核心数据结构"></a>二、倒排索引：Elasticsearch 的核心数据结构</h2><p>倒排索引（Inverted Index）是 Elasticsearch 全文检索的基石。理解它，就理解了 ES 80% 的核心。</p>
+<h3 id="2-1-正排索引-vs-倒排索引"><a href="#2-1-正排索引-vs-倒排索引" class="headerlink" title="2.1 正排索引 vs 倒排索引"></a>2.1 正排索引 vs 倒排索引</h3><p><strong>正排索引</strong>（传统 B+ 树）：文档 → 词</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Doc 1: &quot;Elasticsearch is a distributed search engine&quot;</span><br><span class="line">Doc 2: &quot;Distributed systems are hard&quot;</span><br><span class="line">Doc 3: &quot;Search engines use inverted index&quot;</span><br></pre></td></tr></table></figure>
+
+<p>要搜 “search”，必须逐个扫描每篇文档——这是 <code>LIKE</code> 的做法。</p>
+<p><strong>倒排索引</strong>：词 → 文档</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">Term          | Doc IDs  | Term Frequency</span><br><span class="line">--------------|----------|---------------</span><br><span class="line">elasticsearch | [1]      | 1</span><br><span class="line">distributed   | [1, 2]   | 1, 1</span><br><span class="line">search        | [1, 3]   | 1, 1</span><br><span class="line">engine        | [1, 3]   | 1, 1</span><br><span class="line">systems       | [2]      | 1</span><br><span class="line">hard          | [2]      | 1</span><br><span class="line">inverted      | [3]      | 1</span><br><span class="line">index         | [3]      | 1</span><br></pre></td></tr></table></figure>
+
+<p>搜 “search”，直接查倒排表得到 <code>[1, 3]</code>，无需扫描文档。</p>
+<h3 id="2-2-倒排索引的三层结构"><a href="#2-2-倒排索引的三层结构" class="headerlink" title="2.2 倒排索引的三层结构"></a>2.2 倒排索引的三层结构</h3><p>倒排索引在 Lucene（ES 底层引擎）中由三个核心结构组成：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                      Term Dictionary（词典）                       │</span><br><span class="line">│  存储所有分词后的词项，按字典序排列                                  │</span><br><span class="line">│  实现：FST (Finite State Transducer) 有限状态机                    │</span><br><span class="line">│  特点：前缀共享、高度压缩、内存常驻、O(len) 查找                     │</span><br><span class="line">│  例如：cat / catch / category 共享 &quot;cat&quot; 前缀，只存一棵前缀树        │</span><br><span class="line">├─────────────────────────────────────────────────────────────────┤</span><br><span class="line">│                   Posting List（倒排表）                           │</span><br><span class="line">│  每个词项对应的文档 ID 列表 + 词频 + 位置信息                         │</span><br><span class="line">│  压缩技术：FOR (Frame of Reference) 增量编码 + Roaring Bitmap       │</span><br><span class="line">│  例如：词项 &quot;search&quot; → [1, 3, 7, 100, 256, ...]                    │</span><br><span class="line">│       压缩为增量 [1, 2, 4, 93, 156, ...] → 变长位编码              │</span><br><span class="line">├─────────────────────────────────────────────────────────────────┤</span><br><span class="line">│                     Doc Values（列式存储）                          │</span><br><span class="line">│  每个字段的值按列存储，用于排序、聚合、脚本访问                       │</span><br><span class="line">│  不像倒排索引只能「词→文档」，Doc Values 支持「文档→字段值」          │</span><br><span class="line">│  压缩：字典编码 + 位打包                                            │</span><br><span class="line">│  默认开启（text 字段除外），存储在 OS Page Cache 中                  │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-FST：词典压缩的魔法"><a href="#2-3-FST：词典压缩的魔法" class="headerlink" title="2.3 FST：词典压缩的魔法"></a>2.3 FST：词典压缩的魔法</h3><p>FST（Finite State Transducer）是 Lucene 用于存储词典的核心数据结构。它将所有词项组织成一棵前缀共享 + 后缀共享的有向无环图：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">词项集合：cat / can / dog</span><br><span class="line"></span><br><span class="line">FST 结构：</span><br><span class="line">    ┌─t (cat)</span><br><span class="line">   /</span><br><span class="line">  c─a</span><br><span class="line">   \</span><br><span class="line">    └─n (can)</span><br><span class="line"></span><br><span class="line">  d─o─g (dog)</span><br></pre></td></tr></table></figure>
+
+<p><strong>FST 的优势</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>前缀共享</strong></td>
+<td>“cat” 和 “can” 共享 “ca” 前缀，只存一次</td>
+</tr>
+<tr>
+<td><strong>后缀共享</strong></td>
+<td>“cat” 和 “bat” 共享 “at” 后缀</td>
+</tr>
+<tr>
+<td><strong>内存效率</strong></td>
+<td>百万级词项仅需几十 MB 内存</td>
+</tr>
+<tr>
+<td><strong>查找速度</strong></td>
+<td>O(词项长度)，与词典大小无关</td>
+</tr>
+<tr>
+<td><strong>前缀查询</strong></td>
+<td>天然支持 <code>prefix</code> 查询，如 “elastic*”</td>
+</tr>
+</tbody></table>
+<h3 id="2-4-Posting-List-压缩：FOR-编码-Roaring-Bitmap"><a href="#2-4-Posting-List-压缩：FOR-编码-Roaring-Bitmap" class="headerlink" title="2.4 Posting List 压缩：FOR 编码 + Roaring Bitmap"></a>2.4 Posting List 压缩：FOR 编码 + Roaring Bitmap</h3><p>倒排表中动辄包含数百万个 Doc ID，直接存储极其浪费空间。Lucene 使用两层压缩：</p>
+<p><strong>第一层：FOR（Frame of Reference）增量编码</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">原始 Doc IDs:  [73, 300, 302, 332, 343, 372]</span><br><span class="line">增量编码:       [73, 227, 2, 30, 11, 29]</span><br><span class="line">分块后位打包:   Block1(max=73, 7bit): [73, 227]</span><br><span class="line">               Block2(max=30, 5bit): [2, 30, 11, 29]</span><br></pre></td></tr></table></figure>
+
+<p>每个块内用最小位数打包，大幅减少存储。</p>
+<p><strong>第二层：Roaring Bitmap（用于 filter 场景）</strong></p>
+<p>当倒排表很长（如 filter 查询）时，Lucene 使用 Roaring Bitmap 进行集合运算（交集、并集）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">将 Doc ID 空间按 65536 分桶：</span><br><span class="line">  桶 0:   Doc ID 0 ~ 65535    → 如果稠密(&gt;4096) → Bitmap (65536 bit = 8KB)</span><br><span class="line">                                → 如果稀疏(&lt;4096) → Sorted Array</span><br><span class="line">  桶 1:   Doc ID 65536 ~ 131071 → 同上</span><br><span class="line">  ...</span><br></pre></td></tr></table></figure>
+
+<p>这种混合策略在稠密和稀疏场景下都有最优性能。</p>
+<h3 id="2-5-近实时搜索原理：Segment-Refresh"><a href="#2-5-近实时搜索原理：Segment-Refresh" class="headerlink" title="2.5 近实时搜索原理：Segment + Refresh"></a>2.5 近实时搜索原理：Segment + Refresh</h3><p>Elasticsearch 不是实时搜索引擎，而是<strong>近实时</strong>（Near Real-Time, NRT），默认 1 秒延迟。原理如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">写入文档 → 写入 Translog（持久化日志，防止数据丢失）</span><br><span class="line">         → 写入 In-Memory Buffer（内存缓冲区）</span><br><span class="line">         → [每 1s] Refresh → 生成新的 Segment（不可变的倒排索引）</span><br><span class="line">                             → Segment 进入 OS Page Cache → 可被搜索</span><br><span class="line">         → [每 30min 或 Translog 满] Flush → Segment 落盘(fsync)</span><br><span class="line">                                            → Translog 清空</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>说明</th>
+<th>默认值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Refresh</strong></td>
+<td>内存 Buffer → 新 Segment，使文档可搜索</td>
+<td>1 秒</td>
+</tr>
+<tr>
+<td><strong>Flush</strong></td>
+<td>Segment fsync 到磁盘 + 清空 Translog</td>
+<td>30 分钟或 Translog 512MB</td>
+</tr>
+<tr>
+<td><strong>Translog</strong></td>
+<td>写前日志，保证 Flush 前崩溃可恢复</td>
+<td>每笔写入后 fsync（可调）</td>
+</tr>
+<tr>
+<td><strong>Segment</strong></td>
+<td>Lucene 最小索引单元，不可变</td>
+<td>合并策略：Tiered Merge Policy</td>
+</tr>
+<tr>
+<td><strong>Merge</strong></td>
+<td>多个小 Segment 合并成大 Segment</td>
+<td>后台线程自动执行</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>关键洞察</strong>：Segment 不可变意味着更新 &#x3D; 标记旧文档删除 + 写入新文档。这也是 ES 不适合高频更新的原因——每次更新都会产生新的 Segment，最终靠 Merge 合并清理。</p>
+</blockquote>
+<hr>
+<h2 id="三、Mapping-与分析器：全文检索的基石"><a href="#三、Mapping-与分析器：全文检索的基石" class="headerlink" title="三、Mapping 与分析器：全文检索的基石"></a>三、Mapping 与分析器：全文检索的基石</h2><h3 id="3-1-Mapping：定义数据的索引方式"><a href="#3-1-Mapping：定义数据的索引方式" class="headerlink" title="3.1 Mapping：定义数据的索引方式"></a>3.1 Mapping：定义数据的索引方式</h3><p>Mapping 类似数据库的 Schema，但更灵活——它不仅定义字段类型，还定义<strong>如何被索引和搜索</strong>。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">PUT /products</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;mappings&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;properties&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;title&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;text&quot;</span><span class="punctuation">,</span>                    <span class="comment">// 全文检索字段</span></span><br><span class="line">        <span class="attr">&quot;analyzer&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ik_max_word&quot;</span><span class="punctuation">,</span>         <span class="comment">// 索引时分析器</span></span><br><span class="line">        <span class="attr">&quot;search_analyzer&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ik_smart&quot;</span><span class="punctuation">,</span>     <span class="comment">// 搜索时分析器</span></span><br><span class="line">        <span class="attr">&quot;fields&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;keyword&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                     <span class="comment">// 子字段：不分词，用于排序/聚合</span></span><br><span class="line">            <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;keyword&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;ignore_above&quot;</span><span class="punctuation">:</span> <span class="number">256</span></span><br><span class="line">          <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;price&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;scaled_float&quot;</span><span class="punctuation">,</span>            <span class="comment">// 缩放浮点数，比 float 更精确</span></span><br><span class="line">        <span class="attr">&quot;scaling_factor&quot;</span><span class="punctuation">:</span> <span class="number">100</span>              <span class="comment">// 存储为 long，查询时 /100</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;tags&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;keyword&quot;</span>                  <span class="comment">// 精确值字段，不分词</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;create_time&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;date&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;format&quot;</span><span class="punctuation">:</span> <span class="string">&quot;yyyy-MM-dd HH:mm:ss||epoch_millis&quot;</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;description&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;text&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;analyzer&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ik_max_word&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;index_options&quot;</span><span class="punctuation">:</span> <span class="string">&quot;offsets&quot;</span>         <span class="comment">// 存储偏移量，支持快速 highlight</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;embedding&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;dense_vector&quot;</span><span class="punctuation">,</span>            <span class="comment">// 向量字段（9.x 新增）</span></span><br><span class="line">        <span class="attr">&quot;dims&quot;</span><span class="punctuation">:</span> <span class="number">768</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;index&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;similarity&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cosine&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;index_options&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;int8_hnsw&quot;</span>              <span class="comment">// 9.x 量化索引</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>ES 核心字段类型一览</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>用途</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>text</code></td>
+<td>全文检索，分词后建倒排索引</td>
+<td>文章标题、描述</td>
+</tr>
+<tr>
+<td><code>keyword</code></td>
+<td>精确匹配，不分词，可聚合排序</td>
+<td>标签、状态码、ID</td>
+</tr>
+<tr>
+<td><code>integer/long</code></td>
+<td>整数</td>
+<td>价格、数量</td>
+</tr>
+<tr>
+<td><code>scaled_float</code></td>
+<td>精确浮点（存为 long）</td>
+<td>金额</td>
+</tr>
+<tr>
+<td><code>date</code></td>
+<td>日期</td>
+<td>创建时间</td>
+</tr>
+<tr>
+<td><code>boolean</code></td>
+<td>布尔</td>
+<td>是否删除</td>
+</tr>
+<tr>
+<td><code>nested</code></td>
+<td>嵌套对象（独立索引）</td>
+<td>评论列表</td>
+</tr>
+<tr>
+<td><code>object</code></td>
+<td>普通嵌套对象（扁平化）</td>
+<td>用户信息</td>
+</tr>
+<tr>
+<td><code>ip</code></td>
+<td>IP 地址</td>
+<td>日志来源 IP</td>
+</tr>
+<tr>
+<td><code>dense_vector</code></td>
+<td>稠密向量（AI 检索）</td>
+<td>Embedding</td>
+</tr>
+<tr>
+<td><code>flattened</code></td>
+<td>扁平化对象（9.x）</td>
+<td>动态 JSON</td>
+</tr>
+<tr>
+<td><code>alias</code></td>
+<td>字段别名</td>
+<td>重命名兼容</td>
+</tr>
+</tbody></table>
+<h3 id="3-2-Dynamic-Mapping：自动推断的利与弊"><a href="#3-2-Dynamic-Mapping：自动推断的利与弊" class="headerlink" title="3.2 Dynamic Mapping：自动推断的利与弊"></a>3.2 Dynamic Mapping：自动推断的利与弊</h3><p>ES 默认开启动态映射（<code>dynamic: true</code>），写入文档时自动推断字段类型：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 写入文档</span></span><br><span class="line">POST /auto_index/_doc</span><br><span class="line"><span class="punctuation">&#123;</span> <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;iPhone&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;price&quot;</span><span class="punctuation">:</span> <span class="number">5999</span><span class="punctuation">,</span> <span class="attr">&quot;in_stock&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ES 自动推断</span></span><br><span class="line"><span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> text + keyword 子字段</span><br><span class="line"><span class="attr">&quot;price&quot;</span><span class="punctuation">:</span> long</span><br><span class="line"><span class="attr">&quot;in_stock&quot;</span><span class="punctuation">:</span> boolean</span><br></pre></td></tr></table></figure>
+
+<p><strong>动态映射的陷阱</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>后果</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>字段类型推断错误</td>
+<td>“123” 被推断为 long，后续写入 “abc” 报错</td>
+<td>预定义 Mapping</td>
+</tr>
+<tr>
+<td>字段爆炸</td>
+<td>每个新字段名都创建映射，可能导致映射过大</td>
+<td>设置 <code>dynamic: strict</code> 或 <code>limit</code></td>
+</tr>
+<tr>
+<td>日期误判</td>
+<td>字段值恰好匹配日期格式，被推断为 date</td>
+<td>使用 <code>dynamic_date_formats</code> 限制</td>
+</tr>
+</tbody></table>
+<p><strong>生产建议</strong>：生产环境关闭动态映射，预定义 Mapping，通过 <code>dynamic: strict</code> 拒绝未知字段。</p>
+<h3 id="3-3-分析器（Analyzer）：分词的核心"><a href="#3-3-分析器（Analyzer）：分词的核心" class="headerlink" title="3.3 分析器（Analyzer）：分词的核心"></a>3.3 分析器（Analyzer）：分词的核心</h3><p>分析器是一条三段式处理管道：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">输入文本 → [Character Filter] → [Tokenizer] → [Token Filter] → 词项流（Token Stream）</span><br><span class="line">            字符过滤器            分词器          词项过滤器</span><br><span class="line">            如：HTML 去标签       如：标准分词     如：小写、停用词、词干提取</span><br></pre></td></tr></table></figure>
+
+<p><strong>内置分析器对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>分析器</th>
+<th>处理效果</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>standard</code></td>
+<td>按 Unicode 文本分割 + 小写 + 停用词</td>
+<td>通用英文</td>
+</tr>
+<tr>
+<td><code>simple</code></td>
+<td>按非字母分割 + 小写</td>
+<td>简单场景</td>
+</tr>
+<tr>
+<td><code>whitespace</code></td>
+<td>按空格分割（不大写转小写）</td>
+<td>特殊需求</td>
+</tr>
+<tr>
+<td><code>stop</code></td>
+<td>standard + 停用词过滤</td>
+<td>英文文章</td>
+</tr>
+<tr>
+<td><code>keyword</code></td>
+<td>不分词，整体作为一个词项</td>
+<td>精确匹配</td>
+</tr>
+<tr>
+<td><code>pattern</code></td>
+<td>按正则分割</td>
+<td>自定义规则</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>特定语言分词 + 词干提取</td>
+<td>多语言</td>
+</tr>
+<tr>
+<td><code>fingerprint</code></td>
+<td>去重 + 排序 + 拼接</td>
+<td>去重聚类</td>
+</tr>
+</tbody></table>
+<p><strong>中文分词：IK 分析器</strong></p>
+<p>中文没有空格分隔，必须使用专门的分词器。IK 是最流行的中文分词插件：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ik_max_word：最细粒度分词（索引时用）</span></span><br><span class="line"><span class="string">&quot;红色连衣裙&quot;</span> → <span class="punctuation">[</span><span class="string">&quot;红色&quot;</span><span class="punctuation">,</span> <span class="string">&quot;红色连衣裙&quot;</span><span class="punctuation">,</span> <span class="string">&quot;连衣&quot;</span><span class="punctuation">,</span> <span class="string">&quot;连衣裙&quot;</span><span class="punctuation">,</span> <span class="string">&quot;裙&quot;</span><span class="punctuation">]</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ik_smart：智能分词（搜索时用）</span></span><br><span class="line"><span class="string">&quot;红色连衣裙&quot;</span> → <span class="punctuation">[</span><span class="string">&quot;红色&quot;</span><span class="punctuation">,</span> <span class="string">&quot;连衣裙&quot;</span><span class="punctuation">]</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>自定义分析器实战</strong>：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">PUT /articles</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;settings&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;analysis&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;char_filter&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;html_strip&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;html_strip&quot;</span> <span class="punctuation">&#125;</span>           <span class="comment">// 去除 HTML 标签</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;tokenizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;ik_tokenizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ik_max_word&quot;</span>                           <span class="comment">// IK 最细粒度</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;filter&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;my_synonym&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;synonym_graph&quot;</span><span class="punctuation">,</span>                        <span class="comment">// 同义词图（支持多词同义）</span></span><br><span class="line">          <span class="attr">&quot;synonyms&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">            <span class="string">&quot;iPhone,苹果手机,Apple手机&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="string">&quot;笔记本,laptop,notebook&quot;</span></span><br><span class="line">          <span class="punctuation">]</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;my_stop&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;stop&quot;</span><span class="punctuation">,</span></span><br><span class="line">          <span class="attr">&quot;stopwords&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;的&quot;</span><span class="punctuation">,</span> <span class="string">&quot;了&quot;</span><span class="punctuation">,</span> <span class="string">&quot;是&quot;</span><span class="punctuation">,</span> <span class="string">&quot;在&quot;</span><span class="punctuation">]</span>           <span class="comment">// 中文停用词</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;analyzer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;my_analyzer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;custom&quot;</span><span class="punctuation">,</span></span><br><span class="line">          <span class="attr">&quot;char_filter&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;html_strip&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">          <span class="attr">&quot;tokenizer&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ik_tokenizer&quot;</span><span class="punctuation">,</span></span><br><span class="line">          <span class="attr">&quot;filter&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;lowercase&quot;</span><span class="punctuation">,</span> <span class="string">&quot;my_synonym&quot;</span><span class="punctuation">,</span> <span class="string">&quot;my_stop&quot;</span><span class="punctuation">]</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;mappings&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;properties&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;text&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;analyzer&quot;</span><span class="punctuation">:</span> <span class="string">&quot;my_analyzer&quot;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>验证分析器</strong>：<code>POST /articles/_analyze { &quot;analyzer&quot;: &quot;my_analyzer&quot;, &quot;text&quot;: &quot;&lt;p&gt;iPhone是苹果公司的产品&lt;/p&gt;&quot; }</code> 可以查看分词结果，在生产中极其有用。</p>
+</blockquote>
+<hr>
+<h2 id="四、Query-DSL-实战：从-term-到-bool-到-function-score"><a href="#四、Query-DSL-实战：从-term-到-bool-到-function-score" class="headerlink" title="四、Query DSL 实战：从 term 到 bool 到 function_score"></a>四、Query DSL 实战：从 term 到 bool 到 function_score</h2><p>Elasticsearch 的查询语言（Query DSL）是基于 JSON 的领域特定语言，分为两大类：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Query Context（查询上下文）        Filter Context（过滤上下文）</span><br><span class="line">  → 计算相关性分数 _score            → 不计算分数，只判断 Yes/No</span><br><span class="line">  → 适合全文检索                     → 适合精确过滤</span><br><span class="line">  → 结果按分数排序                   → 结果自动缓存（Bitset）</span><br><span class="line">  → 如 match, multi_match            →如 term, range, exists</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-1-基础查询"><a href="#4-1-基础查询" class="headerlink" title="4.1 基础查询"></a>4.1 基础查询</h3><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// term：精确匹配（不分词）</span></span><br><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;term&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;status&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;value&quot;</span><span class="punctuation">:</span> <span class="string">&quot;active&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// match：全文检索（先分词再匹配）</span></span><br><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;match&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;title&quot;</span><span class="punctuation">:</span> <span class="string">&quot;红色连衣裙&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"><span class="comment">// 等价于：title 中包含 &quot;红色&quot; OR &quot;连衣裙&quot; 的文档</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// match_phrase：短语匹配（词项顺序敏感）</span></span><br><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;match_phrase&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;title&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="string">&quot;红色 连衣裙&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;slop&quot;</span><span class="punctuation">:</span> <span class="number">1</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"><span class="comment">// slop=1 允许两个词之间最多插入1个其他词</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// multi_match：多字段检索</span></span><br><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;multi_match&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="string">&quot;iPhone 15&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;fields&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;title^3&quot;</span><span class="punctuation">,</span> <span class="string">&quot;description&quot;</span><span class="punctuation">,</span> <span class="string">&quot;category&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span>  <span class="comment">// title 权重 ×3</span></span><br><span class="line">      <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;best_fields&quot;</span>                               <span class="comment">// 取最高分</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="4-2-Bool-查询：组合查询的瑞士军刀"><a href="#4-2-Bool-查询：组合查询的瑞士军刀" class="headerlink" title="4.2 Bool 查询：组合查询的瑞士军刀"></a>4.2 Bool 查询：组合查询的瑞士军刀</h3><p>Bool 查询是生产中最常用的查询类型，通过 <code>must</code> &#x2F; <code>should</code> &#x2F; <code>must_not</code> &#x2F; <code>filter</code> 四种子句组合：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;bool&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;must&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;match&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;title&quot;</span><span class="punctuation">:</span> <span class="string">&quot;连衣裙&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span>                <span class="comment">// 必须匹配，参与打分</span></span><br><span class="line">      <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;should&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;match&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;description&quot;</span><span class="punctuation">:</span> <span class="string">&quot;夏季&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span>           <span class="comment">// 可选匹配，提升分数</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;term&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;is_new&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span>                    <span class="comment">// 新品加分</span></span><br><span class="line">      <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;must_not&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;term&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;status&quot;</span><span class="punctuation">:</span> <span class="string">&quot;discontinued&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span>          <span class="comment">// 排除已停产</span></span><br><span class="line">      <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;filter&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;range&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;price&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;gte&quot;</span><span class="punctuation">:</span> <span class="number">100</span><span class="punctuation">,</span> <span class="attr">&quot;lte&quot;</span><span class="punctuation">:</span> <span class="number">500</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span>  <span class="comment">// 价格范围，不参与打分</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;terms&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;category&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;女装&quot;</span><span class="punctuation">,</span> <span class="string">&quot;裙子&quot;</span><span class="punctuation">]</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span>           <span class="comment">// 分类过滤</span></span><br><span class="line">      <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;minimum_should_match&quot;</span><span class="punctuation">:</span> <span class="number">1</span>                           <span class="comment">// should 至少满足1个</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>子句</th>
+<th>是否参与打分</th>
+<th>是否缓存</th>
+<th>语义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>must</code></td>
+<td>✅</td>
+<td>❌</td>
+<td>AND，必须匹配</td>
+</tr>
+<tr>
+<td><code>should</code></td>
+<td>✅</td>
+<td>❌</td>
+<td>OR，至少满足 N 个</td>
+</tr>
+<tr>
+<td><code>must_not</code></td>
+<td>❌</td>
+<td>✅</td>
+<td>NOT，不能匹配</td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td>❌</td>
+<td>✅</td>
+<td>AND，但只过滤不打分</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>性能关键</strong>：能用 <code>filter</code> 就不用 <code>must</code>。Filter 不计算分数且自动缓存，性能可能快 10 倍以上。</p>
+</blockquote>
+<h3 id="4-3-Function-Score：自定义打分"><a href="#4-3-Function-Score：自定义打分" class="headerlink" title="4.3 Function Score：自定义打分"></a>4.3 Function Score：自定义打分</h3><p>当 BM25 默认打分不够用时，<code>function_score</code> 允许你用自定义函数调整文档分数：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;function_score&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;match&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;title&quot;</span><span class="punctuation">:</span> <span class="string">&quot;连衣裙&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span>       <span class="comment">// 基础查询</span></span><br><span class="line">      <span class="attr">&quot;functions&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;field_value_factor&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                         <span class="comment">// 按字段值加权</span></span><br><span class="line">            <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;sales_count&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;modifier&quot;</span><span class="punctuation">:</span> <span class="string">&quot;log1p&quot;</span><span class="punctuation">,</span>                          <span class="comment">// 对数平滑</span></span><br><span class="line">            <span class="attr">&quot;factor&quot;</span><span class="punctuation">:</span> <span class="number">2</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;missing&quot;</span><span class="punctuation">:</span> <span class="number">1</span></span><br><span class="line">          <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;gauss&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                                      <span class="comment">// 高斯衰减（时间衰减）</span></span><br><span class="line">            <span class="attr">&quot;create_time&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">              <span class="attr">&quot;origin&quot;</span><span class="punctuation">:</span> <span class="string">&quot;now&quot;</span><span class="punctuation">,</span>                            <span class="comment">// 中心点</span></span><br><span class="line">              <span class="attr">&quot;scale&quot;</span><span class="punctuation">:</span> <span class="string">&quot;30d&quot;</span><span class="punctuation">,</span>                             <span class="comment">// 衰减范围</span></span><br><span class="line">              <span class="attr">&quot;decay&quot;</span><span class="punctuation">:</span> <span class="number">0.5</span>                               <span class="comment">// 衰减程度</span></span><br><span class="line">            <span class="punctuation">&#125;</span></span><br><span class="line">          <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;filter&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;term&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;is_promoted&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span> <span class="comment">// 促销商品固定加分</span></span><br><span class="line">          <span class="attr">&quot;weight&quot;</span><span class="punctuation">:</span> <span class="number">5</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;score_mode&quot;</span><span class="punctuation">:</span> <span class="string">&quot;multiply&quot;</span><span class="punctuation">,</span>                           <span class="comment">// 函数间相乘</span></span><br><span class="line">      <span class="attr">&quot;boost_mode&quot;</span><span class="punctuation">:</span> <span class="string">&quot;sum&quot;</span><span class="punctuation">,</span>                                <span class="comment">// 函数总分与查询分相加</span></span><br><span class="line">      <span class="attr">&quot;max_boost&quot;</span><span class="punctuation">:</span> <span class="number">100</span>                                    <span class="comment">// 最大 boost 限制</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>实际效果</strong>：搜索 “连衣裙” 时，BM25 相关性分数 + 销量对数权重 + 时间新鲜度衰减 + 促销加权，最终得分 &#x3D; 相关性 × log(销量) × 时间衰减 + 促销加分。这就是电商平台搜索排序的核心原理。</p>
+<hr>
+<h2 id="五、聚合分析：Bucket-Metric-Pipeline"><a href="#五、聚合分析：Bucket-Metric-Pipeline" class="headerlink" title="五、聚合分析：Bucket &#x2F; Metric &#x2F; Pipeline"></a>五、聚合分析：Bucket &#x2F; Metric &#x2F; Pipeline</h2><p>聚合（Aggregation）是 Elasticsearch 作为数据分析引擎的核心能力，分为三大类：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Bucket Aggregation（桶聚合）     Metric Aggregation（指标聚合）   Pipeline Aggregation（管道聚合）</span><br><span class="line">  → 按条件分组文档                   → 计算数学指标                    → 基于其他聚合结果做二次计算</span><br><span class="line">  → 类似 SQL GROUP BY               → 类似 SQL COUNT/SUM/AVG          → 类似 SQL 窗口函数</span><br><span class="line">  → 如 terms, date_histogram        → 如 avg, sum, max, stats         → 如 bucket_sort, derivative</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-1-嵌套聚合实战：按分类统计价格分布"><a href="#5-1-嵌套聚合实战：按分类统计价格分布" class="headerlink" title="5.1 嵌套聚合实战：按分类统计价格分布"></a>5.1 嵌套聚合实战：按分类统计价格分布</h3><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;size&quot;</span><span class="punctuation">:</span> <span class="number">0</span><span class="punctuation">,</span>                                              <span class="comment">// 不返回文档，只要聚合结果</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;term&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;status&quot;</span><span class="punctuation">:</span> <span class="string">&quot;active&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span>            <span class="comment">// 先过滤</span></span><br><span class="line">  <span class="attr">&quot;aggs&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;by_category&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                                      <span class="comment">// 第一层：按分类分桶</span></span><br><span class="line">      <span class="attr">&quot;terms&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;category.keyword&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;size&quot;</span><span class="punctuation">:</span> <span class="number">10</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;order&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;price_stats.avg&quot;</span><span class="punctuation">:</span> <span class="string">&quot;desc&quot;</span> <span class="punctuation">&#125;</span>            <span class="comment">// 按子聚合的平均价排序</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;aggs&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;price_stats&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                                  <span class="comment">// 第二层：桶内价格统计</span></span><br><span class="line">          <span class="attr">&quot;stats&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;price&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;price_ranges&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                                 <span class="comment">// 第二层：价格区间分桶</span></span><br><span class="line">          <span class="attr">&quot;range&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;price&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;ranges&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">              <span class="punctuation">&#123;</span> <span class="attr">&quot;to&quot;</span><span class="punctuation">:</span> <span class="number">100</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">              <span class="punctuation">&#123;</span> <span class="attr">&quot;from&quot;</span><span class="punctuation">:</span> <span class="number">100</span><span class="punctuation">,</span> <span class="attr">&quot;to&quot;</span><span class="punctuation">:</span> <span class="number">500</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">              <span class="punctuation">&#123;</span> <span class="attr">&quot;from&quot;</span><span class="punctuation">:</span> <span class="number">500</span><span class="punctuation">,</span> <span class="attr">&quot;to&quot;</span><span class="punctuation">:</span> <span class="number">2000</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">              <span class="punctuation">&#123;</span> <span class="attr">&quot;from&quot;</span><span class="punctuation">:</span> <span class="number">2000</span> <span class="punctuation">&#125;</span></span><br><span class="line">            <span class="punctuation">]</span></span><br><span class="line">          <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">          <span class="attr">&quot;aggs&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;avg_rating&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                               <span class="comment">// 第三层：每个区间平均评分</span></span><br><span class="line">              <span class="attr">&quot;avg&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;rating&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">            <span class="punctuation">&#125;</span></span><br><span class="line">          <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;monthly_trend&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                                <span class="comment">// 第二层：按月统计趋势</span></span><br><span class="line">          <span class="attr">&quot;date_histogram&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;create_time&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;calendar_interval&quot;</span><span class="punctuation">:</span> <span class="string">&quot;month&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;format&quot;</span><span class="punctuation">:</span> <span class="string">&quot;yyyy-MM&quot;</span></span><br><span class="line">          <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">          <span class="attr">&quot;aggs&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;cumulative_sales&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                         <span class="comment">// 第三层：管道聚合——累计求和</span></span><br><span class="line">              <span class="attr">&quot;cumulative_sum&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;buckets_path&quot;</span><span class="punctuation">:</span> <span class="string">&quot;monthly_sales&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">            <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;monthly_sales&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">              <span class="attr">&quot;sum&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;sales_count&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">            <span class="punctuation">&#125;</span></span><br><span class="line">          <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-聚合性能关键：Doc-Values"><a href="#5-2-聚合性能关键：Doc-Values" class="headerlink" title="5.2 聚合性能关键：Doc Values"></a>5.2 聚合性能关键：Doc Values</h3><p>聚合操作依赖 Doc Values（列式存储），而非倒排索引：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">倒排索引：词项 → 文档列表（适合搜索）</span><br><span class="line">Doc Values：文档 → 字段值（适合聚合/排序/脚本）</span><br><span class="line"></span><br><span class="line">// 聚合 &quot;category&quot; 字段时：</span><br><span class="line">1. 读取 category 的 Doc Values（列式存储，高度压缩）</span><br><span class="line">2. 按 category 值分组文档</span><br><span class="line">3. 在每个组内执行指标计算</span><br><span class="line"></span><br><span class="line">// Doc Values 存储在 OS Page Cache 中，磁盘 I/O 最小化</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>禁用 Doc Values 的后果</strong>：如果一个 <code>text</code> 字段需要聚合，必须在 Mapping 中为其添加 <code>keyword</code> 子字段并设置 <code>&quot;fielddata&quot;: false</code>。直接对 <code>text</code> 聚合需要开启 <code>fielddata: true</code>（将倒排索引加载到堆内存），这是生产中应极力避免的操作。</p>
+</blockquote>
+<hr>
+<h2 id="六、相关性评分：从-TF-IDF-到-BM25"><a href="#六、相关性评分：从-TF-IDF-到-BM25" class="headerlink" title="六、相关性评分：从 TF-IDF 到 BM25"></a>六、相关性评分：从 TF-IDF 到 BM25</h2><h3 id="6-1-TF-IDF（Elasticsearch-5-0-之前）"><a href="#6-1-TF-IDF（Elasticsearch-5-0-之前）" class="headerlink" title="6.1 TF-IDF（Elasticsearch 5.0 之前）"></a>6.1 TF-IDF（Elasticsearch 5.0 之前）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Score = TF × IDF</span><br><span class="line"></span><br><span class="line">TF (Term Frequency)   = 词项在文档中出现的次数 / 文档总词数</span><br><span class="line">IDF (Inverse Doc Freq) = log(总文档数 / 包含该词项的文档数)</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题</strong>：TF-IDF 的 TF 随词频线性增长——一个词出现 1000 次的文档得分是出现 1 次的 1000 倍，但实际上出现 10 次和 1000 次的相关性差异远没有那么大。</p>
+<h3 id="6-2-BM25（Elasticsearch-5-0-默认）"><a href="#6-2-BM25（Elasticsearch-5-0-默认）" class="headerlink" title="6.2 BM25（Elasticsearch 5.0+ 默认）"></a>6.2 BM25（Elasticsearch 5.0+ 默认）</h3><p>BM25（Okapi BM25）是 TF-IDF 的改进版，引入了饱和函数和文档长度归一化：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Score(D, Q) = Σ IDF(qi) × [ f(qi, D) × (k1 + 1) ] / [ f(qi, D) + k1 × (1 - b + b × |D| / avgdl) ]</span><br><span class="line"></span><br><span class="line">其中：</span><br><span class="line">  f(qi, D)  = 词项 qi 在文档 D 中的词频</span><br><span class="line">  |D|       = 文档 D 的长度（总词数）</span><br><span class="line">  avgdl     = 所有文档的平均长度</span><br><span class="line">  k1        = 词频饱和参数（默认 1.2）</span><br><span class="line">  b         = 长度归一化参数（默认 0.75）</span><br></pre></td></tr></table></figure>
+
+<p><strong>BM25 vs TF-IDF 对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>TF-IDF</th>
+<th>BM25</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>词频增长</strong></td>
+<td>线性增长</td>
+<td>渐近饱和（k1 控制）</td>
+</tr>
+<tr>
+<td><strong>长文档惩罚</strong></td>
+<td>无</td>
+<td>有（b 参数，长文档得分降低）</td>
+</tr>
+<tr>
+<td><strong>可调参数</strong></td>
+<td>无</td>
+<td>k1、b 两个参数</td>
+</tr>
+<tr>
+<td><strong>实际效果</strong></td>
+<td>长文档&#x2F;高频词得分虚高</td>
+<td>更符合人类直觉</td>
+</tr>
+</tbody></table>
+<p><strong>参数调优经验</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">k1 = 1.2（默认）  → 标准饱和度</span><br><span class="line">k1 = 2.0          → 词频影响更大（适合标题等短字段）</span><br><span class="line">k1 = 0.5          → 词频影响更小（适合长文本）</span><br><span class="line">b  = 0.75（默认） → 标准长度归一化</span><br><span class="line">b  = 0            → 不考虑文档长度（所有长度等价）</span><br><span class="line">b  = 1            → 完全按长度归一化</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="七、集群架构与分片策略"><a href="#七、集群架构与分片策略" class="headerlink" title="七、集群架构与分片策略"></a>七、集群架构与分片策略</h2><h3 id="7-1-节点角色"><a href="#7-1-节点角色" class="headerlink" title="7.1 节点角色"></a>7.1 节点角色</h3><p>Elasticsearch 集群中的节点可以承担不同角色（7.9+ 通过 <code>node.roles</code> 配置）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">┌──────────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                        Elasticsearch 集群架构                          │</span><br><span class="line">├──────────────────────────────────────────────────────────────────────┤</span><br><span class="line">│                                                                      │</span><br><span class="line">│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                │</span><br><span class="line">│   │ Master 节点  │  │ Master 节点  │  │ Master 节点  │  ← 奇数个(3/5) │</span><br><span class="line">│   │ (专用)      │  │ (专用)      │  │ (专用)      │    管理集群状态   │</span><br><span class="line">│   └─────────────┘  └─────────────┘  └─────────────┘    不存数据      │</span><br><span class="line">│                                                                      │</span><br><span class="line">│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                │</span><br><span class="line">│   │ Data 节点    │  │ Data 节点    │  │ Data 节点    │  ← 存储索引数据  │</span><br><span class="line">│   │ 分片1,2,3   │  │ 分片4,5,6   │  │ 分片7,8,9   │    执行CRUD+搜索 │</span><br><span class="line">│   └─────────────┘  └─────────────┘  └─────────────┘                 │</span><br><span class="line">│                                                                      │</span><br><span class="line">│   ┌─────────────┐  ┌─────────────┐                                 │</span><br><span class="line">│   │Coord 节点    │  │Coord 节点    │  ← 接收请求+结果合并              │</span><br><span class="line">│   │(负载均衡)    │  │(负载均衡)    │    不存数据,保护Data节点           │</span><br><span class="line">│   └─────────────┘  └─────────────┘                                 │</span><br><span class="line">│                                                                      │</span><br><span class="line">│   ┌─────────────┐                                                   │</span><br><span class="line">│   │Ingest 节点   │  ← 文档预处理（Enrich/转换/Grok）                   │</span><br><span class="line">│   └─────────────┘                                                   │</span><br><span class="line">│                                                                      │</span><br><span class="line">└──────────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>节点角色</th>
+<th>职责</th>
+<th>资源需求</th>
+<th>生产建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>master</code></td>
+<td>集群状态管理、索引&#x2F;分片创建分配</td>
+<td>CPU + 内存，低磁盘</td>
+<td>专用节点，3 个（quorum）</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>存储 + CRUD + 搜索 + 聚合</td>
+<td>高 CPU + 大内存 + 大磁盘 SSD</td>
+<td>按数据量水平扩展</td>
+</tr>
+<tr>
+<td><code>data_content</code></td>
+<td>不随时间增长的内容索引</td>
+<td>混合负载</td>
+<td>8.x 细分角色</td>
+</tr>
+<tr>
+<td><code>data_hot</code></td>
+<td>最近热数据（时间序列）</td>
+<td>高 I&#x2F;O SSD</td>
+<td>大内存</td>
+</tr>
+<tr>
+<td><code>data_warm</code></td>
+<td>较旧数据</td>
+<td>中等 I&#x2F;O HDD</td>
+<td>可降配</td>
+</tr>
+<tr>
+<td><code>data_cold</code></td>
+<td>冷数据，只读</td>
+<td>低 I&#x2F;O</td>
+<td>最省成本</td>
+</tr>
+<tr>
+<td><code>data_frozen</code></td>
+<td>冻结数据（按需加载）</td>
+<td>最低成本</td>
+<td>对象存储</td>
+</tr>
+<tr>
+<td><code>ingest</code></td>
+<td>文档预处理管道</td>
+<td>CPU</td>
+<td>可与 Coord 混合</td>
+</tr>
+<tr>
+<td><code>coordinating_only</code></td>
+<td>请求路由 + 结果合并</td>
+<td>CPU + 内存</td>
+<td>高并发场景分离</td>
+</tr>
+<tr>
+<td><code>ml</code></td>
+<td>机器学习作业</td>
+<td>高 CPU + GPU</td>
+<td>异常检测</td>
+</tr>
+<tr>
+<td><code>remote_cluster_client</code></td>
+<td>跨集群搜索</td>
+<td>网络</td>
+<td>CCS&#x2F;CCR</td>
+</tr>
+</tbody></table>
+<h3 id="7-2-分片（Shard）与路由"><a href="#7-2-分片（Shard）与路由" class="headerlink" title="7.2 分片（Shard）与路由"></a>7.2 分片（Shard）与路由</h3><p>每个索引被分成多个主分片（Primary Shard），每个主分片有零到多个副本分片（Replica Shard）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">Index: products (3 primary shards, 1 replica each)</span><br><span class="line"></span><br><span class="line">Node 1          Node 2          Node 3</span><br><span class="line">┌──────┐       ┌──────┐       ┌──────┐</span><br><span class="line">│ P0   │       │ P1   │       │ P2   │     ← 主分片</span><br><span class="line">│ R1   │       │ R2   │       │ R0   │     ← 副本分片</span><br><span class="line">└──────┘       └──────┘       └──────┘</span><br><span class="line"></span><br><span class="line">路由公式: shard = hash(routing) % number_of_primary_shards</span><br><span class="line">  默认 routing = _id</span><br><span class="line">  可自定义 routing（如按 userId 路由，同一用户数据在同一分片）</span><br></pre></td></tr></table></figure>
+
+<p><strong>分片数量决策——生产中最关键的架构决策之一</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>因素</th>
+<th>建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单分片大小</td>
+<td>30GB ~ 50GB（搜索性能与恢复速度平衡）</td>
+</tr>
+<tr>
+<td>分片数量</td>
+<td>索引创建后不可修改（只能 reindex），需提前规划</td>
+</tr>
+<tr>
+<td>节点分片数</td>
+<td>每节点不超过 20 个分片（堆内存限制）</td>
+</tr>
+<tr>
+<td>副本数量</td>
+<td>生产至少 1 副本；搜索压力大可 2+ 副本</td>
+</tr>
+<tr>
+<td>数据增长</td>
+<td>按时间 rollover（如 logs-2026.07.28）</td>
+</tr>
+</tbody></table>
+<p><strong>分片过少的后果</strong>：无法水平扩展，单分片过大导致恢复慢。<br><strong>分片过多的后果</strong>：每个分片消耗资源（内存、文件句柄），过多小分片浪费资源且查询扇出（Fan-out）开销大。</p>
+<h3 id="7-3-写入流程：Primary-→-Replica"><a href="#7-3-写入流程：Primary-→-Replica" class="headerlink" title="7.3 写入流程：Primary → Replica"></a>7.3 写入流程：Primary → Replica</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">Client → Coordinating Node</span><br><span class="line">         │</span><br><span class="line">         ├→ 1. 根据路由公式计算目标分片</span><br><span class="line">         ├→ 2. 转发到 Primary Shard 所在节点</span><br><span class="line">         │      │</span><br><span class="line">         │      ├→ 3. 写入 Translog</span><br><span class="line">         │      ├→ 4. 写入 In-Memory Buffer</span><br><span class="line">         │      ├→ 5. [每1s] Refresh → Segment（可搜索）</span><br><span class="line">         │      └→ 6. 并行转发到所有 Replica Shard</span><br><span class="line">         │             │</span><br><span class="line">         │             ├→ 7. Replica 写入 Translog + Buffer</span><br><span class="line">         │             └→ 8. 返回成功给 Primary</span><br><span class="line">         │</span><br><span class="line">         └→ 9. 所有 Replica 成功后，返回 Client 成功</span><br></pre></td></tr></table></figure>
+
+<p><strong>写入一致性参数</strong>（<code>wait_for_active_shards</code>）：</p>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>语义</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>1</code></td>
+<td>只要 Primary 可用就写</td>
+<td>最高写入吞吐，最低安全性</td>
+</tr>
+<tr>
+<td><code>quorum</code></td>
+<td>多数分片可用才写</td>
+<td>平衡（默认）</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>所有分片（含副本）都可用才写</td>
+<td>最高安全性，最低可用性</td>
+</tr>
+</tbody></table>
+<h3 id="7-4-搜索流程：Scatter-Gather"><a href="#7-4-搜索流程：Scatter-Gather" class="headerlink" title="7.4 搜索流程：Scatter-Gather"></a>7.4 搜索流程：Scatter-Gather</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">Client → Coordinating Node</span><br><span class="line">         │</span><br><span class="line">         ├→ 1. Scatter：将查询转发到每个分片（Primary 或 Replica，轮询负载均衡）</span><br><span class="line">         │      │</span><br><span class="line">         │      ├→ Shard 1: 本地查询 → 返回 Top N 文档 ID + 分数</span><br><span class="line">         │      ├→ Shard 2: 本地查询 → 返回 Top N 文档 ID + 分数</span><br><span class="line">         │      └→ Shard 3: 本地查询 → 返回 Top N 文档 ID + 分数</span><br><span class="line">         │</span><br><span class="line">         ├→ 2. Gather：合并所有分片结果 → 全局排序 → 取最终 Top N</span><br><span class="line">         │</span><br><span class="line">         ├→ 3. Fetch：根据最终 Top N 的 Doc ID，去对应分片获取完整文档</span><br><span class="line">         │</span><br><span class="line">         └→ 4. 返回 Client</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>关键洞察</strong>：搜索需要查询所有分片（Scatter），这就是为什么分片过多会降低查询性能——每个查询的扇出开销线性增长。但分片过少又无法水平扩展，需要平衡。</p>
+</blockquote>
+<hr>
+<h2 id="八、向量检索：从-kNN-到-ELSER-到-DiskBBQ"><a href="#八、向量检索：从-kNN-到-ELSER-到-DiskBBQ" class="headerlink" title="八、向量检索：从 kNN 到 ELSER 到 DiskBBQ"></a>八、向量检索：从 kNN 到 ELSER 到 DiskBBQ</h2><p>向量检索（Vector Search）是 2024-2026 年 Elasticsearch 发展最快的领域，也是 RAG（检索增强生成）系统的核心基础设施。</p>
+<h3 id="8-1-为什么需要向量检索？"><a href="#8-1-为什么需要向量检索？" class="headerlink" title="8.1 为什么需要向量检索？"></a>8.1 为什么需要向量检索？</h3><p>传统关键词搜索（BM25）有天然局限：</p>
+<ul>
+<li><strong>语义鸿沟</strong>：搜 “苹果手机” 匹配不到只写 “iPhone” 的文档</li>
+<li><strong>同义词问题</strong>：搜 “笔记本” 匹配不到 “laptop”</li>
+<li><strong>跨语言</strong>：中文搜索匹配不到英文文档</li>
+</ul>
+<p>向量检索通过将文本&#x2F;图片&#x2F;音频编码为高维向量，在向量空间中计算语义相似度，解决了这些问题：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">文本 → Embedding 模型 → 768/1536 维向量 → kNN 近邻搜索 → 语义最相似的 Top K 文档</span><br><span class="line"></span><br><span class="line">&quot;苹果手机&quot; → [0.12, -0.34, 0.56, ...] ↘</span><br><span class="line">&quot;iPhone&quot;  → [0.11, -0.32, 0.55, ...] → 余弦相似度 0.98（语义相近）</span><br><span class="line">&quot;拖拉机&quot;  → [0.89, 0.12, -0.67, ...]  → 余弦相似度 0.12（语义无关）</span><br></pre></td></tr></table></figure>
+
+<h3 id="8-2-kNN-搜索-API"><a href="#8-2-kNN-搜索-API" class="headerlink" title="8.2 kNN 搜索 API"></a>8.2 kNN 搜索 API</h3><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 创建向量索引</span></span><br><span class="line">PUT /knowledge_base</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;mappings&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;properties&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;text&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;embedding&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;dense_vector&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;dims&quot;</span><span class="punctuation">:</span> <span class="number">768</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;index&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;similarity&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cosine&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;index_options&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;int8_hnsw&quot;</span><span class="punctuation">,</span>              <span class="comment">// 8.x+ 量化索引，节省 4x 内存</span></span><br><span class="line">          <span class="attr">&quot;m&quot;</span><span class="punctuation">:</span> <span class="number">16</span><span class="punctuation">,</span>                           <span class="comment">// HNSW 图连接数</span></span><br><span class="line">          <span class="attr">&quot;ef_construction&quot;</span><span class="punctuation">:</span> <span class="number">100</span>             <span class="comment">// 构建时搜索宽度</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. kNN 搜索</span></span><br><span class="line">GET /knowledge_base/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;knn&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;embedding&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;query_vector&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="number">0.12</span><span class="punctuation">,</span> <span class="number">-0.34</span><span class="punctuation">,</span> <span class="number">0.56</span><span class="punctuation">,</span> ...<span class="punctuation">]</span><span class="punctuation">,</span>  <span class="comment">// 查询向量</span></span><br><span class="line">    <span class="attr">&quot;k&quot;</span><span class="punctuation">:</span> <span class="number">10</span><span class="punctuation">,</span>                                     <span class="comment">// 返回 Top 10</span></span><br><span class="line">    <span class="attr">&quot;num_candidates&quot;</span><span class="punctuation">:</span> <span class="number">100</span>                        <span class="comment">// 每分片候选数（越大越精确，越慢）</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;_source&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;content&quot;</span><span class="punctuation">]</span>                         <span class="comment">// 只返回 content 字段</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="8-3-混合检索：BM25-向量"><a href="#8-3-混合检索：BM25-向量" class="headerlink" title="8.3 混合检索：BM25 + 向量"></a>8.3 混合检索：BM25 + 向量</h3><p>生产中最强大的搜索策略是混合检索——结合关键词精确匹配和向量语义匹配：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">GET /knowledge_base/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;bool&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;should&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;match&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot;如何配置 Elasticsearch 集群&quot;</span> <span class="punctuation">&#125;</span>   <span class="comment">// BM25 关键词匹配</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">]</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;knn&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;embedding&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;query_vector&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="number">0.12</span><span class="punctuation">,</span> <span class="number">-0.34</span><span class="punctuation">,</span> ...<span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;k&quot;</span><span class="punctuation">:</span> <span class="number">10</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;num_candidates&quot;</span><span class="punctuation">:</span> <span class="number">100</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;boost&quot;</span><span class="punctuation">:</span> <span class="number">0.5</span>                                              <span class="comment">// 向量分数权重</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;rank&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;rrf&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span>                                                  <span class="comment">// Reciprocal Rank Fusion</span></span><br><span class="line">      <span class="attr">&quot;window_size&quot;</span><span class="punctuation">:</span> <span class="number">50</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;rank_constant&quot;</span><span class="punctuation">:</span> <span class="number">20</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;size&quot;</span><span class="punctuation">:</span> <span class="number">10</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>RRF（Reciprocal Rank Fusion）</strong> 是一种无需调参的排名融合算法，将多个检索结果的排名倒数相加，天然解决不同打分体系的归一化问题：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">RRF_Score(doc) = Σ 1 / (rank_constant + rank_i(doc))</span><br></pre></td></tr></table></figure>
+
+<h3 id="8-4-ELSER：Elastic-Learned-Sparse-EncodeR"><a href="#8-4-ELSER：Elastic-Learned-Sparse-EncodeR" class="headerlink" title="8.4 ELSER：Elastic Learned Sparse EncodeR"></a>8.4 ELSER：Elastic Learned Sparse EncodeR</h3><p>ELSER 是 Elastic 自研的稀疏向量模型，无需训练自定义模型，开箱即用：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 部署 ELSER 模型</span></span><br><span class="line">PUT _ml/trained_models/.elser_model_2</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;description&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ELSER v2&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 2. 创建 Ingest Pipeline 自动生成向量</span></span><br><span class="line">PUT _ingest/pipeline/elser-pipeline</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;processors&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;inference&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;model_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;.elser_model_2&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;input_output&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">          <span class="punctuation">&#123;</span> <span class="attr">&quot;input_field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;content&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;output_field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;embedding&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">]</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 3. 索引文档时自动调用 Pipeline</span></span><br><span class="line">PUT /knowledge_base/_doc/<span class="number">1</span>?pipeline=elser-pipeline</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Elasticsearch 集群配置最佳实践&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 4. 搜索时使用 sparse_vector 查询</span></span><br><span class="line">GET /knowledge_base/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;sparse_vector&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;embedding&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;inference_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;.elser_model_2&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="string">&quot;如何配置 ES 集群&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>ELSER 优势</strong>：稀疏向量（只存储非零维度），内存占用远低于稠密向量；原生集成，无需外部模型调用。</p>
+<h3 id="8-5-DiskBBQ：9-x-向量索引革命"><a href="#8-5-DiskBBQ：9-x-向量索引革命" class="headerlink" title="8.5 DiskBBQ：9.x 向量索引革命"></a>8.5 DiskBBQ：9.x 向量索引革命</h3><p>Elastic 9.2 引入的 DiskBBQ（Disk-based Better Binary Quantization）是向量检索领域的重大突破：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">传统 HNSW 算法：</span><br><span class="line">  向量全精度（float32）常驻内存 → 768 维 × 4 字节 = 3KB/向量</span><br><span class="line">  100 万向量 ≈ 3GB 内存 → 成本极高</span><br><span class="line"></span><br><span class="line">DiskBBQ 算法（9.x 默认）：</span><br><span class="line">  1. 聚类：将向量按语义聚类</span><br><span class="line">  2. 量化：每维压缩到 1-7 bit（默认 1 bit = 二值量化）</span><br><span class="line">  3. 磁盘存储：量化后的向量存磁盘，只读少量到内存</span><br><span class="line">  4. 重排：候选集用全精度向量精确重排</span><br><span class="line"></span><br><span class="line">  768 维 × 1 bit = 96 字节/向量（32x 压缩）</span><br><span class="line">  100 万向量 ≈ 96MB → 可在单节点处理亿级向量</span><br></pre></td></tr></table></figure>
+
+<p><strong>9.4 DiskBBQ 增强</strong>：</p>
+<ul>
+<li>过滤查询延迟提升 3 倍以上</li>
+<li>向量比较使用原生代码加速（索引和搜索同时受益）</li>
+<li>支持 2&#x2F;4&#x2F;7 bit 量化，在 1 bit 召回不足时可升级</li>
+</ul>
+<h3 id="8-6-GPU-加速向量索引（9-3-GA）"><a href="#8-6-GPU-加速向量索引（9-3-GA）" class="headerlink" title="8.6 GPU 加速向量索引（9.3 GA）"></a>8.6 GPU 加速向量索引（9.3 GA）</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># elasticsearch.yml</span></span><br><span class="line"><span class="attr">node.roles:</span> [<span class="string">data</span>, <span class="string">ml</span>]</span><br><span class="line"><span class="comment"># GPU 加速配置（需要 NVIDIA GPU + cuVS）</span></span><br></pre></td></tr></table></figure>
+
+<p>通过集成 NVIDIA cuVS 库，GPU 加速向量索引可实现：</p>
+<ul>
+<li>索引吞吐量提升最高 <strong>12 倍</strong></li>
+<li>强制合并速度提升最高 <strong>7 倍</strong></li>
+<li>将向量索引从 CPU 分流到 GPU，释放 CPU 资源给搜索请求</li>
+</ul>
+<hr>
+<h2 id="九、Spring-Data-Elasticsearch-集成实战"><a href="#九、Spring-Data-Elasticsearch-集成实战" class="headerlink" title="九、Spring Data Elasticsearch 集成实战"></a>九、Spring Data Elasticsearch 集成实战</h2><h3 id="9-1-依赖与配置"><a href="#9-1-依赖与配置" class="headerlink" title="9.1 依赖与配置"></a>9.1 依赖与配置</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- pom.xml --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-data-elasticsearch<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># application.yml</span></span><br><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">elasticsearch:</span></span><br><span class="line">    <span class="attr">uris:</span> [<span class="string">&quot;http://es-node1:9200&quot;</span>, <span class="string">&quot;http://es-node2:9200&quot;</span>, <span class="string">&quot;http://es-node3:9200&quot;</span>]</span><br><span class="line">    <span class="attr">username:</span> <span class="string">elastic</span></span><br><span class="line">    <span class="attr">password:</span> <span class="string">$&#123;ES_PASSWORD&#125;</span></span><br><span class="line">    <span class="attr">connection-timeout:</span> <span class="string">5s</span></span><br><span class="line">    <span class="attr">socket-timeout:</span> <span class="string">30s</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="9-2-实体映射"><a href="#9-2-实体映射" class="headerlink" title="9.2 实体映射"></a>9.2 实体映射</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Document(indexName = &quot;products&quot;, createIndex = false)</span></span><br><span class="line"><span class="meta">@Setting(settingPath = &quot;es/settings.json&quot;)</span></span><br><span class="line"><span class="meta">@Mapping(mappingPath = &quot;es/mappings.json&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Product</span> &#123;</span><br><span class="line">    <span class="meta">@Id</span></span><br><span class="line">    <span class="keyword">private</span> String id;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@MultiField(mainField = @Field(type = FieldType.Text, analyzer = &quot;ik_max_word&quot;),</span></span><br><span class="line"><span class="meta">                otherFields = &#123;</span></span><br><span class="line"><span class="meta">                    @InnerField(suffix = &quot;keyword&quot;, type = FieldType.Keyword)</span></span><br><span class="line"><span class="meta">                &#125;)</span></span><br><span class="line">    <span class="keyword">private</span> String title;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Field(type = FieldType.Keyword)</span></span><br><span class="line">    <span class="keyword">private</span> String category;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Field(type = FieldType.ScaledFloat, scalingFactor = 100)</span></span><br><span class="line">    <span class="keyword">private</span> Double price;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Field(type = FieldType.Integer)</span></span><br><span class="line">    <span class="keyword">private</span> Integer salesCount;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Field(type = FieldType.Date, format = DateFormat.date_hour_minute_second)</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime createTime;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Field(type = FieldType.Boolean)</span></span><br><span class="line">    <span class="keyword">private</span> Boolean isNew;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Field(type = FieldType.DenseVector, dims = 768)</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">float</span>[] embedding;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// getter/setter 省略</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="9-3-Repository-自定义查询"><a href="#9-3-Repository-自定义查询" class="headerlink" title="9.3 Repository + 自定义查询"></a>9.3 Repository + 自定义查询</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ProductRepository</span> <span class="keyword">extends</span> <span class="title class_">ElasticsearchRepository</span>&lt;Product, String&gt; &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 方法名派生查询</span></span><br><span class="line">    List&lt;Product&gt; <span class="title function_">findByCategoryAndPriceBetween</span><span class="params">(String category, Double min, Double max)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// @Query 注解原生 DSL</span></span><br><span class="line">    <span class="meta">@Query(&quot;&quot;&quot;</span></span><br><span class="line"><span class="meta">        &#123;</span></span><br><span class="line"><span class="meta">          &quot;bool&quot;: &#123;</span></span><br><span class="line"><span class="meta">            &quot;must&quot;: [&#123; &quot;match&quot;: &#123; &quot;title&quot;: &quot;?0&quot; &#125; &#125;],</span></span><br><span class="line"><span class="meta">            &quot;filter&quot;: [&#123; &quot;range&quot;: &#123; &quot;price&quot;: &#123; &quot;gte&quot;: ?1, &quot;lte&quot;: ?2 &#125; &#125; &#125;]</span></span><br><span class="line"><span class="meta">          &#125;</span></span><br><span class="line"><span class="meta">        &#125;</span></span><br><span class="line"><span class="meta">    &quot;&quot;&quot;)</span></span><br><span class="line">    SearchHits&lt;Product&gt; <span class="title function_">searchByTitleAndPriceRange</span><span class="params">(String title, Double minPrice, Double maxPrice)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="9-4-ElasticsearchOperations-复杂查询"><a href="#9-4-ElasticsearchOperations-复杂查询" class="headerlink" title="9.4 ElasticsearchOperations 复杂查询"></a>9.4 ElasticsearchOperations 复杂查询</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ProductSearchService</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> ElasticsearchOperations esOperations;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> SearchHits&lt;Product&gt; <span class="title function_">search</span><span class="params">(String keyword, String category,</span></span><br><span class="line"><span class="params">                                       Double minPrice, Double maxPrice, <span class="type">int</span> page, <span class="type">int</span> size)</span> &#123;</span><br><span class="line"></span><br><span class="line">        <span class="type">NativeQuery</span> <span class="variable">query</span> <span class="operator">=</span> NativeQuery.builder()</span><br><span class="line">            .withQuery(q -&gt; q</span><br><span class="line">                .bool(b -&gt; b</span><br><span class="line">                    .must(m -&gt; m.multiMatch(mm -&gt; mm</span><br><span class="line">                        .query(keyword)</span><br><span class="line">                        .fields(<span class="string">&quot;title^3&quot;</span>, <span class="string">&quot;description&quot;</span>)</span><br><span class="line">                        .type(MultiMatchType.BestFields)</span><br><span class="line">                    ))</span><br><span class="line">                    .filter(f -&gt; f.term(t -&gt; t.field(<span class="string">&quot;category&quot;</span>).value(category)))</span><br><span class="line">                    .filter(f -&gt; f.range(r -&gt; r.field(<span class="string">&quot;price&quot;</span>).gte(JsonData.of(minPrice)).lte(JsonData.of(maxPrice))))</span><br><span class="line">                )</span><br><span class="line">            )</span><br><span class="line">            .withSort(s -&gt; s.field(f -&gt; f.field(<span class="string">&quot;salesCount&quot;</span>).order(SortOrder.Desc)))</span><br><span class="line">            .withSort(s -&gt; s.score(s2 -&gt; s2.order(SortOrder.Desc)))</span><br><span class="line">            .withPageable(PageRequest.of(page, size))</span><br><span class="line">            .withHighlightQuery(<span class="keyword">new</span> <span class="title class_">HighlightQuery</span>(</span><br><span class="line">                Highlight.of(h -&gt; h.fields(<span class="string">&quot;title&quot;</span>, HighlightField.of(hf -&gt; hf.preTags(<span class="string">&quot;&lt;em&gt;&quot;</span>).postTags(<span class="string">&quot;&lt;/em&gt;&quot;</span>)))),</span><br><span class="line">                Product.class</span><br><span class="line">            ))</span><br><span class="line">            .build();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> esOperations.search(query, Product.class);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 聚合查询</span></span><br><span class="line">    <span class="keyword">public</span> Map&lt;String, Aggregation&gt; <span class="title function_">aggregateByCategory</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">NativeQuery</span> <span class="variable">query</span> <span class="operator">=</span> NativeQuery.builder()</span><br><span class="line">            .withQuery(q -&gt; q.matchAll(m -&gt; m))</span><br><span class="line">            .withAggregation(<span class="string">&quot;by_category&quot;</span>, Aggregation.of(a -&gt; a</span><br><span class="line">                .terms(t -&gt; t.field(<span class="string">&quot;category.keyword&quot;</span>).size(<span class="number">20</span>))</span><br><span class="line">                .aggregations(<span class="string">&quot;avg_price&quot;</span>, sub -&gt; sub.avg(avg -&gt; avg.field(<span class="string">&quot;price&quot;</span>)))</span><br><span class="line">            ))</span><br><span class="line">            .withMaxResults(<span class="number">0</span>)</span><br><span class="line">            .build();</span><br><span class="line"></span><br><span class="line">        SearchHits&lt;Product&gt; hits = esOperations.search(query, Product.class);</span><br><span class="line">        <span class="keyword">return</span> hits.getAggregations().aggregations();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="9-5-批量索引（Bulk-API）"><a href="#9-5-批量索引（Bulk-API）" class="headerlink" title="9.5 批量索引（Bulk API）"></a>9.5 批量索引（Bulk API）</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BulkIndexService</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> ElasticsearchOperations esOperations;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">bulkIndex</span><span class="params">(List&lt;Product&gt; products)</span> &#123;</span><br><span class="line">        List&lt;IndexQuery&gt; queries = products.stream()</span><br><span class="line">            .map(p -&gt; &#123;</span><br><span class="line">                <span class="type">IndexQuery</span> <span class="variable">query</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IndexQuery</span>();</span><br><span class="line">                query.setId(p.getId());</span><br><span class="line">                query.setObject(p);</span><br><span class="line">                <span class="keyword">return</span> query;</span><br><span class="line">            &#125;)</span><br><span class="line">            .toList();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 每批 1000 条</span></span><br><span class="line">        <span class="type">int</span> <span class="variable">batchSize</span> <span class="operator">=</span> <span class="number">1000</span>;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; queries.size(); i += batchSize) &#123;</span><br><span class="line">            List&lt;IndexQuery&gt; batch = queries.subList(i, Math.min(i + batchSize, queries.size()));</span><br><span class="line">            esOperations.bulkIndex(batch, IndexCoordinates.of(<span class="string">&quot;products&quot;</span>));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>Bulk API 性能关键</strong>：单次 Bulk 请求 5~15MB 是最佳大小。过小则网络开销占比高，过大则 JVM 堆压力增大、可能触发 GC 暂停。</p>
+</blockquote>
+<hr>
+<h2 id="十、性能优化：索引速度-搜索速度"><a href="#十、性能优化：索引速度-搜索速度" class="headerlink" title="十、性能优化：索引速度 + 搜索速度"></a>十、性能优化：索引速度 + 搜索速度</h2><h3 id="10-1-索引速度优化"><a href="#10-1-索引速度优化" class="headerlink" title="10.1 索引速度优化"></a>10.1 索引速度优化</h3><table>
+<thead>
+<tr>
+<th>优化项</th>
+<th>方法</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>批量写入</strong></td>
+<td>使用 Bulk API，单批 5-15MB</td>
+<td>比单条写入快 10-50 倍</td>
+</tr>
+<tr>
+<td><strong>减少副本</strong></td>
+<td>索引初始导入时 <code>number_of_replicas: 0</code>，完成后恢复</td>
+<td>写入吞吐翻倍</td>
+</tr>
+<tr>
+<td><strong>延长 Refresh</strong></td>
+<td><code>refresh_interval: 60s</code>（默认 1s）</td>
+<td>减少 Segment 生成，写入提速 3-5 倍</td>
+</tr>
+<tr>
+<td><strong>禁用 Translog 同步</strong></td>
+<td><code>index.translog.durability: async</code>（接受少量数据丢失风险）</td>
+<td>写入提速 2 倍</td>
+</tr>
+<tr>
+<td><strong>关闭索引时排序</strong></td>
+<td>索引完成后再启用 <code>index.sort</code></td>
+<td>减少写入开销</td>
+</tr>
+<tr>
+<td><strong>合理分片</strong></td>
+<td>单分片 30-50GB，不过多也不过少</td>
+<td>均衡并行度与开销</td>
+</tr>
+<tr>
+<td><strong>使用 Ingest Pipeline</strong></td>
+<td>预处理在 Ingest 节点而非应用层</td>
+<td>减少 RTT</td>
+</tr>
+<tr>
+<td><strong>JVM 调优</strong></td>
+<td>堆内存 &#x3D; 物理内存 50%，不超 31GB（指针压缩）</td>
+<td>减少 GC</td>
+</tr>
+</tbody></table>
+<h3 id="10-2-搜索速度优化"><a href="#10-2-搜索速度优化" class="headerlink" title="10.2 搜索速度优化"></a>10.2 搜索速度优化</h3><table>
+<thead>
+<tr>
+<th>优化项</th>
+<th>方法</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Filter 代替 Must</strong></td>
+<td>不需要打分的条件用 filter</td>
+<td>自动缓存，快 5-10 倍</td>
+</tr>
+<tr>
+<td><strong>用 keyword 子字段聚合</strong></td>
+<td><code>title.keyword</code> 代替 <code>title</code></td>
+<td>避免 fielddata 堆内存</td>
+</tr>
+<tr>
+<td><strong>减少 _source 返回</strong></td>
+<td><code>_source: { includes: [&quot;title&quot;, &quot;price&quot;] }</code></td>
+<td>减少网络传输</td>
+</tr>
+<tr>
+<td><strong>用 search_after 代替 from&#x2F;size</strong></td>
+<td>深度分页用 PIT + search_after</td>
+<td>避免全量排序</td>
+</tr>
+<tr>
+<td><strong>预排序索引</strong></td>
+<td><code>index.sort.field: create_time</code></td>
+<td>范围查询跳过不匹配 Segment</td>
+</tr>
+<tr>
+<td><strong>Index Sorting</strong></td>
+<td>按常用排序字段预排序</td>
+<td>提前终止（terminate_after）</td>
+</tr>
+<tr>
+<td><strong>冷热分离</strong></td>
+<td>Hot&#x2F;Warm&#x2F;Cold&#x2F;Frozen 分层</td>
+<td>冷数据不影响热查询</td>
+</tr>
+<tr>
+<td><strong>分片数优化</strong></td>
+<td>分片数 &#x3D; 数据节点数的整数倍</td>
+<td>均匀分布查询负载</td>
+</tr>
+<tr>
+<td><strong>使用 Index Template</strong></td>
+<td>按时间自动 rollover + ILM</td>
+<td>管理索引生命周期</td>
+</tr>
+</tbody></table>
+<h3 id="10-3-深度分页方案对比"><a href="#10-3-深度分页方案对比" class="headerlink" title="10.3 深度分页方案对比"></a>10.3 深度分页方案对比</h3><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 方案1: from + size（浅分页，&lt;10000）</span></span><br><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span> <span class="attr">&quot;from&quot;</span><span class="punctuation">:</span> <span class="number">0</span><span class="punctuation">,</span> <span class="attr">&quot;size&quot;</span><span class="punctuation">:</span> <span class="number">20</span><span class="punctuation">,</span> <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;match_all&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line"><span class="comment">// 问题：from=10000 时，每个分片取 10020 条，协调节点合并 3×10020=30060 条排序后取 20 条</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 方案2: scroll（深分页，适合批量导出）</span></span><br><span class="line">POST /products/_search?scroll=<span class="number">5</span>m</span><br><span class="line"><span class="punctuation">&#123;</span> <span class="attr">&quot;size&quot;</span><span class="punctuation">:</span> <span class="number">100</span><span class="punctuation">,</span> <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;match_all&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line"><span class="comment">// 返回 scroll_id，后续请求带上 scroll_id 继续获取</span></span><br><span class="line"><span class="comment">// 问题：维护游标状态，占用资源，不适合实时搜索</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 方案3: search_after（推荐，实时深分页）</span></span><br><span class="line">GET /products/_search</span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;size&quot;</span><span class="punctuation">:</span> <span class="number">20</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;sort&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">&#123;</span> <span class="attr">&quot;create_time&quot;</span><span class="punctuation">:</span> <span class="string">&quot;desc&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;_id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;asc&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;search_after&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;2026-07-28T12:00:00&quot;</span><span class="punctuation">,</span> <span class="string">&quot;abc123&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span>    <span class="comment">// 上一页最后一条的 sort 值</span></span><br><span class="line">  <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;match_all&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br><span class="line"><span class="comment">// 原理：利用排序字段的唯一性，每次只取 size 条，无状态</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>适用场景</th>
+<th>深度限制</th>
+<th>实时性</th>
+<th>资源消耗</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>from + size</code></td>
+<td>前几页</td>
+<td>10000</td>
+<td>实时</td>
+<td>低</td>
+</tr>
+<tr>
+<td><code>scroll</code></td>
+<td>批量导出&#x2F;数据迁移</td>
+<td>无限制</td>
+<td>非实时（快照）</td>
+<td>高（维护游标）</td>
+</tr>
+<tr>
+<td><code>search_after</code></td>
+<td>实时深分页</td>
+<td>无限制</td>
+<td>实时</td>
+<td>低（无状态）</td>
+</tr>
+<tr>
+<td><code>PIT + search_after</code></td>
+<td>实时深分页+一致性</td>
+<td>无限制</td>
+<td>近实时（PIT 快照）</td>
+<td>中</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="十一、2026-Elastic-9-x-新特性速览"><a href="#十一、2026-Elastic-9-x-新特性速览" class="headerlink" title="十一、2026 Elastic 9.x 新特性速览"></a>十一、2026 Elastic 9.x 新特性速览</h2><h3 id="11-1-版本演进时间线"><a href="#11-1-版本演进时间线" class="headerlink" title="11.1 版本演进时间线"></a>11.1 版本演进时间线</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Elastic 8.x (2022-2025)                    Elastic 9.x (2025-2026)</span><br><span class="line">  8.0: 安全默认、删除类型                      9.0: Lucene 10、全新查询引擎</span><br><span class="line">  8.5: dense_vector GA                       9.1: ES|QL GA、时序增强</span><br><span class="line">  8.12: ELSER v2、kNN 增强                    9.2: DiskBBQ、Streams、ES|QL TS 命令</span><br><span class="line">  8.18: 向量量化 int8_hnsw                    9.3: Agent Builder GA、GPU 向量索引 GA</span><br><span class="line">                                             9.4: Workflows GA、PromQL 原生支持、FIPS 140-3</span><br></pre></td></tr></table></figure>
+
+<h3 id="11-2-Elastic-9-x-核心新特性"><a href="#11-2-Elastic-9-x-核心新特性" class="headerlink" title="11.2 Elastic 9.x 核心新特性"></a>11.2 Elastic 9.x 核心新特性</h3><table>
+<thead>
+<tr>
+<th>版本</th>
+<th>特性</th>
+<th>影响</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>9.0</strong></td>
+<td>Lucene 10 引擎升级</td>
+<td>查询性能提升 30-40%，块压缩改进</td>
+</tr>
+<tr>
+<td><strong>9.0</strong></td>
+<td>全新查询执行引擎</td>
+<td>向量化执行，减少中间结果物化</td>
+</tr>
+<tr>
+<td><strong>9.1</strong></td>
+<td>ES|QL GA</td>
+<td>类 SQL 管道查询语言，比 DSL 更简洁</td>
+</tr>
+<tr>
+<td><strong>9.2</strong></td>
+<td>DiskBBQ 向量索引</td>
+<td>磁盘友好，32x 向量压缩，大幅降低内存</td>
+</tr>
+<tr>
+<td><strong>9.2</strong></td>
+<td>Streams（日志智能处理）</td>
+<td>AI 驱动的日志自动解析、压缩、事件提取</td>
+</tr>
+<tr>
+<td><strong>9.2</strong></td>
+<td>ES|QL 时序命令</td>
+<td>时序聚合查询速度提升 10 倍</td>
+</tr>
+<tr>
+<td><strong>9.3</strong></td>
+<td>Agent Builder GA</td>
+<td>原生 AI Agent 构建，与 ES 数据对话</td>
+</tr>
+<tr>
+<td><strong>9.3</strong></td>
+<td>GPU 向量索引 GA</td>
+<td>NVIDIA cuVS 集成，索引吞吐 12 倍提升</td>
+</tr>
+<tr>
+<td><strong>9.3</strong></td>
+<td>原生 OTLP 摄取</td>
+<td>直接接收 OpenTelemetry protobuf，减少 20% 索引开销</td>
+</tr>
+<tr>
+<td><strong>9.4</strong></td>
+<td>Workflows GA</td>
+<td>规则驱动 + Agent 驱动的自动化工作流</td>
+</tr>
+<tr>
+<td><strong>9.4</strong></td>
+<td>原生 PromQL 支持</td>
+<td>Kibana 中直接运行 Prometheus 查询</td>
+</tr>
+<tr>
+<td><strong>9.4</strong></td>
+<td>列式指标引擎</td>
+<td>3.75 字节&#x2F;数据点（6.6x 压缩），查询快 160 倍</td>
+</tr>
+<tr>
+<td><strong>9.4</strong></td>
+<td>FIPS 140-3 合规</td>
+<td>全栈 FIPS 认证，满足政府&#x2F;金融合规要求</td>
+</tr>
+<tr>
+<td><strong>9.4</strong></td>
+<td>DiskBBQ 增强</td>
+<td>过滤查询延迟 3 倍提升，支持 2&#x2F;4&#x2F;7 bit 量化</td>
+</tr>
+<tr>
+<td><strong>9.4</strong></td>
+<td>Per-user 认证</td>
+<td>Kibana Connectors 按用户认证，审计更精确</td>
+</tr>
+<tr>
+<td><strong>9.4</strong></td>
+<td>Dashboards as Code</td>
+<td>仪表盘即代码，CI&#x2F;CD 管理</td>
+</tr>
+</tbody></table>
+<h3 id="11-3-ES-QL：新时代查询语言"><a href="#11-3-ES-QL：新时代查询语言" class="headerlink" title="11.3 ES|QL：新时代查询语言"></a>11.3 ES|QL：新时代查询语言</h3><p>ES|QL（Elasticsearch Query Language）是 9.x 主推的管道式查询语言，比传统 DSL 更简洁：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ES|QL 示例：查找错误日志并按服务统计</span></span><br><span class="line"><span class="keyword">FROM</span> logs<span class="operator">-</span><span class="operator">*</span></span><br><span class="line"><span class="operator">|</span> <span class="keyword">WHERE</span> <span class="variable">@timestamp</span> <span class="operator">&gt;</span> NOW() <span class="operator">-</span> <span class="number">1</span> <span class="keyword">hour</span></span><br><span class="line"><span class="operator">|</span> <span class="keyword">WHERE</span> level <span class="operator">=</span><span class="operator">=</span> &quot;ERROR&quot;</span><br><span class="line"><span class="operator">|</span> STATS error_count <span class="operator">=</span> <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">BY</span> service.name</span><br><span class="line"><span class="operator">|</span> SORT error_count <span class="keyword">DESC</span></span><br><span class="line"><span class="operator">|</span> LIMIT <span class="number">10</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 等价的 DSL 需要几十行 JSON</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ES|QL 时序聚合（9.4 GA）</span></span><br><span class="line"><span class="keyword">FROM</span> metrics<span class="operator">-</span><span class="operator">*</span></span><br><span class="line"><span class="operator">|</span> <span class="keyword">WHERE</span> metric <span class="operator">=</span><span class="operator">=</span> &quot;cpu_usage&quot;</span><br><span class="line"><span class="operator">|</span> EVAL cpu_rate <span class="operator">=</span> RATE(counter, <span class="number">60</span>s)</span><br><span class="line"><span class="operator">|</span> STATS avg_cpu <span class="operator">=</span> <span class="built_in">AVG</span>(cpu_rate) <span class="keyword">BY</span> host.name</span><br><span class="line"><span class="operator">|</span> SORT avg_cpu <span class="keyword">DESC</span></span><br><span class="line"><span class="operator">|</span> LIMIT <span class="number">5</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>ES|QL vs DSL 对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>ES|QL</th>
+<th>Query DSL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>语法</td>
+<td>管道式 SQL</td>
+<td>JSON 嵌套</td>
+</tr>
+<tr>
+<td>可读性</td>
+<td>高</td>
+<td>低</td>
+</tr>
+<tr>
+<td>学习曲线</td>
+<td>低（会 SQL 就行）</td>
+<td>高</td>
+</tr>
+<tr>
+<td>功能覆盖</td>
+<td>90%（持续增强中）</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>向量化执行，更快</td>
+<td>传统执行</td>
+</tr>
+<tr>
+<td>调试</td>
+<td>管道逐步可观测</td>
+<td>需要解释器</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="十二、高频面试题"><a href="#十二、高频面试题" class="headerlink" title="十二、高频面试题"></a>十二、高频面试题</h2><h3 id="Q1：Elasticsearch-为什么比-MySQL-LIKE-快？"><a href="#Q1：Elasticsearch-为什么比-MySQL-LIKE-快？" class="headerlink" title="Q1：Elasticsearch 为什么比 MySQL LIKE 快？"></a>Q1：Elasticsearch 为什么比 MySQL <code>LIKE</code> 快？</h3><p><strong>答</strong>：核心区别在数据结构。MySQL <code>LIKE &#39;%keyword%&#39;</code> 无法利用 B+ 树索引（前缀通配），只能全表扫描，时间复杂度 O(N)。Elasticsearch 使用倒排索引，通过 FST 词典 O(词长) 定位词项，再通过 Posting List 直接获取包含该词的文档列表，时间复杂度接近 O(1)。此外，ES 的 BM25 评分能按相关性排序，而 MySQL 只能按字段排序。</p>
+<h3 id="Q2：倒排索引的底层结构是什么？为什么用-FST？"><a href="#Q2：倒排索引的底层结构是什么？为什么用-FST？" class="headerlink" title="Q2：倒排索引的底层结构是什么？为什么用 FST？"></a>Q2：倒排索引的底层结构是什么？为什么用 FST？</h3><p><strong>答</strong>：倒排索引由三层组成：(1) <strong>Term Dictionary</strong> 用 FST（有限状态机）存储所有词项，前缀和后缀共享，百万级词项仅占几十 MB 内存，查找 O(词长)；(2) <strong>Posting List</strong> 用 FOR 增量编码 + Roaring Bitmap 压缩文档 ID 列表；(3) <strong>Doc Values</strong> 列式存储字段值，用于聚合和排序。FST 相比 HashMap 节省 10 倍以上内存，且天然支持前缀查询。</p>
+<h3 id="Q3：Elasticsearch-的近实时原理是什么？如何实现真正实时？"><a href="#Q3：Elasticsearch-的近实时原理是什么？如何实现真正实时？" class="headerlink" title="Q3：Elasticsearch 的近实时原理是什么？如何实现真正实时？"></a>Q3：Elasticsearch 的近实时原理是什么？如何实现真正实时？</h3><p><strong>答</strong>：ES 写入文档时先写 Translog（持久化日志）再写 In-Memory Buffer。默认每 1 秒 Refresh 一次，将 Buffer 生成新的 Segment 进入 OS Page Cache 变为可搜索——这就是 1 秒近实时延迟的原因。要实现真正实时，可在写入后调用 <code>POST /index/_refresh</code> 手动刷新，但会牺牲写入吞吐量。或者使用 <code>?refresh=wait_for</code> 参数等待下次自动 refresh。</p>
+<h3 id="Q4：如何选择分片数量？分片过多或过少有什么问题？"><a href="#Q4：如何选择分片数量？分片过多或过少有什么问题？" class="headerlink" title="Q4：如何选择分片数量？分片过多或过少有什么问题？"></a>Q4：如何选择分片数量？分片过多或过少有什么问题？</h3><p><strong>答</strong>：分片数量在索引创建后不可修改（只能 reindex），需提前规划。经验法则：单分片 30-50GB，分片数为数据节点的 1-3 倍。分片过少：无法水平扩展、单分片过大恢复慢、热点风险。分片过多：每个分片消耗资源（堆内存、文件句柄、CPU），搜索需要查询所有分片（Scatter-Gather 扇出开销），过多小分片浪费资源。时间序列数据可通过 ILM + Rollover 动态管理。</p>
+<h3 id="Q5：BM25-和-TF-IDF-有什么区别？k1-和-b-参数怎么调？"><a href="#Q5：BM25-和-TF-IDF-有什么区别？k1-和-b-参数怎么调？" class="headerlink" title="Q5：BM25 和 TF-IDF 有什么区别？k1 和 b 参数怎么调？"></a>Q5：BM25 和 TF-IDF 有什么区别？k1 和 b 参数怎么调？</h3><p><strong>答</strong>：TF-IDF 的词频线性增长，长文档和高频词得分虚高。BM25 引入了饱和函数（k1 控制）和文档长度归一化（b 控制）。k1 默认 1.2，值越大词频影响越大，适合标题等短字段可调到 2.0。b 默认 0.75，值越大长文档惩罚越强，设为 0 则不考虑文档长度。生产中一般用默认值，特殊场景微调。</p>
+<h3 id="Q6：filter-和-must-有什么区别？为什么-filter-更快？"><a href="#Q6：filter-和-must-有什么区别？为什么-filter-更快？" class="headerlink" title="Q6：filter 和 must 有什么区别？为什么 filter 更快？"></a>Q6：filter 和 must 有什么区别？为什么 filter 更快？</h3><p><strong>答</strong>：<code>must</code> 参与 BM25 评分且不缓存；<code>filter</code> 只判断是否匹配不评分，且结果自动缓存为 Bitset。Filter 更快有两个原因：(1) 跳过评分计算（BM25 涉及多次浮点运算）；(2) Bitset 缓存命中时直接跳过倒排表查找。对同一 filter 条件的重复查询，第二次可能快 10 倍以上。生产中能用 filter 的场景绝不用 must。</p>
+<h3 id="Q7：Elasticsearch-如何做深度分页？from-size、scroll、search-after-的区别？"><a href="#Q7：Elasticsearch-如何做深度分页？from-size、scroll、search-after-的区别？" class="headerlink" title="Q7：Elasticsearch 如何做深度分页？from&#x2F;size、scroll、search_after 的区别？"></a>Q7：Elasticsearch 如何做深度分页？from&#x2F;size、scroll、search_after 的区别？</h3><p><strong>答</strong>：<code>from + size</code> 限制 10000，深翻页时每个分片需取 <code>from + size</code> 条排序，协调节点合并 N×(from+size) 条——深度越大越慢。<code>scroll</code> 创建快照游标，适合批量导出但不适合实时搜索（数据非实时）。<code>search_after</code> 利用排序字段值作为游标，每次只取 size 条，无状态、实时、无深度限制，是生产推荐的深分页方案。9.x 推荐使用 PIT（Point in Time）+ search_after，保证结果一致性。</p>
+<h3 id="Q8：向量检索和传统全文检索有什么区别？什么是混合检索？"><a href="#Q8：向量检索和传统全文检索有什么区别？什么是混合检索？" class="headerlink" title="Q8：向量检索和传统全文检索有什么区别？什么是混合检索？"></a>Q8：向量检索和传统全文检索有什么区别？什么是混合检索？</h3><p><strong>答</strong>：全文检索基于倒排索引和 BM25 评分，擅长精确关键词匹配但存在语义鸿沟（同义词、跨语言等）。向量检索将文本编码为高维向量，在向量空间中计算余弦相似度，能理解语义但可能丢失精确匹配能力。混合检索同时执行 BM25 和 kNN 搜索，通过 RRF（Reciprocal Rank Fusion）融合排名，兼顾精确性和语义性——这是 RAG 系统的标准实践。Elasticsearch 9.x 原生支持混合检索 API。</p>
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><table>
+<thead>
+<tr>
+<th>知识维度</th>
+<th>核心要点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>底层原理</strong></td>
+<td>倒排索引（FST + Posting List + Doc Values）是全文检索的基石</td>
+</tr>
+<tr>
+<td><strong>分词体系</strong></td>
+<td>Analyzer 三段式管道（Char Filter → Tokenizer → Token Filter），IK 分词处理中文</td>
+</tr>
+<tr>
+<td><strong>查询能力</strong></td>
+<td>Query DSL（bool 组合）+ ES|QL（管道式 SQL），filter 缓存优于 must 评分</td>
+</tr>
+<tr>
+<td><strong>聚合分析</strong></td>
+<td>Bucket + Metric + Pipeline 三层嵌套，依赖 Doc Values 列式存储</td>
+</tr>
+<tr>
+<td><strong>评分模型</strong></td>
+<td>BM25 替代 TF-IDF，k1 控制词频饱和，b 控制长度归一化</td>
+</tr>
+<tr>
+<td><strong>集群架构</strong></td>
+<td>Master&#x2F;Data&#x2F;Coord&#x2F;Ingest 角色分离，分片路由 hash(routing) % num_shards</td>
+</tr>
+<tr>
+<td><strong>向量检索</strong></td>
+<td>kNN + ELSER + DiskBBQ（32x 压缩）+ GPU 加速（12x 吞吐）+ 混合检索 RRF</td>
+</tr>
+<tr>
+<td><strong>9.x 新特性</strong></td>
+<td>ES|QL GA、Agent Builder、列式指标引擎（6.6x 压缩）、PromQL 原生支持、FIPS 140-3</td>
+</tr>
+<tr>
+<td><strong>性能优化</strong></td>
+<td>索引：Bulk + 延长 Refresh + 减少副本；搜索：Filter + search_after + 冷热分离</td>
+</tr>
+<tr>
+<td><strong>生产实践</strong></td>
+<td>Spring Data ES 集成、ILM 生命周期管理、分片 30-50GB、堆内存 ≤31GB</td>
+</tr>
+</tbody></table>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/elasticsearch/" rel="tag"># elasticsearch</a>
+              <a href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag"># 后端</a>
+              <a href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag"># 面试题</a>
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag"># 分布式</a>
+              <a href="/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/" rel="tag"># 搜索引擎</a>
+              <a href="/tags/%E5%85%A8%E6%96%87%E6%A3%80%E7%B4%A2/" rel="tag"># 全文检索</a>
+              <a href="/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/" rel="tag"># 向量检索</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/28/Netty%20%E9%AB%98%E6%80%A7%E8%83%BD%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20NIO%20%E5%88%B0%204.2%20%E6%96%B0%E7%89%B9%E6%80%A7%E4%B8%8E%E7%99%BE%E4%B8%87%E8%BF%9E%E6%8E%A5%E5%AE%9E%E6%88%98/" rel="prev" title="Netty 高性能网络编程详解：从 NIO 到 4\.2 新特性与百万连接实战">
+      <i class="fa fa-chevron-left"></i> Netty 高性能网络编程详解：从 NIO 到 4\.2 新特性与百万连接实战
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Elasticsearch-%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%E5%88%B0%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E4%B8%8E-9-x-%E6%96%B0%E7%89%B9%E6%80%A7"><span class="nav-number">1.</span> <span class="nav-text">Elasticsearch 搜索引擎详解：从倒排索引到向量检索与 9.x 新特性</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-Elasticsearch%EF%BC%9F%E5%85%B3%E7%B3%BB%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84%E6%90%9C%E7%B4%A2%E5%9B%B0%E5%A2%83"><span class="nav-number">1.1.</span> <span class="nav-text">一、为什么需要 Elasticsearch？关系型数据库的搜索困境</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-%E5%85%B3%E7%B3%BB%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93%E5%81%9A%E6%90%9C%E7%B4%A2%E7%9A%84%E4%B8%89%E5%A4%A7%E7%A1%AC%E4%BC%A4"><span class="nav-number">1.1.1.</span> <span class="nav-text">1.1 关系型数据库做搜索的三大硬伤</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-%E5%85%B8%E5%9E%8B%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">1.1.2.</span> <span class="nav-text">1.2 典型应用场景</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%EF%BC%9AElasticsearch-%E7%9A%84%E6%A0%B8%E5%BF%83%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">1.2.</span> <span class="nav-text">二、倒排索引：Elasticsearch 的核心数据结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E6%AD%A3%E6%8E%92%E7%B4%A2%E5%BC%95-vs-%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 正排索引 vs 倒排索引</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%E7%9A%84%E4%B8%89%E5%B1%82%E7%BB%93%E6%9E%84"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 倒排索引的三层结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-FST%EF%BC%9A%E8%AF%8D%E5%85%B8%E5%8E%8B%E7%BC%A9%E7%9A%84%E9%AD%94%E6%B3%95"><span class="nav-number">1.2.3.</span> <span class="nav-text">2.3 FST：词典压缩的魔法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-Posting-List-%E5%8E%8B%E7%BC%A9%EF%BC%9AFOR-%E7%BC%96%E7%A0%81-Roaring-Bitmap"><span class="nav-number">1.2.4.</span> <span class="nav-text">2.4 Posting List 压缩：FOR 编码 + Roaring Bitmap</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-5-%E8%BF%91%E5%AE%9E%E6%97%B6%E6%90%9C%E7%B4%A2%E5%8E%9F%E7%90%86%EF%BC%9ASegment-Refresh"><span class="nav-number">1.2.5.</span> <span class="nav-text">2.5 近实时搜索原理：Segment + Refresh</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81Mapping-%E4%B8%8E%E5%88%86%E6%9E%90%E5%99%A8%EF%BC%9A%E5%85%A8%E6%96%87%E6%A3%80%E7%B4%A2%E7%9A%84%E5%9F%BA%E7%9F%B3"><span class="nav-number">1.3.</span> <span class="nav-text">三、Mapping 与分析器：全文检索的基石</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-Mapping%EF%BC%9A%E5%AE%9A%E4%B9%89%E6%95%B0%E6%8D%AE%E7%9A%84%E7%B4%A2%E5%BC%95%E6%96%B9%E5%BC%8F"><span class="nav-number">1.3.1.</span> <span class="nav-text">3.1 Mapping：定义数据的索引方式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-Dynamic-Mapping%EF%BC%9A%E8%87%AA%E5%8A%A8%E6%8E%A8%E6%96%AD%E7%9A%84%E5%88%A9%E4%B8%8E%E5%BC%8A"><span class="nav-number">1.3.2.</span> <span class="nav-text">3.2 Dynamic Mapping：自动推断的利与弊</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E5%88%86%E6%9E%90%E5%99%A8%EF%BC%88Analyzer%EF%BC%89%EF%BC%9A%E5%88%86%E8%AF%8D%E7%9A%84%E6%A0%B8%E5%BF%83"><span class="nav-number">1.3.3.</span> <span class="nav-text">3.3 分析器（Analyzer）：分词的核心</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81Query-DSL-%E5%AE%9E%E6%88%98%EF%BC%9A%E4%BB%8E-term-%E5%88%B0-bool-%E5%88%B0-function-score"><span class="nav-number">1.4.</span> <span class="nav-text">四、Query DSL 实战：从 term 到 bool 到 function_score</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E5%9F%BA%E7%A1%80%E6%9F%A5%E8%AF%A2"><span class="nav-number">1.4.1.</span> <span class="nav-text">4.1 基础查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-Bool-%E6%9F%A5%E8%AF%A2%EF%BC%9A%E7%BB%84%E5%90%88%E6%9F%A5%E8%AF%A2%E7%9A%84%E7%91%9E%E5%A3%AB%E5%86%9B%E5%88%80"><span class="nav-number">1.4.2.</span> <span class="nav-text">4.2 Bool 查询：组合查询的瑞士军刀</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-Function-Score%EF%BC%9A%E8%87%AA%E5%AE%9A%E4%B9%89%E6%89%93%E5%88%86"><span class="nav-number">1.4.3.</span> <span class="nav-text">4.3 Function Score：自定义打分</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E8%81%9A%E5%90%88%E5%88%86%E6%9E%90%EF%BC%9ABucket-Metric-Pipeline"><span class="nav-number">1.5.</span> <span class="nav-text">五、聚合分析：Bucket &#x2F; Metric &#x2F; Pipeline</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E5%B5%8C%E5%A5%97%E8%81%9A%E5%90%88%E5%AE%9E%E6%88%98%EF%BC%9A%E6%8C%89%E5%88%86%E7%B1%BB%E7%BB%9F%E8%AE%A1%E4%BB%B7%E6%A0%BC%E5%88%86%E5%B8%83"><span class="nav-number">1.5.1.</span> <span class="nav-text">5.1 嵌套聚合实战：按分类统计价格分布</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-%E8%81%9A%E5%90%88%E6%80%A7%E8%83%BD%E5%85%B3%E9%94%AE%EF%BC%9ADoc-Values"><span class="nav-number">1.5.2.</span> <span class="nav-text">5.2 聚合性能关键：Doc Values</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E7%9B%B8%E5%85%B3%E6%80%A7%E8%AF%84%E5%88%86%EF%BC%9A%E4%BB%8E-TF-IDF-%E5%88%B0-BM25"><span class="nav-number">1.6.</span> <span class="nav-text">六、相关性评分：从 TF-IDF 到 BM25</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-TF-IDF%EF%BC%88Elasticsearch-5-0-%E4%B9%8B%E5%89%8D%EF%BC%89"><span class="nav-number">1.6.1.</span> <span class="nav-text">6.1 TF-IDF（Elasticsearch 5.0 之前）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-BM25%EF%BC%88Elasticsearch-5-0-%E9%BB%98%E8%AE%A4%EF%BC%89"><span class="nav-number">1.6.2.</span> <span class="nav-text">6.2 BM25（Elasticsearch 5.0+ 默认）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E9%9B%86%E7%BE%A4%E6%9E%B6%E6%9E%84%E4%B8%8E%E5%88%86%E7%89%87%E7%AD%96%E7%95%A5"><span class="nav-number">1.7.</span> <span class="nav-text">七、集群架构与分片策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-%E8%8A%82%E7%82%B9%E8%A7%92%E8%89%B2"><span class="nav-number">1.7.1.</span> <span class="nav-text">7.1 节点角色</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-%E5%88%86%E7%89%87%EF%BC%88Shard%EF%BC%89%E4%B8%8E%E8%B7%AF%E7%94%B1"><span class="nav-number">1.7.2.</span> <span class="nav-text">7.2 分片（Shard）与路由</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-3-%E5%86%99%E5%85%A5%E6%B5%81%E7%A8%8B%EF%BC%9APrimary-%E2%86%92-Replica"><span class="nav-number">1.7.3.</span> <span class="nav-text">7.3 写入流程：Primary → Replica</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-4-%E6%90%9C%E7%B4%A2%E6%B5%81%E7%A8%8B%EF%BC%9AScatter-Gather"><span class="nav-number">1.7.4.</span> <span class="nav-text">7.4 搜索流程：Scatter-Gather</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%EF%BC%9A%E4%BB%8E-kNN-%E5%88%B0-ELSER-%E5%88%B0-DiskBBQ"><span class="nav-number">1.8.</span> <span class="nav-text">八、向量检索：从 kNN 到 ELSER 到 DiskBBQ</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#8-1-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%EF%BC%9F"><span class="nav-number">1.8.1.</span> <span class="nav-text">8.1 为什么需要向量检索？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-2-kNN-%E6%90%9C%E7%B4%A2-API"><span class="nav-number">1.8.2.</span> <span class="nav-text">8.2 kNN 搜索 API</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-3-%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2%EF%BC%9ABM25-%E5%90%91%E9%87%8F"><span class="nav-number">1.8.3.</span> <span class="nav-text">8.3 混合检索：BM25 + 向量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-4-ELSER%EF%BC%9AElastic-Learned-Sparse-EncodeR"><span class="nav-number">1.8.4.</span> <span class="nav-text">8.4 ELSER：Elastic Learned Sparse EncodeR</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-5-DiskBBQ%EF%BC%9A9-x-%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95%E9%9D%A9%E5%91%BD"><span class="nav-number">1.8.5.</span> <span class="nav-text">8.5 DiskBBQ：9.x 向量索引革命</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-6-GPU-%E5%8A%A0%E9%80%9F%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95%EF%BC%889-3-GA%EF%BC%89"><span class="nav-number">1.8.6.</span> <span class="nav-text">8.6 GPU 加速向量索引（9.3 GA）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81Spring-Data-Elasticsearch-%E9%9B%86%E6%88%90%E5%AE%9E%E6%88%98"><span class="nav-number">1.9.</span> <span class="nav-text">九、Spring Data Elasticsearch 集成实战</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#9-1-%E4%BE%9D%E8%B5%96%E4%B8%8E%E9%85%8D%E7%BD%AE"><span class="nav-number">1.9.1.</span> <span class="nav-text">9.1 依赖与配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-2-%E5%AE%9E%E4%BD%93%E6%98%A0%E5%B0%84"><span class="nav-number">1.9.2.</span> <span class="nav-text">9.2 实体映射</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-3-Repository-%E8%87%AA%E5%AE%9A%E4%B9%89%E6%9F%A5%E8%AF%A2"><span class="nav-number">1.9.3.</span> <span class="nav-text">9.3 Repository + 自定义查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-4-ElasticsearchOperations-%E5%A4%8D%E6%9D%82%E6%9F%A5%E8%AF%A2"><span class="nav-number">1.9.4.</span> <span class="nav-text">9.4 ElasticsearchOperations 复杂查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-5-%E6%89%B9%E9%87%8F%E7%B4%A2%E5%BC%95%EF%BC%88Bulk-API%EF%BC%89"><span class="nav-number">1.9.5.</span> <span class="nav-text">9.5 批量索引（Bulk API）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%81%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%EF%BC%9A%E7%B4%A2%E5%BC%95%E9%80%9F%E5%BA%A6-%E6%90%9C%E7%B4%A2%E9%80%9F%E5%BA%A6"><span class="nav-number">1.10.</span> <span class="nav-text">十、性能优化：索引速度 + 搜索速度</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#10-1-%E7%B4%A2%E5%BC%95%E9%80%9F%E5%BA%A6%E4%BC%98%E5%8C%96"><span class="nav-number">1.10.1.</span> <span class="nav-text">10.1 索引速度优化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-2-%E6%90%9C%E7%B4%A2%E9%80%9F%E5%BA%A6%E4%BC%98%E5%8C%96"><span class="nav-number">1.10.2.</span> <span class="nav-text">10.2 搜索速度优化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-3-%E6%B7%B1%E5%BA%A6%E5%88%86%E9%A1%B5%E6%96%B9%E6%A1%88%E5%AF%B9%E6%AF%94"><span class="nav-number">1.10.3.</span> <span class="nav-text">10.3 深度分页方案对比</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%80%E3%80%812026-Elastic-9-x-%E6%96%B0%E7%89%B9%E6%80%A7%E9%80%9F%E8%A7%88"><span class="nav-number">1.11.</span> <span class="nav-text">十一、2026 Elastic 9.x 新特性速览</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#11-1-%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E6%97%B6%E9%97%B4%E7%BA%BF"><span class="nav-number">1.11.1.</span> <span class="nav-text">11.1 版本演进时间线</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#11-2-Elastic-9-x-%E6%A0%B8%E5%BF%83%E6%96%B0%E7%89%B9%E6%80%A7"><span class="nav-number">1.11.2.</span> <span class="nav-text">11.2 Elastic 9.x 核心新特性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#11-3-ES-QL%EF%BC%9A%E6%96%B0%E6%97%B6%E4%BB%A3%E6%9F%A5%E8%AF%A2%E8%AF%AD%E8%A8%80"><span class="nav-number">1.11.3.</span> <span class="nav-text">11.3 ES|QL：新时代查询语言</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.12.</span> <span class="nav-text">十二、高频面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Q1%EF%BC%9AElasticsearch-%E4%B8%BA%E4%BB%80%E4%B9%88%E6%AF%94-MySQL-LIKE-%E5%BF%AB%EF%BC%9F"><span class="nav-number">1.12.1.</span> <span class="nav-text">Q1：Elasticsearch 为什么比 MySQL LIKE 快？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q2%EF%BC%9A%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%E7%9A%84%E5%BA%95%E5%B1%82%E7%BB%93%E6%9E%84%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88%E7%94%A8-FST%EF%BC%9F"><span class="nav-number">1.12.2.</span> <span class="nav-text">Q2：倒排索引的底层结构是什么？为什么用 FST？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q3%EF%BC%9AElasticsearch-%E7%9A%84%E8%BF%91%E5%AE%9E%E6%97%B6%E5%8E%9F%E7%90%86%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E7%9C%9F%E6%AD%A3%E5%AE%9E%E6%97%B6%EF%BC%9F"><span class="nav-number">1.12.3.</span> <span class="nav-text">Q3：Elasticsearch 的近实时原理是什么？如何实现真正实时？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q4%EF%BC%9A%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9%E5%88%86%E7%89%87%E6%95%B0%E9%87%8F%EF%BC%9F%E5%88%86%E7%89%87%E8%BF%87%E5%A4%9A%E6%88%96%E8%BF%87%E5%B0%91%E6%9C%89%E4%BB%80%E4%B9%88%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="nav-number">1.12.4.</span> <span class="nav-text">Q4：如何选择分片数量？分片过多或过少有什么问题？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q5%EF%BC%9ABM25-%E5%92%8C-TF-IDF-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9Fk1-%E5%92%8C-b-%E5%8F%82%E6%95%B0%E6%80%8E%E4%B9%88%E8%B0%83%EF%BC%9F"><span class="nav-number">1.12.5.</span> <span class="nav-text">Q5：BM25 和 TF-IDF 有什么区别？k1 和 b 参数怎么调？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q6%EF%BC%9Afilter-%E5%92%8C-must-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88-filter-%E6%9B%B4%E5%BF%AB%EF%BC%9F"><span class="nav-number">1.12.6.</span> <span class="nav-text">Q6：filter 和 must 有什么区别？为什么 filter 更快？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q7%EF%BC%9AElasticsearch-%E5%A6%82%E4%BD%95%E5%81%9A%E6%B7%B1%E5%BA%A6%E5%88%86%E9%A1%B5%EF%BC%9Ffrom-size%E3%80%81scroll%E3%80%81search-after-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="nav-number">1.12.7.</span> <span class="nav-text">Q7：Elasticsearch 如何做深度分页？from&#x2F;size、scroll、search_after 的区别？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q8%EF%BC%9A%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E5%92%8C%E4%BC%A0%E7%BB%9F%E5%85%A8%E6%96%87%E6%A3%80%E7%B4%A2%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F%E4%BB%80%E4%B9%88%E6%98%AF%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2%EF%BC%9F"><span class="nav-number">1.12.8.</span> <span class="nav-text">Q8：向量检索和传统全文检索有什么区别？什么是混合检索？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.13.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">31</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">84</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">28</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/graalvm/" rel="tag">graalvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">10</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jdk/" rel="tag">jdk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis/" rel="tag">mybatis</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis-plus/" rel="tag">mybatis-plus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/netty/" rel="tag">netty</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nio/" rel="tag">nio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/orm/" rel="tag">orm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring/" rel="tag">spring</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%85%A8%E6%96%87%E6%A3%80%E7%B4%A2/" rel="tag">全文检索</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">18</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/" rel="tag">向量检索</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/" rel="tag">搜索引擎</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%BA%90%E7%A0%81/" rel="tag">源码</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/" rel="tag">网络编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/" rel="tag">自动装配</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%99%9A%E6%8B%9F%E7%BA%BF%E7%A8%8B/" rel="tag">虚拟线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6/" rel="tag">集合框架</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" rel="tag">面向对象</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">17</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/" rel="tag">高并发</a><span class="tag-list-count">1</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>
