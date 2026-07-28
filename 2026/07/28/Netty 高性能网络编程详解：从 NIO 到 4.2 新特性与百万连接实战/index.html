@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Netty 是 Java 高并发网络编程的事实标准框架，Dubbo、Elasticsearch、RocketMQ、ZooKeeper、gRPC 等中间件底层都依赖它。本文从 BIO&#x2F;NIO&#x2F;AIO 的演进脉络出发，深入拆解 Netty 的 Reactor 线程模型、ChannelPipeline、EventLoop、ByteBuf 等核心组件，详解粘包拆包、编解码器、心跳保活等">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Netty 高性能网络编程详解：从 NIO 到 4\.2 新特性与百万连接实战">
+<meta property="og:url" content="http://example.com/2026/07/28/Netty%20%E9%AB%98%E6%80%A7%E8%83%BD%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20NIO%20%E5%88%B0%204.2%20%E6%96%B0%E7%89%B9%E6%80%A7%E4%B8%8E%E7%99%BE%E4%B8%87%E8%BF%9E%E6%8E%A5%E5%AE%9E%E6%88%98/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="Netty 是 Java 高并发网络编程的事实标准框架，Dubbo、Elasticsearch、RocketMQ、ZooKeeper、gRPC 等中间件底层都依赖它。本文从 BIO&#x2F;NIO&#x2F;AIO 的演进脉络出发，深入拆解 Netty 的 Reactor 线程模型、ChannelPipeline、EventLoop、ByteBuf 等核心组件，详解粘包拆包、编解码器、心跳保活等">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-28T04:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-28T04:25:31.963Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="java">
+<meta property="article:tag" content="netty">
+<meta property="article:tag" content="nio">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="网络编程">
+<meta property="article:tag" content="面试题">
+<meta property="article:tag" content="高并发">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/07/28/Netty%20%E9%AB%98%E6%80%A7%E8%83%BD%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20NIO%20%E5%88%B0%204.2%20%E6%96%B0%E7%89%B9%E6%80%A7%E4%B8%8E%E7%99%BE%E4%B8%87%E8%BF%9E%E6%8E%A5%E5%AE%9E%E6%88%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Netty 高性能网络编程详解：从 NIO 到 4\.2 新特性与百万连接实战 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/07/28/Netty%20%E9%AB%98%E6%80%A7%E8%83%BD%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20NIO%20%E5%88%B0%204.2%20%E6%96%B0%E7%89%B9%E6%80%A7%E4%B8%8E%E7%99%BE%E4%B8%87%E8%BF%9E%E6%8E%A5%E5%AE%9E%E6%88%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Netty 高性能网络编程详解：从 NIO 到 4\.2 新特性与百万连接实战
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-28 12:00:00 / 修改时间：12:25:31" itemprop="dateCreated datePublished" datetime="2026-07-28T12:00:00+08:00">2026-07-28</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Netty 是 Java 高并发网络编程的事实标准框架，Dubbo、Elasticsearch、RocketMQ、ZooKeeper、gRPC 等中间件底层都依赖它。本文从 BIO&#x2F;NIO&#x2F;AIO 的演进脉络出发，深入拆解 Netty 的 Reactor 线程模型、ChannelPipeline、EventLoop、ByteBuf 等核心组件，详解粘包拆包、编解码器、心跳保活等生产必备技能；同时覆盖 Netty 4.2 的最新变革——自适应内存分配器、io_uring 正式毕业、统一事件循环组、虚拟线程协同优化等，最后给出一套可直接运行的 IM 服务实战代码、百万连接优化方案与 8 道高频面试题。读完这篇文章，你将具备用 Netty 设计高吞吐、低延迟网络服务的能力。</p>
+<span id="more"></span>
+
+<h1 id="Netty-高性能网络编程详解：从-NIO-到-4-2-新特性与百万连接实战"><a href="#Netty-高性能网络编程详解：从-NIO-到-4-2-新特性与百万连接实战" class="headerlink" title="Netty 高性能网络编程详解：从 NIO 到 4.2 新特性与百万连接实战"></a>Netty 高性能网络编程详解：从 NIO 到 4.2 新特性与百万连接实战</h1><h2 id="一、为什么需要-Netty？从-BIO-到-NIO-的演进"><a href="#一、为什么需要-Netty？从-BIO-到-NIO-的演进" class="headerlink" title="一、为什么需要 Netty？从 BIO 到 NIO 的演进"></a>一、为什么需要 Netty？从 BIO 到 NIO 的演进</h2><h3 id="1-1-BIO：一个连接一个线程的困境"><a href="#1-1-BIO：一个连接一个线程的困境" class="headerlink" title="1.1 BIO：一个连接一个线程的困境"></a>1.1 BIO：一个连接一个线程的困境</h3><p>传统的阻塞 I&#x2F;O（Blocking I&#x2F;O）模型下，服务端为每个客户端连接创建一个线程：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">ServerSocket</span> <span class="variable">server</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ServerSocket</span>(<span class="number">8080</span>);</span><br><span class="line"><span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">    <span class="type">Socket</span> <span class="variable">socket</span> <span class="operator">=</span> server.accept();          <span class="comment">// 阻塞等待连接</span></span><br><span class="line">    <span class="keyword">new</span> <span class="title class_">Thread</span>(() -&gt; handle(socket)).start(); <span class="comment">// 一个连接一个线程</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这种模型在并发量低时简单直观，但存在致命缺陷：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>线程资源耗尽</strong></td>
+<td>1 万个连接就需要 1 万个线程，每个线程默认 1MB 栈空间</td>
+</tr>
+<tr>
+<td><strong>上下文切换开销</strong></td>
+<td>CPU 大量时间花在线程切换，而非业务处理</td>
+</tr>
+<tr>
+<td><strong>阻塞导致资源浪费</strong></td>
+<td>连接空闲时线程仍在挂起等待</td>
+</tr>
+</tbody></table>
+<p>BIO 只适用于连接数少、并发低的场景。C10K（1 万并发）问题就是针对这种模型提出的。</p>
+<h3 id="1-2-NIO：基于-Channel-与-Buffer-的非阻塞模型"><a href="#1-2-NIO：基于-Channel-与-Buffer-的非阻塞模型" class="headerlink" title="1.2 NIO：基于 Channel 与 Buffer 的非阻塞模型"></a>1.2 NIO：基于 Channel 与 Buffer 的非阻塞模型</h3><p>JDK 1.4 引入的 NIO（New I&#x2F;O）提供了三大核心抽象：</p>
+<ul>
+<li><strong>Channel（通道）</strong>：双向的数据传输通道，如 <code>SocketChannel</code>、<code>ServerSocketChannel</code></li>
+<li><strong>Buffer（缓冲区）</strong>：数据的容器，读写通过 Buffer 进行</li>
+<li><strong>Selector（选择器）</strong>：一个线程可以监听多个 Channel 的 I&#x2F;O 事件</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Selector</span> <span class="variable">selector</span> <span class="operator">=</span> Selector.open();</span><br><span class="line"><span class="type">ServerSocketChannel</span> <span class="variable">serverChannel</span> <span class="operator">=</span> ServerSocketChannel.open();</span><br><span class="line">serverChannel.configureBlocking(<span class="literal">false</span>);</span><br><span class="line">serverChannel.register(selector, SelectionKey.OP_ACCEPT);</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">    selector.select();  <span class="comment">// 阻塞等待就绪事件</span></span><br><span class="line">    Iterator&lt;SelectionKey&gt; it = selector.selectedKeys().iterator();</span><br><span class="line">    <span class="keyword">while</span> (it.hasNext()) &#123;</span><br><span class="line">        <span class="type">SelectionKey</span> <span class="variable">key</span> <span class="operator">=</span> it.next();</span><br><span class="line">        <span class="keyword">if</span> (key.isAcceptable()) &#123; <span class="comment">/* 处理连接 */</span> &#125;</span><br><span class="line">        <span class="keyword">if</span> (key.isReadable()) &#123; <span class="comment">/* 处理读 */</span> &#125;</span><br><span class="line">        it.remove();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>NIO 让单个线程管理成千上万连接成为可能，但直接使用 JDK NIO 仍然存在很多问题：</p>
+<ul>
+<li><strong>Epoll Bug</strong>：JDK NIO 在 Linux 下存在空轮询 Bug，会导致 CPU 100%</li>
+<li><strong>API 复杂</strong>：需要手动处理 Buffer 读写指针、半包粘包、SelectionKey 清理</li>
+<li><strong>内存管理弱</strong>：<code>ByteBuffer</code> 不支持引用计数和内存池</li>
+<li><strong>可维护性差</strong>：业务代码与网络处理代码高度耦合</li>
+</ul>
+<h3 id="1-3-Netty-的诞生：站在-NIO-肩膀上"><a href="#1-3-Netty-的诞生：站在-NIO-肩膀上" class="headerlink" title="1.3 Netty 的诞生：站在 NIO 肩膀上"></a>1.3 Netty 的诞生：站在 NIO 肩膀上</h3><p>Netty 对 JDK NIO 做了全方位的封装与增强：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>JDK NIO</th>
+<th>Netty</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>线程模型</td>
+<td>自己实现 Reactor</td>
+<td>内置多种 Reactor 模型</td>
+</tr>
+<tr>
+<td>内存管理</td>
+<td>ByteBuffer 无池化</td>
+<td>ByteBuf 引用计数 + 内存池</td>
+</tr>
+<tr>
+<td>粘包拆包</td>
+<td>需手写</td>
+<td>内置多种解码器</td>
+</tr>
+<tr>
+<td>编解码</td>
+<td>无框架支持</td>
+<td>Codec 体系成熟</td>
+</tr>
+<tr>
+<td>性能优化</td>
+<td>无</td>
+<td>零拷贝、对象池、CompositeBuffer</td>
+</tr>
+<tr>
+<td>可维护性</td>
+<td>低</td>
+<td>Pipeline + Handler 职责清晰</td>
+</tr>
+</tbody></table>
+<p>Netty 不是替代 NIO，而是让 NIO 变得<strong>可工程化、可维护、可生产</strong>。</p>
+<hr>
+<h2 id="二、Netty-核心架构：Reactor-线程模型"><a href="#二、Netty-核心架构：Reactor-线程模型" class="headerlink" title="二、Netty 核心架构：Reactor 线程模型"></a>二、Netty 核心架构：Reactor 线程模型</h2><h3 id="2-1-三种-Reactor-模型"><a href="#2-1-三种-Reactor-模型" class="headerlink" title="2.1 三种 Reactor 模型"></a>2.1 三种 Reactor 模型</h3><p>Reactor 模式是 Netty 的核心设计思想，它将 I&#x2F;O 事件分发到对应的 Handler 处理：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>单线程 Reactor</strong></td>
+<td>一个线程同时处理 Accept、Read、Write</td>
+<td>连接数极少，追求简单</td>
+</tr>
+<tr>
+<td><strong>多线程 Reactor</strong></td>
+<td>一个线程 Accept，多个线程处理 I&#x2F;O</td>
+<td>通用场景</td>
+</tr>
+<tr>
+<td><strong>主从多线程 Reactor</strong></td>
+<td>主线程处理 Accept，从线程组处理 I&#x2F;O，业务逻辑交线程池</td>
+<td>高并发生产环境</td>
+</tr>
+</tbody></table>
+<p>Netty 默认采用<strong>主从多线程 Reactor</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│                        BossGroup (NioEventLoopGroup)         │</span><br><span class="line">│  ┌─────────────┐                                            │</span><br><span class="line">│  │ NioEventLoop │  ← 监听 OP_ACCEPT，建立连接后交给 Worker    │</span><br><span class="line">│  └─────────────┘                                            │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br><span class="line">                              │</span><br><span class="line">                              ▼</span><br><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│                       WorkerGroup (NioEventLoopGroup)        │</span><br><span class="line">│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │</span><br><span class="line">│  │ NioEventLoop │  │ NioEventLoop │  │ NioEventLoop │ ...    │</span><br><span class="line">│  │ 处理 Channel1 │  │ 处理 Channel2 │  │ 处理 Channel3 │       │</span><br><span class="line">│  └─────────────┘  └─────────────┘  └─────────────┘          │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-EventLoop：Netty-的心跳"><a href="#2-2-EventLoop：Netty-的心跳" class="headerlink" title="2.2 EventLoop：Netty 的心跳"></a>2.2 EventLoop：Netty 的心跳</h3><p><code>EventLoop</code> 是 Netty 的核心执行单元，它本质是一个单线程执行器：</p>
+<ul>
+<li>每个 <code>EventLoop</code> 绑定一个线程，负责一组 Channel 的生命周期内所有 I&#x2F;O 事件</li>
+<li>一个 Channel 只会注册到一个 <code>EventLoop</code> 上，因此 Channel 的 I&#x2F;O 操作是<strong>线程安全</strong>的</li>
+<li><code>EventLoop</code> 内部维护一个任务队列，可以提交普通任务和定时任务</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">EventLoopGroup</span> <span class="variable">bossGroup</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>(<span class="number">1</span>);   <span class="comment">// 通常 1 个线程</span></span><br><span class="line"><span class="type">EventLoopGroup</span> <span class="variable">workerGroup</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>();  <span class="comment">// 默认 CPU 核心数 * 2</span></span><br><span class="line"></span><br><span class="line"><span class="type">ServerBootstrap</span> <span class="variable">b</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ServerBootstrap</span>();</span><br><span class="line">b.group(bossGroup, workerGroup)</span><br><span class="line"> .channel(NioServerSocketChannel.class)</span><br><span class="line"> .childHandler(<span class="keyword">new</span> <span class="title class_">ChannelInitializer</span>&lt;SocketChannel&gt;() &#123;</span><br><span class="line">     <span class="meta">@Override</span></span><br><span class="line">     <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initChannel</span><span class="params">(SocketChannel ch)</span> &#123;</span><br><span class="line">         ch.pipeline().addLast(<span class="keyword">new</span> <span class="title class_">LoggingHandler</span>(LogLevel.INFO));</span><br><span class="line">         ch.pipeline().addLast(<span class="keyword">new</span> <span class="title class_">MyBusinessHandler</span>());</span><br><span class="line">     &#125;</span><br><span class="line"> &#125;);</span><br></pre></td></tr></table></figure>
+
+<p><strong>关键参数</strong>：</p>
+<ul>
+<li><code>bossGroup</code> 只需要 1 个线程（除非要绑定多个端口）</li>
+<li><code>workerGroup</code> 线程数默认 <code>CPU 核心数 * 2</code>，可通过 <code>-Dio.netty.eventLoopThreads</code> 调整</li>
+</ul>
+<h3 id="2-3-ChannelPipeline：责任链的灵魂"><a href="#2-3-ChannelPipeline：责任链的灵魂" class="headerlink" title="2.3 ChannelPipeline：责任链的灵魂"></a>2.3 ChannelPipeline：责任链的灵魂</h3><p>每个 Channel 内部维护一个 <code>ChannelPipeline</code>，由一系列 <code>ChannelHandler</code> 组成：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Inbound 方向：  Head → Decoder → AuthHandler → BusinessHandler → Tail</span><br><span class="line">Outbound 方向： Tail → Encoder → BusinessHandler → ... → Head</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>Inbound Handler</strong>：处理读事件、解码、认证、业务逻辑</li>
+<li><strong>Outbound Handler</strong>：处理写事件、编码、流量整形</li>
+<li><strong>ChannelHandlerContext</strong>：Handler 的上下文，用于触发下一个节点</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyServerInitializer</span> <span class="keyword">extends</span> <span class="title class_">ChannelInitializer</span>&lt;SocketChannel&gt; &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initChannel</span><span class="params">(SocketChannel ch)</span> &#123;</span><br><span class="line">        <span class="type">ChannelPipeline</span> <span class="variable">p</span> <span class="operator">=</span> ch.pipeline();</span><br><span class="line">        p.addLast(<span class="keyword">new</span> <span class="title class_">IdleStateHandler</span>(<span class="number">60</span>, <span class="number">30</span>, <span class="number">0</span>)); <span class="comment">// 心跳检测</span></span><br><span class="line">        p.addLast(<span class="keyword">new</span> <span class="title class_">LengthFieldBasedFrameDecoder</span>(<span class="number">65535</span>, <span class="number">0</span>, <span class="number">4</span>, <span class="number">0</span>, <span class="number">4</span>));</span><br><span class="line">        p.addLast(<span class="keyword">new</span> <span class="title class_">StringDecoder</span>(CharsetUtil.UTF_8));</span><br><span class="line">        p.addLast(<span class="keyword">new</span> <span class="title class_">StringEncoder</span>(CharsetUtil.UTF_8));</span><br><span class="line">        p.addLast(<span class="keyword">new</span> <span class="title class_">ChatServerHandler</span>());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="三、ByteBuf：Netty-的内存艺术"><a href="#三、ByteBuf：Netty-的内存艺术" class="headerlink" title="三、ByteBuf：Netty 的内存艺术"></a>三、ByteBuf：Netty 的内存艺术</h2><h3 id="3-1-为什么不用-ByteBuffer？"><a href="#3-1-为什么不用-ByteBuffer？" class="headerlink" title="3.1 为什么不用 ByteBuffer？"></a>3.1 为什么不用 ByteBuffer？</h3><p>JDK 的 <code>ByteBuffer</code> 存在几个明显痛点：</p>
+<ul>
+<li>读写共用 <code>position</code>，读写切换需手动 <code>flip()</code></li>
+<li>容量固定，扩容需重新分配</li>
+<li>无引用计数，内存释放依赖 GC</li>
+<li>不支持复合 Buffer</li>
+</ul>
+<p>Netty 的 <code>ByteBuf</code> 解决了这些问题：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>ByteBuffer</th>
+<th>ByteBuf</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>读写指针</td>
+<td>单一 position</td>
+<td>readerIndex &#x2F; writerIndex 分离</td>
+</tr>
+<tr>
+<td>扩容</td>
+<td>需手动</td>
+<td>自动扩容</td>
+</tr>
+<tr>
+<td>引用计数</td>
+<td>不支持</td>
+<td>支持（ReferenceCounted）</td>
+</tr>
+<tr>
+<td>内存池</td>
+<td>不支持</td>
+<td>PooledByteBufAllocator</td>
+</tr>
+<tr>
+<td>复合视图</td>
+<td>不支持</td>
+<td>CompositeByteBuf</td>
+</tr>
+</tbody></table>
+<h3 id="3-2-内存类型与分配策略"><a href="#3-2-内存类型与分配策略" class="headerlink" title="3.2 内存类型与分配策略"></a>3.2 内存类型与分配策略</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 堆内存：数据在 JVM 堆内，访问快，但拷贝到 Socket 时需一次额外拷贝</span></span><br><span class="line"><span class="type">ByteBuf</span> <span class="variable">heapBuf</span> <span class="operator">=</span> Unpooled.buffer(<span class="number">1024</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 直接内存：数据在堆外，Socket 可直接写入，适合网络 I/O</span></span><br><span class="line"><span class="type">ByteBuf</span> <span class="variable">directBuf</span> <span class="operator">=</span> Unpooled.directBuffer(<span class="number">1024</span>);</span><br></pre></td></tr></table></figure>
+
+<p>Netty 4.x 默认使用<strong>池化直接内存</strong>（PooledByteBufAllocator.DEFAULT）：</p>
+<ul>
+<li>避免频繁申请&#x2F;释放堆外内存的系统调用开销</li>
+<li>通过引用计数（refCnt）精确控制内存回收</li>
+<li>配合 <code>ResourceLeakDetector</code> 可检测内存泄漏</li>
+</ul>
+<h3 id="3-3-零拷贝机制"><a href="#3-3-零拷贝机制" class="headerlink" title="3.3 零拷贝机制"></a>3.3 零拷贝机制</h3><p>Netty 的零拷贝并非完全没有拷贝，而是减少不必要的数据复制：</p>
+<table>
+<thead>
+<tr>
+<th>机制</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CompositeByteBuf</code></td>
+<td>逻辑合并多个 ByteBuf，避免合并时的内存拷贝</td>
+</tr>
+<tr>
+<td><code>FileRegion</code></td>
+<td>通过 <code>transferTo()</code> 实现文件到 Socket 的直接传输</td>
+</tr>
+<tr>
+<td><code>slice()/duplicate()</code></td>
+<td>创建视图，共享底层数据</td>
+</tr>
+<tr>
+<td>堆外内存</td>
+<td>避免 JVM 堆与内核空间之间的拷贝</td>
+</tr>
+</tbody></table>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// CompositeByteBuf 示例：合并 HTTP Header 和 Body</span></span><br><span class="line"><span class="type">CompositeByteBuf</span> <span class="variable">composite</span> <span class="operator">=</span> Unpooled.compositeBuffer();</span><br><span class="line">composite.addComponents(<span class="literal">true</span>, headerBuf, bodyBuf);</span><br><span class="line">ctx.writeAndFlush(composite);</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="四、粘包拆包与自定义协议"><a href="#四、粘包拆包与自定义协议" class="headerlink" title="四、粘包拆包与自定义协议"></a>四、粘包拆包与自定义协议</h2><h3 id="4-1-为什么-TCP-会粘包？"><a href="#4-1-为什么-TCP-会粘包？" class="headerlink" title="4.1 为什么 TCP 会粘包？"></a>4.1 为什么 TCP 会粘包？</h3><p>TCP 是面向字节流的协议，发送端调用 10 次 <code>write()</code>，接收端可能 1 次 <code>read()</code> 就收到全部数据；也可能一次数据被拆成多次接收。这就是<strong>粘包</strong>和<strong>拆包</strong>。</p>
+<p>解决思路是在应用层定义消息边界：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>解码器</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>固定长度</td>
+<td>FixedLengthFrameDecoder</td>
+<td>简单</td>
+<td>浪费带宽</td>
+</tr>
+<tr>
+<td>分隔符</td>
+<td>DelimiterBasedFrameDecoder</td>
+<td>适合文本协议</td>
+<td>需转义分隔符</td>
+</tr>
+<tr>
+<td>长度字段</td>
+<td>LengthFieldBasedFrameDecoder</td>
+<td>灵活通用</td>
+<td>需设计协议头</td>
+</tr>
+</tbody></table>
+<h3 id="4-2-自定义协议设计实战"><a href="#4-2-自定义协议设计实战" class="headerlink" title="4.2 自定义协议设计实战"></a>4.2 自定义协议设计实战</h3><p>生产环境推荐使用<strong>长度字段 + 魔数 + 版本号 + 校验码</strong>的协议头：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">0        4        6        8        12              12+len</span><br><span class="line">├────────┼────────┼────────┼────────┼───────────────┤</span><br><span class="line">│ 魔数    │ 版本号  │ 命令字  │ 长度    │     数据体     │</span><br><span class="line">│ 4字节   │ 2字节   │ 2字节   │ 4字节   │    len 字节   │</span><br><span class="line">└────────┴────────┴────────┴────────┴───────────────┘</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CustomProtocolDecoder</span> <span class="keyword">extends</span> <span class="title class_">ByteToMessageDecoder</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">HEADER_LEN</span> <span class="operator">=</span> <span class="number">12</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">decode</span><span class="params">(ChannelHandlerContext ctx, ByteBuf in, List&lt;Object&gt; out)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (in.readableBytes() &lt; HEADER_LEN) <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">        in.markReaderIndex();</span><br><span class="line">        <span class="type">int</span> <span class="variable">magic</span> <span class="operator">=</span> in.readInt();</span><br><span class="line">        <span class="keyword">if</span> (magic != <span class="number">0x12345678</span>) &#123;</span><br><span class="line">            in.clear();</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">CorruptedFrameException</span>(<span class="string">&quot;Invalid magic number&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">short</span> <span class="variable">version</span> <span class="operator">=</span> in.readShort();</span><br><span class="line">        <span class="type">short</span> <span class="variable">cmd</span> <span class="operator">=</span> in.readShort();</span><br><span class="line">        <span class="type">int</span> <span class="variable">length</span> <span class="operator">=</span> in.readInt();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (in.readableBytes() &lt; length) &#123;</span><br><span class="line">            in.resetReaderIndex();</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">byte</span>[] data = <span class="keyword">new</span> <span class="title class_">byte</span>[length];</span><br><span class="line">        in.readBytes(data);</span><br><span class="line">        out.add(<span class="keyword">new</span> <span class="title class_">CustomMessage</span>(version, cmd, data));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="五、Netty-4-2-新特性：生产环境升级指南"><a href="#五、Netty-4-2-新特性：生产环境升级指南" class="headerlink" title="五、Netty 4.2 新特性：生产环境升级指南"></a>五、Netty 4.2 新特性：生产环境升级指南</h2><p>2026 年 Netty 4.2 主线版本已进入生产可用阶段，带来了多项重要改进。</p>
+<h3 id="5-1-自适应内存分配器成为默认选项"><a href="#5-1-自适应内存分配器成为默认选项" class="headerlink" title="5.1 自适应内存分配器成为默认选项"></a>5.1 自适应内存分配器成为默认选项</h3><p>Netty 4.2 将 <code>AdaptiveByteBufAllocator</code> 提升为默认分配器，替代传统 <code>PooledByteBufAllocator</code>：</p>
+<ul>
+<li>根据工作负载自动调整内存分配策略</li>
+<li>与虚拟线程（Virtual Threads）协同更好</li>
+<li>多数场景下降低内存占用并提升吞吐量</li>
+</ul>
+<p>如果升级后观察到 GC 压力增大，可回退到池化模式：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-Dio.netty.allocator.type=pooled</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-io-uring-正式毕业"><a href="#5-2-io-uring-正式毕业" class="headerlink" title="5.2 io_uring 正式毕业"></a>5.2 io_uring 正式毕业</h3><p>Linux 高性能异步 I&#x2F;O 机制 <code>io_uring</code> 从孵化器模块转正：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 4.2 之前</span></span><br><span class="line"><span class="type">EventLoopGroup</span> <span class="variable">group</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">EpollEventLoopGroup</span>();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 4.2 推荐用法</span></span><br><span class="line"><span class="type">IoEventLoopGroup</span> <span class="variable">group</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MultiThreadIoEventLoopGroup</span>(</span><br><span class="line">    IoUringIoHandler.newFactory()</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>相比 epoll，io_uring 能显著减少系统调用次数，在 I&#x2F;O 密集型应用中带来更高的吞吐和更低的延迟。</p>
+<h3 id="5-3-统一事件循环组"><a href="#5-3-统一事件循环组" class="headerlink" title="5.3 统一事件循环组"></a>5.3 统一事件循环组</h3><p>4.2 打破了 <code>EventLoopGroup</code> 与传输实现的紧耦合，统一为 <code>MultiThreadIoEventLoopGroup</code>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 可灵活切换底层传输实现</span></span><br><span class="line"><span class="type">MultiThreadIoEventLoopGroup</span> <span class="variable">group</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MultiThreadIoEventLoopGroup</span>(NioIoHandler.newFactory());</span><br><span class="line"><span class="comment">// 或</span></span><br><span class="line"><span class="type">MultiThreadIoEventLoopGroup</span> <span class="variable">group</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">MultiThreadIoEventLoopGroup</span>(EpollIoHandler.newFactory());</span><br></pre></td></tr></table></figure>
+
+<p>这使得监控和定制更灵活，可以精确统计每个 EventLoop 的 I&#x2F;O 处理时间、任务处理时间、注册 Channel 数量等指标。</p>
+<h3 id="5-4-与虚拟线程的深度协同"><a href="#5-4-与虚拟线程的深度协同" class="headerlink" title="5.4 与虚拟线程的深度协同"></a>5.4 与虚拟线程的深度协同</h3><p>随着 JDK 21 虚拟线程的普及，Netty 4.2 优化了在虚拟线程环境下的表现：</p>
+<ul>
+<li>减少 EventLoop 线程与虚拟线程切换的开销</li>
+<li>自适应分配器针对轻量级线程场景优化</li>
+<li>更适合构建高并发 AI 服务、网关等 I&#x2F;O 密集型应用</li>
+</ul>
+<hr>
+<h2 id="六、实战：基于-Netty-的简易-IM-服务"><a href="#六、实战：基于-Netty-的简易-IM-服务" class="headerlink" title="六、实战：基于 Netty 的简易 IM 服务"></a>六、实战：基于 Netty 的简易 IM 服务</h2><p>下面给出一个可直接运行的 Netty 服务端 + 客户端示例。</p>
+<h3 id="6-1-IM-服务端"><a href="#6-1-IM-服务端" class="headerlink" title="6.1 IM 服务端"></a>6.1 IM 服务端</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ChatServer</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">        <span class="type">EventLoopGroup</span> <span class="variable">boss</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>(<span class="number">1</span>);</span><br><span class="line">        <span class="type">EventLoopGroup</span> <span class="variable">worker</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">ServerBootstrap</span> <span class="variable">b</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ServerBootstrap</span>();</span><br><span class="line">            b.group(boss, worker)</span><br><span class="line">             .channel(NioServerSocketChannel.class)</span><br><span class="line">             .childHandler(<span class="keyword">new</span> <span class="title class_">ChannelInitializer</span>&lt;SocketChannel&gt;() &#123;</span><br><span class="line">                 <span class="meta">@Override</span></span><br><span class="line">                 <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initChannel</span><span class="params">(SocketChannel ch)</span> &#123;</span><br><span class="line">                     ch.pipeline().addLast(<span class="keyword">new</span> <span class="title class_">StringDecoder</span>(CharsetUtil.UTF_8));</span><br><span class="line">                     ch.pipeline().addLast(<span class="keyword">new</span> <span class="title class_">StringEncoder</span>(CharsetUtil.UTF_8));</span><br><span class="line">                     ch.pipeline().addLast(<span class="keyword">new</span> <span class="title class_">SimpleChannelInboundHandler</span>&lt;String&gt;() &#123;</span><br><span class="line">                         <span class="meta">@Override</span></span><br><span class="line">                         <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">channelRead0</span><span class="params">(ChannelHandlerContext ctx, String msg)</span> &#123;</span><br><span class="line">                             System.out.println(<span class="string">&quot;收到: &quot;</span> + msg);</span><br><span class="line">                             ctx.writeAndFlush(<span class="string">&quot;服务端已收到: &quot;</span> + msg);</span><br><span class="line">                         &#125;</span><br><span class="line">                     &#125;);</span><br><span class="line">                 &#125;</span><br><span class="line">             &#125;);</span><br><span class="line"></span><br><span class="line">            <span class="type">ChannelFuture</span> <span class="variable">f</span> <span class="operator">=</span> b.bind(<span class="number">8080</span>).sync();</span><br><span class="line">            f.channel().closeFuture().sync();</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            boss.shutdownGracefully();</span><br><span class="line">            worker.shutdownGracefully();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-2-IM-客户端"><a href="#6-2-IM-客户端" class="headerlink" title="6.2 IM 客户端"></a>6.2 IM 客户端</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ChatClient</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException &#123;</span><br><span class="line">        <span class="type">EventLoopGroup</span> <span class="variable">group</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NioEventLoopGroup</span>();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">Bootstrap</span> <span class="variable">b</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Bootstrap</span>();</span><br><span class="line">            b.group(group)</span><br><span class="line">             .channel(NioSocketChannel.class)</span><br><span class="line">             .handler(<span class="keyword">new</span> <span class="title class_">ChannelInitializer</span>&lt;SocketChannel&gt;() &#123;</span><br><span class="line">                 <span class="meta">@Override</span></span><br><span class="line">                 <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">initChannel</span><span class="params">(SocketChannel ch)</span> &#123;</span><br><span class="line">                     ch.pipeline().addLast(<span class="keyword">new</span> <span class="title class_">StringDecoder</span>(CharsetUtil.UTF_8));</span><br><span class="line">                     ch.pipeline().addLast(<span class="keyword">new</span> <span class="title class_">StringEncoder</span>(CharsetUtil.UTF_8));</span><br><span class="line">                     ch.pipeline().addLast(<span class="keyword">new</span> <span class="title class_">SimpleChannelInboundHandler</span>&lt;String&gt;() &#123;</span><br><span class="line">                         <span class="meta">@Override</span></span><br><span class="line">                         <span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">channelRead0</span><span class="params">(ChannelHandlerContext ctx, String msg)</span> &#123;</span><br><span class="line">                             System.out.println(<span class="string">&quot;收到: &quot;</span> + msg);</span><br><span class="line">                         &#125;</span><br><span class="line">                     &#125;);</span><br><span class="line">                 &#125;</span><br><span class="line">             &#125;);</span><br><span class="line"></span><br><span class="line">            <span class="type">Channel</span> <span class="variable">ch</span> <span class="operator">=</span> b.connect(<span class="string">&quot;127.0.0.1&quot;</span>, <span class="number">8080</span>).sync().channel();</span><br><span class="line">            <span class="type">Scanner</span> <span class="variable">sc</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Scanner</span>(System.in);</span><br><span class="line">            <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">                <span class="type">String</span> <span class="variable">line</span> <span class="operator">=</span> sc.nextLine();</span><br><span class="line">                <span class="keyword">if</span> (<span class="string">&quot;exit&quot;</span>.equals(line)) <span class="keyword">break</span>;</span><br><span class="line">                ch.writeAndFlush(line);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            group.shutdownGracefully();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="七、百万连接优化方案"><a href="#七、百万连接优化方案" class="headerlink" title="七、百万连接优化方案"></a>七、百万连接优化方案</h2><p>要实现单机百万级长连接，需要从操作系统、JVM、Netty 三个层面调优。</p>
+<h3 id="7-1-操作系统层面"><a href="#7-1-操作系统层面" class="headerlink" title="7.1 操作系统层面"></a>7.1 操作系统层面</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># /etc/sysctl.conf</span></span><br><span class="line">fs.file-max = 2097152          <span class="comment"># 系统最大文件描述符</span></span><br><span class="line">fs.nr_open = 2097152</span><br><span class="line">net.ipv4.tcp_mem = 786432 2097152 3145728</span><br><span class="line">net.ipv4.tcp_wmem = 4096 4096 16777216</span><br><span class="line">net.ipv4.tcp_rmem = 4096 4096 16777216</span><br><span class="line">net.ipv4.tcp_tw_reuse = 1     <span class="comment"># 复用 TIME_WAIT</span></span><br><span class="line">net.core.somaxconn = 65535</span><br><span class="line">net.ipv4.ip_local_port_range = 1024 65535</span><br></pre></td></tr></table></figure>
+
+<h3 id="7-2-JVM-层面"><a href="#7-2-JVM-层面" class="headerlink" title="7.2 JVM 层面"></a>7.2 JVM 层面</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">-Xms8g -Xmx8g</span><br><span class="line">-XX:MaxDirectMemorySize=4g</span><br><span class="line">-Dio.netty.allocator.type=pooled</span><br><span class="line">-Dio.netty.leakDetectionLevel=advanced</span><br></pre></td></tr></table></figure>
+
+<h3 id="7-3-Netty-层面"><a href="#7-3-Netty-层面" class="headerlink" title="7.3 Netty 层面"></a>7.3 Netty 层面</h3><table>
+<thead>
+<tr>
+<th>优化项</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>TCP 参数</td>
+<td><code>.childOption(ChannelOption.TCP_NODELAY, true)</code></td>
+</tr>
+<tr>
+<td>写缓冲区</td>
+<td><code>.childOption(ChannelOption.SO_SNDBUF, 64 * 1024)</code></td>
+</tr>
+<tr>
+<td>读缓冲区</td>
+<td><code>.childOption(ChannelOption.SO_RCVBUF, 64 * 1024)</code></td>
+</tr>
+<tr>
+<td>高低水位</td>
+<td><code>channel.config().setWriteBufferHighWaterMark(64 * 1024)</code></td>
+</tr>
+<tr>
+<td>对象池</td>
+<td><code>Recycler.getMaxCapacityPerThread()</code> 调整</td>
+</tr>
+<tr>
+<td>心跳保活</td>
+<td><code>IdleStateHandler</code> + 定时 Ping&#x2F;Pong</td>
+</tr>
+</tbody></table>
+<h3 id="7-4-关键设计原则"><a href="#7-4-关键设计原则" class="headerlink" title="7.4 关键设计原则"></a>7.4 关键设计原则</h3><ol>
+<li><strong>减少对象创建</strong>：尽量复用 ByteBuf，避免在 I&#x2F;O 线程中创建临时对象</li>
+<li><strong>业务异步化</strong>：复杂业务逻辑交给业务线程池，不要阻塞 EventLoop</li>
+<li><strong>连接分级管理</strong>：按业务重要性分级，优先保障核心连接</li>
+<li><strong>优雅关闭</strong>：调用 <code>shutdownGracefully()</code>，等待正在处理的任务完成</li>
+</ol>
+<hr>
+<h2 id="八、高频面试题精选"><a href="#八、高频面试题精选" class="headerlink" title="八、高频面试题精选"></a>八、高频面试题精选</h2><h3 id="1-Netty-相比-JDK-NIO-有哪些优势？"><a href="#1-Netty-相比-JDK-NIO-有哪些优势？" class="headerlink" title="1. Netty 相比 JDK NIO 有哪些优势？"></a>1. Netty 相比 JDK NIO 有哪些优势？</h3><p>Netty 封装了 JDK NIO 的底层细节，提供统一的 API、更高效的内存管理（ByteBuf + 内存池）、内置粘包拆包解决方案、成熟的编解码框架、多种 Reactor 线程模型，以及更好的可维护性（Pipeline + Handler）。</p>
+<h3 id="2-解释一下-Netty-的线程模型？"><a href="#2-解释一下-Netty-的线程模型？" class="headerlink" title="2. 解释一下 Netty 的线程模型？"></a>2. 解释一下 Netty 的线程模型？</h3><p>Netty 默认使用主从多线程 Reactor 模型：BossGroup 负责接收客户端连接，WorkerGroup 负责处理 I&#x2F;O 读写。每个 Channel 的生命周期内只绑定一个 EventLoop，保证 I&#x2F;O 操作的线程安全。</p>
+<h3 id="3-ByteBuf-和-ByteBuffer-的区别？"><a href="#3-ByteBuf-和-ByteBuffer-的区别？" class="headerlink" title="3. ByteBuf 和 ByteBuffer 的区别？"></a>3. ByteBuf 和 ByteBuffer 的区别？</h3><p>ByteBuf 使用 readerIndex 和 writerIndex 分离读写指针，支持自动扩容、引用计数、内存池和复合 Buffer。ByteBuffer 使用单一 position，不支持引用计数和池化。</p>
+<h3 id="4-Netty-如何解决粘包拆包？"><a href="#4-Netty-如何解决粘包拆包？" class="headerlink" title="4. Netty 如何解决粘包拆包？"></a>4. Netty 如何解决粘包拆包？</h3><p>通过内置解码器：FixedLengthFrameDecoder、DelimiterBasedFrameDecoder、LengthFieldBasedFrameDecoder。生产环境推荐使用 LengthFieldBasedFrameDecoder，配合自定义协议头。</p>
+<h3 id="5-什么是-Netty-的零拷贝？"><a href="#5-什么是-Netty-的零拷贝？" class="headerlink" title="5. 什么是 Netty 的零拷贝？"></a>5. 什么是 Netty 的零拷贝？</h3><p>Netty 的零拷贝包括 CompositeByteBuf 合并缓冲区、FileRegion 文件直接传输、slice&#x2F;duplicate 视图共享、堆外内存减少 JVM 堆与内核之间的拷贝。</p>
+<h3 id="6-如何防止-Netty-内存泄漏？"><a href="#6-如何防止-Netty-内存泄漏？" class="headerlink" title="6. 如何防止 Netty 内存泄漏？"></a>6. 如何防止 Netty 内存泄漏？</h3><p>使用引用计数机制确保 ByteBuf 被释放；开启 <code>ResourceLeakDetector</code>（建议 advanced 级别）；避免在 Handler 中持有 ByteBuf 引用；使用 <code>ReferenceCountUtil.release(msg)</code>。</p>
+<h3 id="7-Netty-4-2-有哪些值得关注的新特性？"><a href="#7-Netty-4-2-有哪些值得关注的新特性？" class="headerlink" title="7. Netty 4.2 有哪些值得关注的新特性？"></a>7. Netty 4.2 有哪些值得关注的新特性？</h3><p>自适应内存分配器成为默认、io_uring 正式毕业、统一事件循环组 MultiThreadIoEventLoopGroup、与 JDK 虚拟线程协同优化、增强的安全修复。</p>
+<h3 id="8-为什么说-Netty-是高性能框架？"><a href="#8-为什么说-Netty-是高性能框架？" class="headerlink" title="8. 为什么说 Netty 是高性能框架？"></a>8. 为什么说 Netty 是高性能框架？</h3><p>基于 NIO 的异步非阻塞 I&#x2F;O、Reactor 线程模型减少线程数、ByteBuf 内存池降低 GC 压力、零拷贝减少数据复制、对象池复用对象、Pipeline 责任链解耦处理逻辑。</p>
+<hr>
+<h2 id="九、生产最佳实践与避坑清单"><a href="#九、生产最佳实践与避坑清单" class="headerlink" title="九、生产最佳实践与避坑清单"></a>九、生产最佳实践与避坑清单</h2><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Handler 选择</strong></td>
+<td>优先使用 <code>ChannelInboundHandlerAdapter</code>，需要自动释放时用 <code>SimpleChannelInboundHandler</code></td>
+</tr>
+<tr>
+<td><strong>线程阻塞</strong></td>
+<td>绝不在 EventLoop 中执行阻塞操作（DB、RPC、sleep），否则拖垮整个线程组</td>
+</tr>
+<tr>
+<td><strong>内存泄漏</strong></td>
+<td>开启 <code>-Dio.netty.leakDetectionLevel=advanced</code> 定期排查</td>
+</tr>
+<tr>
+<td><strong>心跳设计</strong></td>
+<td>使用 <code>IdleStateHandler</code>，同时设置读空闲和写空闲检测</td>
+</tr>
+<tr>
+<td><strong>连接管理</strong></td>
+<td>使用 <code>ChannelGroup</code> 广播消息，避免自己维护连接集合</td>
+</tr>
+<tr>
+<td><strong>优雅关闭</strong></td>
+<td>先关闭 bossGroup，再关闭 workerGroup，使用 <code>shutdownGracefully()</code></td>
+</tr>
+<tr>
+<td><strong>版本选择</strong></td>
+<td>新项目优先 Netty 4.2.x，老项目及时升级到安全修复版本</td>
+</tr>
+<tr>
+<td><strong>性能调优</strong></td>
+<td>根据业务报文大小调整 PooledByteBufAllocator 的 tiny&#x2F;small&#x2F;normal 区间</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="十、总结"><a href="#十、总结" class="headerlink" title="十、总结"></a>十、总结</h2><p>Netty 是 Java 后端工程师必须掌握的高并发网络编程框架。本文从 I&#x2F;O 模型演进出发，系统讲解了 Netty 的 Reactor 线程模型、核心组件、ByteBuf 内存设计、粘包拆包解决方案、自定义协议实战，以及 Netty 4.2 的最新特性；并通过一套简易 IM 代码和百万连接优化方案，展示了 Netty 在生产环境中的落地思路。</p>
+<p>掌握 Netty 不仅能帮你写出高性能的网络服务，更能让你深入理解分布式中间件（Dubbo、RocketMQ、Elasticsearch）的底层通信原理。下一篇我们将继续深入 Java 生态，探讨 <strong>Netty 在微服务网关中的实战应用</strong>，敬请期待。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag"># 后端</a>
+              <a href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag"># 面试题</a>
+              <a href="/tags/java/" rel="tag"># java</a>
+              <a href="/tags/netty/" rel="tag"># netty</a>
+              <a href="/tags/nio/" rel="tag"># nio</a>
+              <a href="/tags/%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/" rel="tag"># 网络编程</a>
+              <a href="/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/" rel="tag"># 高并发</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/07/27/Java%20%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20ArrayList%20%E5%88%B0%20ConcurrentHashMap%20%E7%9A%84%E6%BA%90%E7%A0%81%E5%85%A8%E5%89%96%E6%9E%90/" rel="prev" title="Java 集合框架详解：从 ArrayList 到 ConcurrentHashMap 的源码全剖析">
+      <i class="fa fa-chevron-left"></i> Java 集合框架详解：从 ArrayList 到 ConcurrentHashMap 的源码全剖析
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Netty-%E9%AB%98%E6%80%A7%E8%83%BD%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E-NIO-%E5%88%B0-4-2-%E6%96%B0%E7%89%B9%E6%80%A7%E4%B8%8E%E7%99%BE%E4%B8%87%E8%BF%9E%E6%8E%A5%E5%AE%9E%E6%88%98"><span class="nav-number">1.</span> <span class="nav-text">Netty 高性能网络编程详解：从 NIO 到 4.2 新特性与百万连接实战</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-Netty%EF%BC%9F%E4%BB%8E-BIO-%E5%88%B0-NIO-%E7%9A%84%E6%BC%94%E8%BF%9B"><span class="nav-number">1.1.</span> <span class="nav-text">一、为什么需要 Netty？从 BIO 到 NIO 的演进</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-BIO%EF%BC%9A%E4%B8%80%E4%B8%AA%E8%BF%9E%E6%8E%A5%E4%B8%80%E4%B8%AA%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%9B%B0%E5%A2%83"><span class="nav-number">1.1.1.</span> <span class="nav-text">1.1 BIO：一个连接一个线程的困境</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-NIO%EF%BC%9A%E5%9F%BA%E4%BA%8E-Channel-%E4%B8%8E-Buffer-%E7%9A%84%E9%9D%9E%E9%98%BB%E5%A1%9E%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.1.2.</span> <span class="nav-text">1.2 NIO：基于 Channel 与 Buffer 的非阻塞模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-Netty-%E7%9A%84%E8%AF%9E%E7%94%9F%EF%BC%9A%E7%AB%99%E5%9C%A8-NIO-%E8%82%A9%E8%86%80%E4%B8%8A"><span class="nav-number">1.1.3.</span> <span class="nav-text">1.3 Netty 的诞生：站在 NIO 肩膀上</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81Netty-%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84%EF%BC%9AReactor-%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.2.</span> <span class="nav-text">二、Netty 核心架构：Reactor 线程模型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E4%B8%89%E7%A7%8D-Reactor-%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 三种 Reactor 模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-EventLoop%EF%BC%9ANetty-%E7%9A%84%E5%BF%83%E8%B7%B3"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 EventLoop：Netty 的心跳</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-ChannelPipeline%EF%BC%9A%E8%B4%A3%E4%BB%BB%E9%93%BE%E7%9A%84%E7%81%B5%E9%AD%82"><span class="nav-number">1.2.3.</span> <span class="nav-text">2.3 ChannelPipeline：责任链的灵魂</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81ByteBuf%EF%BC%9ANetty-%E7%9A%84%E5%86%85%E5%AD%98%E8%89%BA%E6%9C%AF"><span class="nav-number">1.3.</span> <span class="nav-text">三、ByteBuf：Netty 的内存艺术</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E7%94%A8-ByteBuffer%EF%BC%9F"><span class="nav-number">1.3.1.</span> <span class="nav-text">3.1 为什么不用 ByteBuffer？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E5%86%85%E5%AD%98%E7%B1%BB%E5%9E%8B%E4%B8%8E%E5%88%86%E9%85%8D%E7%AD%96%E7%95%A5"><span class="nav-number">1.3.2.</span> <span class="nav-text">3.2 内存类型与分配策略</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E9%9B%B6%E6%8B%B7%E8%B4%9D%E6%9C%BA%E5%88%B6"><span class="nav-number">1.3.3.</span> <span class="nav-text">3.3 零拷贝机制</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%B2%98%E5%8C%85%E6%8B%86%E5%8C%85%E4%B8%8E%E8%87%AA%E5%AE%9A%E4%B9%89%E5%8D%8F%E8%AE%AE"><span class="nav-number">1.4.</span> <span class="nav-text">四、粘包拆包与自定义协议</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E4%B8%BA%E4%BB%80%E4%B9%88-TCP-%E4%BC%9A%E7%B2%98%E5%8C%85%EF%BC%9F"><span class="nav-number">1.4.1.</span> <span class="nav-text">4.1 为什么 TCP 会粘包？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E8%87%AA%E5%AE%9A%E4%B9%89%E5%8D%8F%E8%AE%AE%E8%AE%BE%E8%AE%A1%E5%AE%9E%E6%88%98"><span class="nav-number">1.4.2.</span> <span class="nav-text">4.2 自定义协议设计实战</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81Netty-4-2-%E6%96%B0%E7%89%B9%E6%80%A7%EF%BC%9A%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E5%8D%87%E7%BA%A7%E6%8C%87%E5%8D%97"><span class="nav-number">1.5.</span> <span class="nav-text">五、Netty 4.2 新特性：生产环境升级指南</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E8%87%AA%E9%80%82%E5%BA%94%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E5%99%A8%E6%88%90%E4%B8%BA%E9%BB%98%E8%AE%A4%E9%80%89%E9%A1%B9"><span class="nav-number">1.5.1.</span> <span class="nav-text">5.1 自适应内存分配器成为默认选项</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-io-uring-%E6%AD%A3%E5%BC%8F%E6%AF%95%E4%B8%9A"><span class="nav-number">1.5.2.</span> <span class="nav-text">5.2 io_uring 正式毕业</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-%E7%BB%9F%E4%B8%80%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AF%E7%BB%84"><span class="nav-number">1.5.3.</span> <span class="nav-text">5.3 统一事件循环组</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-%E4%B8%8E%E8%99%9A%E6%8B%9F%E7%BA%BF%E7%A8%8B%E7%9A%84%E6%B7%B1%E5%BA%A6%E5%8D%8F%E5%90%8C"><span class="nav-number">1.5.4.</span> <span class="nav-text">5.4 与虚拟线程的深度协同</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E5%AE%9E%E6%88%98%EF%BC%9A%E5%9F%BA%E4%BA%8E-Netty-%E7%9A%84%E7%AE%80%E6%98%93-IM-%E6%9C%8D%E5%8A%A1"><span class="nav-number">1.6.</span> <span class="nav-text">六、实战：基于 Netty 的简易 IM 服务</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-IM-%E6%9C%8D%E5%8A%A1%E7%AB%AF"><span class="nav-number">1.6.1.</span> <span class="nav-text">6.1 IM 服务端</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-IM-%E5%AE%A2%E6%88%B7%E7%AB%AF"><span class="nav-number">1.6.2.</span> <span class="nav-text">6.2 IM 客户端</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E7%99%BE%E4%B8%87%E8%BF%9E%E6%8E%A5%E4%BC%98%E5%8C%96%E6%96%B9%E6%A1%88"><span class="nav-number">1.7.</span> <span class="nav-text">七、百万连接优化方案</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E5%B1%82%E9%9D%A2"><span class="nav-number">1.7.1.</span> <span class="nav-text">7.1 操作系统层面</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-JVM-%E5%B1%82%E9%9D%A2"><span class="nav-number">1.7.2.</span> <span class="nav-text">7.2 JVM 层面</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-3-Netty-%E5%B1%82%E9%9D%A2"><span class="nav-number">1.7.3.</span> <span class="nav-text">7.3 Netty 层面</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-4-%E5%85%B3%E9%94%AE%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99"><span class="nav-number">1.7.4.</span> <span class="nav-text">7.4 关键设计原则</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98%E7%B2%BE%E9%80%89"><span class="nav-number">1.8.</span> <span class="nav-text">八、高频面试题精选</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Netty-%E7%9B%B8%E6%AF%94-JDK-NIO-%E6%9C%89%E5%93%AA%E4%BA%9B%E4%BC%98%E5%8A%BF%EF%BC%9F"><span class="nav-number">1.8.1.</span> <span class="nav-text">1. Netty 相比 JDK NIO 有哪些优势？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E8%A7%A3%E9%87%8A%E4%B8%80%E4%B8%8B-Netty-%E7%9A%84%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B%EF%BC%9F"><span class="nav-number">1.8.2.</span> <span class="nav-text">2. 解释一下 Netty 的线程模型？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-ByteBuf-%E5%92%8C-ByteBuffer-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="nav-number">1.8.3.</span> <span class="nav-text">3. ByteBuf 和 ByteBuffer 的区别？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-Netty-%E5%A6%82%E4%BD%95%E8%A7%A3%E5%86%B3%E7%B2%98%E5%8C%85%E6%8B%86%E5%8C%85%EF%BC%9F"><span class="nav-number">1.8.4.</span> <span class="nav-text">4. Netty 如何解决粘包拆包？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-%E4%BB%80%E4%B9%88%E6%98%AF-Netty-%E7%9A%84%E9%9B%B6%E6%8B%B7%E8%B4%9D%EF%BC%9F"><span class="nav-number">1.8.5.</span> <span class="nav-text">5. 什么是 Netty 的零拷贝？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-%E5%A6%82%E4%BD%95%E9%98%B2%E6%AD%A2-Netty-%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%EF%BC%9F"><span class="nav-number">1.8.6.</span> <span class="nav-text">6. 如何防止 Netty 内存泄漏？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-Netty-4-2-%E6%9C%89%E5%93%AA%E4%BA%9B%E5%80%BC%E5%BE%97%E5%85%B3%E6%B3%A8%E7%9A%84%E6%96%B0%E7%89%B9%E6%80%A7%EF%BC%9F"><span class="nav-number">1.8.7.</span> <span class="nav-text">7. Netty 4.2 有哪些值得关注的新特性？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-%E4%B8%BA%E4%BB%80%E4%B9%88%E8%AF%B4-Netty-%E6%98%AF%E9%AB%98%E6%80%A7%E8%83%BD%E6%A1%86%E6%9E%B6%EF%BC%9F"><span class="nav-number">1.8.8.</span> <span class="nav-text">8. 为什么说 Netty 是高性能框架？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81%E7%94%9F%E4%BA%A7%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E4%B8%8E%E9%81%BF%E5%9D%91%E6%B8%85%E5%8D%95"><span class="nav-number">1.9.</span> <span class="nav-text">九、生产最佳实践与避坑清单</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">1.10.</span> <span class="nav-text">十、总结</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">30</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">81</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">27</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/graalvm/" rel="tag">graalvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http/" rel="tag">http</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">10</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jdk/" rel="tag">jdk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis/" rel="tag">mybatis</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis-plus/" rel="tag">mybatis-plus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/netty/" rel="tag">netty</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nio/" rel="tag">nio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/orm/" rel="tag">orm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/quic/" rel="tag">quic</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring/" rel="tag">spring</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tcp/" rel="tag">tcp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">17</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%BA%90%E7%A0%81/" rel="tag">源码</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" rel="tag">网络协议</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/" rel="tag">网络编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/" rel="tag">自动装配</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%99%9A%E6%8B%9F%E7%BA%BF%E7%A8%8B/" rel="tag">虚拟线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag">计算机网络</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6/" rel="tag">集合框架</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" rel="tag">面向对象</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">16</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/" rel="tag">高并发</a><span class="tag-list-count">1</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>
