@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Apache Doris 是百度开源、Apache 顶级项目的实时分析型数据库，以 MPP 架构 + MySQL 协议 + 极简运维著称，支撑了美团、京东、小米、知乎、哔哩哔哩等 5000+ 企业从实时报表到 AI Agent 可观测的全场景数据分析。在 Kafka 完成数据摄入、Flink 完成实时计算之后，Doris 正是”实时数仓最后一公里”的查询引擎。本文从 MPP 架构出发，系统讲清 F">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Apache Doris 详解：从 MPP 架构到 AI 原生与 2026 实时数仓实战">
+<meta property="og:url" content="http://example.com/2026/08/04/Apache%20Doris%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20MPP%20%E6%9E%B6%E6%9E%84%E5%88%B0%20AI%20%E5%8E%9F%E7%94%9F%E4%B8%8E%202026%20%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93%E5%AE%9E%E6%88%98/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="Apache Doris 是百度开源、Apache 顶级项目的实时分析型数据库，以 MPP 架构 + MySQL 协议 + 极简运维著称，支撑了美团、京东、小米、知乎、哔哩哔哩等 5000+ 企业从实时报表到 AI Agent 可观测的全场景数据分析。在 Kafka 完成数据摄入、Flink 完成实时计算之后，Doris 正是”实时数仓最后一公里”的查询引擎。本文从 MPP 架构出发，系统讲清 F">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-04T04:00:00.000Z">
+<meta property="article:modified_time" content="2026-08-04T11:56:48.950Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="doris">
+<meta property="article:tag" content="mpp">
+<meta property="article:tag" content="olap">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="向量检索">
+<meta property="article:tag" content="大数据">
+<meta property="article:tag" content="实时数仓">
+<meta property="article:tag" content="湖仓一体">
+<meta property="article:tag" content="面试题">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/08/04/Apache%20Doris%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20MPP%20%E6%9E%B6%E6%9E%84%E5%88%B0%20AI%20%E5%8E%9F%E7%94%9F%E4%B8%8E%202026%20%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93%E5%AE%9E%E6%88%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Apache Doris 详解：从 MPP 架构到 AI 原生与 2026 实时数仓实战 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/08/04/Apache%20Doris%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20MPP%20%E6%9E%B6%E6%9E%84%E5%88%B0%20AI%20%E5%8E%9F%E7%94%9F%E4%B8%8E%202026%20%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93%E5%AE%9E%E6%88%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Apache Doris 详解：从 MPP 架构到 AI 原生与 2026 实时数仓实战
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-08-04 12:00:00 / 修改时间：19:56:48" itemprop="dateCreated datePublished" datetime="2026-08-04T12:00:00+08:00">2026-08-04</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Apache Doris 是百度开源、Apache 顶级项目的<strong>实时分析型数据库</strong>，以 MPP 架构 + MySQL 协议 + 极简运维著称，支撑了美团、京东、小米、知乎、哔哩哔哩等 5000+ 企业从实时报表到 AI Agent 可观测的全场景数据分析。在 Kafka 完成数据摄入、Flink 完成实时计算之后，Doris 正是”实时数仓最后一公里”的查询引擎。本文从 MPP 架构出发，系统讲清 FE&#x2F;BE 双节点架构、三大数据模型、Stream Load&#x2F;Routine Load 实时导入、倒排索引与向量索引、物化视图加速、湖仓一体 Catalog、存算分离云原生架构，并给出 Spring Boot 集成完整代码、2026 年 Doris 4.1 AI 原生新特性解读、Doris vs ClickHouse vs StarRocks 选型决策树与 8 道高频面试题。读完这篇，你能独立搭建实时数仓、设计分区分桶方案、在面试中讲清”Doris 为什么比 ClickHouse 更适合多表 JOIN”。</p>
+<span id="more"></span>
+
+<h1 id="Apache-Doris-详解：从-MPP-架构到-AI-原生与-2026-实时数仓实战"><a href="#Apache-Doris-详解：从-MPP-架构到-AI-原生与-2026-实时数仓实战" class="headerlink" title="Apache Doris 详解：从 MPP 架构到 AI 原生与 2026 实时数仓实战"></a>Apache Doris 详解：从 MPP 架构到 AI 原生与 2026 实时数仓实战</h1><h2 id="一、为什么需要-Doris？从数据孤岛到统一分析"><a href="#一、为什么需要-Doris？从数据孤岛到统一分析" class="headerlink" title="一、为什么需要 Doris？从数据孤岛到统一分析"></a>一、为什么需要 Doris？从数据孤岛到统一分析</h2><h3 id="1-1-传统数据架构的困局"><a href="#1-1-传统数据架构的困局" class="headerlink" title="1.1 传统数据架构的困局"></a>1.1 传统数据架构的困局</h3><p>中国互联网公司的数据架构普遍经历过这样的演进：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐</span><br><span class="line">│  MySQL   │   │   ES     │   │  HBase   │   │  Redis   │</span><br><span class="line">│ 报表统计  │   │ 日志检索  │   │ 用户画像  │   │ 实时缓存  │</span><br><span class="line">└──────────┘   └──────────┘   └──────────┘   └──────────┘</span><br><span class="line">      │              │              │              │</span><br><span class="line">      ▼              ▼              ▼              ▼</span><br><span class="line">   ┌────────────────────────────────────────────────────┐</span><br><span class="line">   │              数据孤岛 + 跨库 JOIN 噩梦               │</span><br><span class="line">   │   产品：&quot;我要一个实时 GMV 看板&quot;                      │</span><br><span class="line">   │   程序员：光数据同步脚本就要维护十几个               │</span><br><span class="line">   └────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<p>这套架构的痛点是：<strong>数据散落在多个系统，实时性差，运维成本高</strong>。每次产品提出新需求，数据团队就要从 MySQL 导数据到 Hadoop，跑离线任务，再同步到 ES 供查询——T+1 的延迟根本无法满足实时决策需求。</p>
+<h3 id="1-2-Doris-的定位：统一实时分析数据库"><a href="#1-2-Doris-的定位：统一实时分析数据库" class="headerlink" title="1.2 Doris 的定位：统一实时分析数据库"></a>1.2 Doris 的定位：统一实时分析数据库</h3><p>Apache Doris 的前身是百度 Palo，2018 年捐赠给 Apache 基金会，2022 年毕业成为顶级项目。它的核心定位是：</p>
+<table>
+<thead>
+<tr>
+<th>定位</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>实时 OLAP</strong></td>
+<td>亚秒级查询响应，支持高并发点查与复杂聚合</td>
+</tr>
+<tr>
+<td><strong>统一数仓</strong></td>
+<td>一个引擎覆盖 BI 报表、实时大屏、日志分析、湖仓查询</td>
+</tr>
+<tr>
+<td><strong>MySQL 兼容</strong></td>
+<td>标准 SQL + MySQL 协议，BI 工具零适配</td>
+</tr>
+<tr>
+<td><strong>极简运维</strong></td>
+<td>仅 FE + BE 两种进程，无外部依赖（不需要 ZooKeeper）</td>
+</tr>
+<tr>
+<td><strong>AI 原生</strong></td>
+<td>4.0+ 引入向量索引、AI 函数、混合检索，支撑 RAG 与 Agent</td>
+</tr>
+</tbody></table>
+<h3 id="1-3-实时数据栈中的-Doris-位置"><a href="#1-3-实时数据栈中的-Doris-位置" class="headerlink" title="1.3 实时数据栈中的 Doris 位置"></a>1.3 实时数据栈中的 Doris 位置</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐</span><br><span class="line">│  业务系统    │───▶│    Kafka    │───▶│    Flink    │───▶│   Doris     │</span><br><span class="line">│ (MySQL/Log) │    │  消息队列    │    │  实时计算    │    │  实时数仓    │</span><br><span class="line">└─────────────┘    └─────────────┘    └─────────────┘    └──────┬──────┘</span><br><span class="line">                                                              │</span><br><span class="line">                                   ┌──────────────────────────┼──────────┐</span><br><span class="line">                                   ▼                          ▼          ▼</span><br><span class="line">                              ┌─────────┐              ┌──────────┐  ┌─────────┐</span><br><span class="line">                              │ BI 报表  │              │ AI Agent │  │ 数据湖  │</span><br><span class="line">                              │ Superset │              │ RAG 检索  │  │ Iceberg │</span><br><span class="line">                              └─────────┘              └──────────┘  └─────────┘</span><br></pre></td></tr></table></figure>
+
+<p>Doris 承担四大职责：<strong>实时报表</strong>（秒级刷新的 GMV 大屏）、<strong>即席查询</strong>（分析师自助探索）、<strong>湖仓联邦</strong>（直查 Iceberg&#x2F;Hive 数据）、<strong>AI 检索</strong>（向量 + 全文混合搜索）。</p>
+<h2 id="二、核心架构：FE-BE-双节点-MPP"><a href="#二、核心架构：FE-BE-双节点-MPP" class="headerlink" title="二、核心架构：FE + BE 双节点 MPP"></a>二、核心架构：FE + BE 双节点 MPP</h2><h3 id="2-1-整体架构"><a href="#2-1-整体架构" class="headerlink" title="2.1 整体架构"></a>2.1 整体架构</h3><p>Doris 采用经典的 <strong>FE（Frontend）+ BE（Backend）</strong> 双节点架构，这是它与 ClickHouse（单进程）和 StarRocks（FE+BE+CN 三种角色）的关键区别：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────┐</span><br><span class="line">│                  客户端 / BI 工具                  │</span><br><span class="line">│          (MySQL 协议 / HTTP / JDBC)              │</span><br><span class="line">└───────────────────────┬─────────────────────────┘</span><br><span class="line">                        │</span><br><span class="line">┌───────────────────────▼─────────────────────────┐</span><br><span class="line">│                FE 集群（Frontend）                │</span><br><span class="line">│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │</span><br><span class="line">│  │  Master  │◀▶│ Follower │  │ Observer │      │</span><br><span class="line">│  │  元数据写  │  │ 元数据读  │  │ 查询分担  │      │</span><br><span class="line">│  └──────────┘  └──────────┘  └──────────┘      │</span><br><span class="line">│  SQL 解析 → CBO 优化 → 分布式执行计划            │</span><br><span class="line">└───────────────────────┬─────────────────────────┘</span><br><span class="line">                        │ 心跳 + 任务分发</span><br><span class="line">┌───────────────────────▼─────────────────────────┐</span><br><span class="line">│                BE 集群（Backend）                │</span><br><span class="line">│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │</span><br><span class="line">│  │  BE-1    │  │  BE-2    │  │  BE-3    │      │</span><br><span class="line">│  │ Tablet   │  │ Tablet   │  │ Tablet   │      │</span><br><span class="line">│  │ 副本存储  │  │ 副本存储  │  │ 副本存储  │      │</span><br><span class="line">│  │ MPP 执行  │  │ MPP 执行  │  │ MPP 执行  │      │</span><br><span class="line">│  └──────────┘  └──────────┘  └──────────┘      │</span><br><span class="line">│  列式存储 + 向量化执行 + Compaction + 副本管理    │</span><br><span class="line">└─────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-FE-节点详解"><a href="#2-2-FE-节点详解" class="headerlink" title="2.2 FE 节点详解"></a>2.2 FE 节点详解</h3><p>FE 是 Doris 的”大脑”，负责 SQL 解析、查询优化和元数据管理：</p>
+<table>
+<thead>
+<tr>
+<th>职责</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>SQL 解析</strong></td>
+<td>词法分析 → 语法分析 → 逻辑计划 → CBO 优化 → 物理计划</td>
+</tr>
+<tr>
+<td><strong>元数据管理</strong></td>
+<td>库表 Schema、副本分布、用户权限、集群拓扑</td>
+</tr>
+<tr>
+<td><strong>节点管理</strong></td>
+<td>心跳检测、负载均衡、副本修复、扩缩容</td>
+</tr>
+<tr>
+<td><strong>导入协调</strong></td>
+<td>事务管理、Label 幂等、数据分片分配</td>
+</tr>
+</tbody></table>
+<p>FE 使用 <strong>BDB JE</strong> 作为元数据存储引擎，支持事务特性，<strong>不依赖 ZooKeeper</strong>——这是 Doris 运维极简的核心原因。</p>
+<p>FE 高可用采用主从架构：</p>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>职责</th>
+<th>是否参与选主</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Master</strong></td>
+<td>读写元数据，DDL 操作，同步到 Follower&#x2F;Observer</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Follower</strong></td>
+<td>读元数据，Master 故障时参与选举</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Observer</strong></td>
+<td>读元数据，分担查询并发，不参与选主</td>
+<td>❌</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>生产建议</strong>：部署 3 或 5 个 FE（奇数），1 Master + 2 Follower + N Observer。Observer 用于扩展查询并发，不影响选主稳定性。</p>
+</blockquote>
+<h3 id="2-3-BE-节点详解"><a href="#2-3-BE-节点详解" class="headerlink" title="2.3 BE 节点详解"></a>2.3 BE 节点详解</h3><p>BE 是 Doris 的”肌肉”，负责数据存储和查询执行：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>列式存储</strong></td>
+<td>数据按列组织，编码 + 压缩提升 I&#x2F;O 效率</td>
+</tr>
+<tr>
+<td><strong>Tablet 分片</strong></td>
+<td>数据水平切分，Tablet 是最小副本调度单元</td>
+</tr>
+<tr>
+<td><strong>多副本</strong></td>
+<td>每个 Tablet 默认 3 副本，分布在不同 BE 节点</td>
+</tr>
+<tr>
+<td><strong>向量化执行</strong></td>
+<td>列式内存布局 + SIMD 指令加速，宽表聚合快 5-10 倍</td>
+</tr>
+<tr>
+<td><strong>Pipeline 引擎</strong></td>
+<td>多核并行，线程数限制防止线程爆炸</td>
+</tr>
+<tr>
+<td><strong>Compaction</strong></td>
+<td>后台合并 RowSet 版本，优化查询性能</td>
+</tr>
+</tbody></table>
+<h3 id="2-4-Tablet：最小数据单元"><a href="#2-4-Tablet：最小数据单元" class="headerlink" title="2.4 Tablet：最小数据单元"></a>2.4 Tablet：最小数据单元</h3><p>Tablet 是 Doris 数据分片和副本管理的最小单元。一张表的数据分布路径：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Table（表）</span><br><span class="line">  └── Partition（分区，按时间/范围切分）</span><br><span class="line">       └── Tablet（分桶，按 Hash 键切分）</span><br><span class="line">            └── Replica（副本，默认 3 个，分布在不同 BE）</span><br><span class="line">                 └── RowSet（数据版本文件，列式存储）</span><br><span class="line">                      └── Segment（段，包含列数据 + 索引）</span><br></pre></td></tr></table></figure>
+
+<p><strong>分区分桶设计是 Doris 建表的核心</strong>：</p>
+<ul>
+<li><strong>分区</strong>：通常按时间（天&#x2F;月），支持分区裁剪，查询只扫描相关分区</li>
+<li><strong>分桶</strong>：按 Hash 键分布数据到不同 BE，支持并行扫描</li>
+<li><strong>副本数</strong>：生产环境建议 3 副本，保证高可用</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> orders (</span><br><span class="line">    order_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;订单ID&#x27;</span>,</span><br><span class="line">    user_id <span class="type">INT</span> <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;用户ID&#x27;</span>,</span><br><span class="line">    amount <span class="type">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>) <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;金额&#x27;</span>,</span><br><span class="line">    status <span class="type">VARCHAR</span>(<span class="number">20</span>) <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;状态&#x27;</span>,</span><br><span class="line">    created_at DATETIME <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;创建时间&#x27;</span></span><br><span class="line">) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line"><span class="keyword">UNIQUE</span> KEY(order_id)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span>(created_at) (</span><br><span class="line">    <span class="keyword">PARTITION</span> p20260801 <span class="keyword">VALUES</span> [(<span class="string">&#x27;2026-08-01&#x27;</span>), (<span class="string">&#x27;2026-08-02&#x27;</span>)),</span><br><span class="line">    <span class="keyword">PARTITION</span> p20260802 <span class="keyword">VALUES</span> [(<span class="string">&#x27;2026-08-02&#x27;</span>), (<span class="string">&#x27;2026-08-03&#x27;</span>)),</span><br><span class="line">    <span class="keyword">PARTITION</span> p20260803 <span class="keyword">VALUES</span> [(<span class="string">&#x27;2026-08-03&#x27;</span>), (<span class="string">&#x27;2026-08-04&#x27;</span>))</span><br><span class="line">)</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(order_id) BUCKETS <span class="number">8</span></span><br><span class="line">PROPERTIES (</span><br><span class="line">    &quot;replication_num&quot; <span class="operator">=</span> &quot;3&quot;,</span><br><span class="line">    &quot;enable_unique_key_merge_on_write&quot; <span class="operator">=</span> &quot;true&quot;</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<h2 id="三、三大数据模型"><a href="#三、三大数据模型" class="headerlink" title="三、三大数据模型"></a>三、三大数据模型</h2><p>Doris 提供三种数据模型，覆盖不同的业务场景：</p>
+<h3 id="3-1-模型对比"><a href="#3-1-模型对比" class="headerlink" title="3.1 模型对比"></a>3.1 模型对比</h3><table>
+<thead>
+<tr>
+<th>模型</th>
+<th>特点</th>
+<th>适用场景</th>
+<th>更新支持</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Duplicate Key（明细模型）</strong></td>
+<td>保留所有行，不去重</td>
+<td>日志、明细数据、事件流</td>
+<td>仅追加</td>
+</tr>
+<tr>
+<td><strong>Aggregate Key（聚合模型）</strong></td>
+<td>相同 Key 自动聚合（SUM&#x2F;MAX&#x2F;MIN&#x2F;REPLACE）</td>
+<td>预聚合报表、指标统计</td>
+<td>导入时聚合</td>
+</tr>
+<tr>
+<td><strong>Unique Key（主键模型）</strong></td>
+<td>按 Key 去重，支持 UPSERT</td>
+<td>订单状态更新、实时维表</td>
+<td>✅ 整行&#x2F;部分列更新</td>
+</tr>
+</tbody></table>
+<h3 id="3-2-Duplicate-Key（明细模型）"><a href="#3-2-Duplicate-Key（明细模型）" class="headerlink" title="3.2 Duplicate Key（明细模型）"></a>3.2 Duplicate Key（明细模型）</h3><p>最简单的模型，保留所有数据行，适合日志和事件流场景：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> user_events (</span><br><span class="line">    event_time DATETIME <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;事件时间&#x27;</span>,</span><br><span class="line">    user_id <span class="type">INT</span> <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;用户ID&#x27;</span>,</span><br><span class="line">    event_type <span class="type">VARCHAR</span>(<span class="number">50</span>) <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;事件类型&#x27;</span>,</span><br><span class="line">    page <span class="type">VARCHAR</span>(<span class="number">200</span>) COMMENT <span class="string">&#x27;页面&#x27;</span>,</span><br><span class="line">    extra VARIANT COMMENT <span class="string">&#x27;扩展字段(JSON)&#x27;</span></span><br><span class="line">) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line">DUPLICATE KEY(event_time, user_id)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span>(event_time)()</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(user_id) BUCKETS <span class="number">10</span></span><br><span class="line">PROPERTIES (</span><br><span class="line">    &quot;replication_num&quot; <span class="operator">=</span> &quot;3&quot;,</span><br><span class="line">    &quot;dynamic_partition.enable&quot; <span class="operator">=</span> &quot;true&quot;,</span><br><span class="line">    &quot;dynamic_partition.time_unit&quot; <span class="operator">=</span> &quot;DAY&quot;,</span><br><span class="line">    &quot;dynamic_partition.start&quot; <span class="operator">=</span> &quot;-30&quot;,</span><br><span class="line">    &quot;dynamic_partition.end&quot; <span class="operator">=</span> &quot;3&quot;,</span><br><span class="line">    &quot;dynamic_partition.prefix&quot; <span class="operator">=</span> &quot;p&quot;,</span><br><span class="line">    &quot;dynamic_partition.replication_num&quot; <span class="operator">=</span> &quot;3&quot;</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>动态分区</strong>是 Doris 的特色功能：自动创建未来分区、删除过期分区，免去了手动维护分区的运维负担。</p>
+</blockquote>
+<h3 id="3-3-Aggregate-Key（聚合模型）"><a href="#3-3-Aggregate-Key（聚合模型）" class="headerlink" title="3.3 Aggregate Key（聚合模型）"></a>3.3 Aggregate Key（聚合模型）</h3><p>相同 Key 的数据在导入时自动聚合，适合预聚合场景：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> user_metrics (</span><br><span class="line">    dt <span class="type">DATE</span> <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;日期&#x27;</span>,</span><br><span class="line">    user_id <span class="type">INT</span> <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;用户ID&#x27;</span>,</span><br><span class="line">    pv SUM <span class="type">BIGINT</span> COMMENT <span class="string">&#x27;页面浏览量&#x27;</span>,</span><br><span class="line">    uv BITMAP BITMAP_UNION COMMENT <span class="string">&#x27;独立访客&#x27;</span>,</span><br><span class="line">    stay_duration SUM <span class="type">INT</span> COMMENT <span class="string">&#x27;停留时长(秒)&#x27;</span></span><br><span class="line">) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line">AGGREGATE KEY(dt, user_id)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span>(dt)()</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(user_id) BUCKETS <span class="number">10</span></span><br><span class="line">PROPERTIES (&quot;replication_num&quot; <span class="operator">=</span> &quot;3&quot;);</span><br></pre></td></tr></table></figure>
+
+<p>聚合函数类型：</p>
+<table>
+<thead>
+<tr>
+<th>聚合函数</th>
+<th>说明</th>
+<th>典型场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>SUM</code></td>
+<td>求和</td>
+<td>PV、GMV、时长</td>
+</tr>
+<tr>
+<td><code>MAX</code> &#x2F; <code>MIN</code></td>
+<td>最大&#x2F;最小值</td>
+<td>最新状态、温度极值</td>
+</tr>
+<tr>
+<td><code>REPLACE</code></td>
+<td>替换</td>
+<td>最新值（非主键场景）</td>
+</tr>
+<tr>
+<td><code>REPLACE_IF_NOT_NULL</code></td>
+<td>非空替换</td>
+<td>部分列更新</td>
+</tr>
+<tr>
+<td><code>BITMAP_UNION</code></td>
+<td>Bitmap 去重</td>
+<td>UV 精确去重</td>
+</tr>
+<tr>
+<td><code>HLL_UNION</code></td>
+<td>HyperLogLog 去重</td>
+<td>UV 近似去重（大数据量）</td>
+</tr>
+</tbody></table>
+<h3 id="3-4-Unique-Key（主键模型）"><a href="#3-4-Unique-Key（主键模型）" class="headerlink" title="3.4 Unique Key（主键模型）"></a>3.4 Unique Key（主键模型）</h3><p>支持 UPSERT 语义，是实时更新场景的核心模型。Doris 2.1+ 默认启用 <strong>Merge-on-Write</strong> 模式：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> orders (</span><br><span class="line">    order_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;订单ID&#x27;</span>,</span><br><span class="line">    user_id <span class="type">INT</span> <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;用户ID&#x27;</span>,</span><br><span class="line">    product_id <span class="type">INT</span> <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;商品ID&#x27;</span>,</span><br><span class="line">    amount <span class="type">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>) <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;金额&#x27;</span>,</span><br><span class="line">    status <span class="type">VARCHAR</span>(<span class="number">20</span>) <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;订单状态&#x27;</span>,</span><br><span class="line">    created_at DATETIME <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;创建时间&#x27;</span></span><br><span class="line">) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line"><span class="keyword">UNIQUE</span> KEY(order_id)</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(order_id) BUCKETS <span class="number">8</span></span><br><span class="line">PROPERTIES (</span><br><span class="line">    &quot;replication_num&quot; <span class="operator">=</span> &quot;3&quot;,</span><br><span class="line">    &quot;enable_unique_key_merge_on_write&quot; <span class="operator">=</span> &quot;true&quot;  <span class="comment">-- 默认开启，写时合并</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p><strong>Merge-on-Write vs Merge-on-Read 对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Merge-on-Write（推荐）</th>
+<th>Merge-on-Read（旧版）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>写入</td>
+<td>写入时标记删除旧版本，额外开销</td>
+<td>直接追加，写入快</td>
+</tr>
+<tr>
+<td>查询</td>
+<td>查询时无需合并，性能好</td>
+<td>查询时实时合并，开销大</td>
+</tr>
+<tr>
+<td>适用</td>
+<td>查询频繁、更新适中的场景</td>
+<td>写入频繁、查询少的场景</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>Merge-on-Write</strong> 是 2.1 起的默认行为，查询性能比 Merge-on-Read 提升 5-10 倍，强烈建议生产环境开启。</p>
+</blockquote>
+<h2 id="四、数据导入：从实时流到批量加载"><a href="#四、数据导入：从实时流到批量加载" class="headerlink" title="四、数据导入：从实时流到批量加载"></a>四、数据导入：从实时流到批量加载</h2><h3 id="4-1-导入方式全景"><a href="#4-1-导入方式全景" class="headerlink" title="4.1 导入方式全景"></a>4.1 导入方式全景</h3><table>
+<thead>
+<tr>
+<th>方式</th>
+<th>协议</th>
+<th>延迟</th>
+<th>吞吐</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Stream Load</strong></td>
+<td>HTTP</td>
+<td>秒级</td>
+<td>高</td>
+<td>实时写入（Flink&#x2F;程序直推）</td>
+</tr>
+<tr>
+<td><strong>Routine Load</strong></td>
+<td>Kafka</td>
+<td>秒级</td>
+<td>高</td>
+<td>Kafka 消费自动导入</td>
+</tr>
+<tr>
+<td><strong>Broker Load</strong></td>
+<td>HDFS&#x2F;S3</td>
+<td>分钟级</td>
+<td>极高</td>
+<td>批量导入大文件</td>
+</tr>
+<tr>
+<td><strong>Insert Into Select</strong></td>
+<td>SQL</td>
+<td>分钟级</td>
+<td>中</td>
+<td>Doris 内部 ETL</td>
+</tr>
+<tr>
+<td><strong>Flink Doris Connector</strong></td>
+<td>Flink</td>
+<td>秒级</td>
+<td>高</td>
+<td>Flink 生态集成</td>
+</tr>
+<tr>
+<td><strong>Group Commit</strong></td>
+<td>HTTP&#x2F;JDBC</td>
+<td>秒级</td>
+<td>极高</td>
+<td>高频小批量写入</td>
+</tr>
+</tbody></table>
+<h3 id="4-2-Stream-Load：实时写入首选"><a href="#4-2-Stream-Load：实时写入首选" class="headerlink" title="4.2 Stream Load：实时写入首选"></a>4.2 Stream Load：实时写入首选</h3><p>Stream Load 是通过 HTTP 协议将数据推送到 BE 节点的同步导入方式，是实时写入最常用的方式：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># curl 方式导入 CSV</span></span><br><span class="line">curl -u root: -H <span class="string">&quot;label:order_load_20260804_001&quot;</span> \</span><br><span class="line">  -H <span class="string">&quot;column_separator:,&quot;</span> \</span><br><span class="line">  -H <span class="string">&quot;columns:order_id,user_id,product_id,amount,status,created_at&quot;</span> \</span><br><span class="line">  -T /tmp/orders.csv \</span><br><span class="line">  http://127.0.0.1:8030/api/demo/orders/_stream_load</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Java SDK 方式导入（推荐使用 Doris StreamLoader SDK）</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DorisStreamLoad</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">LOAD_URL</span> <span class="operator">=</span> <span class="string">&quot;http://127.0.0.1:8030/api/demo/orders/_stream_load&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">load</span><span class="params">(List&lt;Order&gt; orders)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">StringBuilder</span> <span class="variable">sb</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringBuilder</span>();</span><br><span class="line">        <span class="keyword">for</span> (Order o : orders) &#123;</span><br><span class="line">            sb.append(o.getOrderId()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getUserId()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getProductId()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getAmount()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getStatus()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getCreatedAt()).append(<span class="string">&quot;\n&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">HttpClient</span> <span class="variable">client</span> <span class="operator">=</span> HttpClient.newHttpClient();</span><br><span class="line">        <span class="type">HttpRequest</span> <span class="variable">request</span> <span class="operator">=</span> HttpRequest.newBuilder()</span><br><span class="line">            .uri(URI.create(LOAD_URL))</span><br><span class="line">            .header(<span class="string">&quot;Authorization&quot;</span>, <span class="string">&quot;Basic &quot;</span> + Base64.getEncoder().encodeToString(<span class="string">&quot;root:&quot;</span>.getBytes()))</span><br><span class="line">            .header(<span class="string">&quot;label&quot;</span>, <span class="string">&quot;order_load_&quot;</span> + System.currentTimeMillis())</span><br><span class="line">            .header(<span class="string">&quot;column_separator&quot;</span>, <span class="string">&quot;,&quot;</span>)</span><br><span class="line">            .header(<span class="string">&quot;columns&quot;</span>, <span class="string">&quot;order_id,user_id,product_id,amount,status,created_at&quot;</span>)</span><br><span class="line">            .header(<span class="string">&quot;format&quot;</span>, <span class="string">&quot;csv&quot;</span>)</span><br><span class="line">            .POST(HttpRequest.BodyPublishers.ofString(sb.toString()))</span><br><span class="line">            .build();</span><br><span class="line"></span><br><span class="line">        HttpResponse&lt;String&gt; response = client.send(request,</span><br><span class="line">            HttpResponse.BodyHandlers.ofString());</span><br><span class="line">        <span class="comment">// &#123;&quot;status&quot;:&quot;Success&quot;,&quot;number_loaded_rows&quot;:1000&#125;</span></span><br><span class="line">        System.out.println(response.body());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-3-Routine-Load：Kafka-自动消费"><a href="#4-3-Routine-Load：Kafka-自动消费" class="headerlink" title="4.3 Routine Load：Kafka 自动消费"></a>4.3 Routine Load：Kafka 自动消费</h3><p>Routine Load 是 Doris 内置的 Kafka 消费者，自动从 Kafka Topic 拉取数据并导入：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> ROUTINE LOAD demo.routine_load_orders <span class="keyword">ON</span> orders</span><br><span class="line">COLUMNS(order_id, user_id, product_id, amount, status, created_at),</span><br><span class="line">COLUMNS TERMINATED <span class="keyword">BY</span> &quot;,&quot;,</span><br><span class="line"><span class="keyword">WHERE</span> status <span class="operator">!=</span> <span class="string">&#x27;&#x27;</span></span><br><span class="line"><span class="keyword">FROM</span> KAFKA (</span><br><span class="line">    &quot;kafka_broker_list&quot; <span class="operator">=</span> &quot;kafka-1:9092,kafka-2:9092,kafka-3:9092&quot;,</span><br><span class="line">    &quot;kafka_topic&quot; <span class="operator">=</span> &quot;orders_topic&quot;,</span><br><span class="line">    &quot;kafka_group_id&quot; <span class="operator">=</span> &quot;doris_orders_group&quot;,</span><br><span class="line">    &quot;kafka_partitions&quot; <span class="operator">=</span> &quot;0,1,2,3&quot;,</span><br><span class="line">    &quot;property.kafka_default_offsets&quot; <span class="operator">=</span> &quot;OFFSET_BEGINNING&quot;</span><br><span class="line">)</span><br><span class="line">PROPERTIES (</span><br><span class="line">    &quot;max_batch_rows&quot; <span class="operator">=</span> &quot;200000&quot;,</span><br><span class="line">    &quot;max_batch_size&quot; <span class="operator">=</span> &quot;104857600&quot;,</span><br><span class="line">    &quot;max_error_number&quot; <span class="operator">=</span> &quot;1000&quot;,</span><br><span class="line">    &quot;strict_mode&quot; <span class="operator">=</span> &quot;false&quot;,</span><br><span class="line">    &quot;format&quot; <span class="operator">=</span> &quot;csv&quot;</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>查看导入状态：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查看所有 Routine Load 任务</span></span><br><span class="line"><span class="keyword">SHOW</span> ROUTINE LOAD;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查看特定任务详情</span></span><br><span class="line"><span class="keyword">SHOW</span> ROUTINE LOAD <span class="keyword">FOR</span> routine_load_orders;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-4-Group-Commit：高频小批量写入利器"><a href="#4-4-Group-Commit：高频小批量写入利器" class="headerlink" title="4.4 Group Commit：高频小批量写入利器"></a>4.4 Group Commit：高频小批量写入利器</h3><p>Group Commit 是 Doris 2.1 引入的核心特性，解决高频小批量写入场景的性能问题：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>机制</th>
+<th>数据可见性</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sync_mode</code></td>
+<td>多个导入在同一事务提交</td>
+<td>立即可见</td>
+<td>需要写入即可查</td>
+</tr>
+<tr>
+<td><code>async_mode</code></td>
+<td>先写 WAL，异步批量提交</td>
+<td>延迟可见</td>
+<td>高吞吐写入</td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 开启 Group Commit（会话级别）</span></span><br><span class="line"><span class="keyword">SET</span> group_commit <span class="operator">=</span> async_mode;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 普通INSERT自动启用Group Commit</span></span><br><span class="line"><span class="keyword">INSERT INTO</span> orders <span class="keyword">VALUES</span> (<span class="number">1</span>, <span class="number">1001</span>, <span class="number">2001</span>, <span class="number">99.90</span>, <span class="string">&#x27;PAID&#x27;</span>, <span class="string">&#x27;2026-08-04 10:00:00&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>性能实测</strong>：1FE+1BE 集群，TPC-H SF10 Lineitem 表（22GB, 1.8 亿行），并发 20，每次 Insert &lt;100 行，Doris 达到 <strong>106,900 行&#x2F;秒</strong>的写入速度，BE CPU 占用仅 10%-20%。</p>
+</blockquote>
+<h3 id="4-5-Flink-Doris-Connector"><a href="#4-5-Flink-Doris-Connector" class="headerlink" title="4.5 Flink Doris Connector"></a>4.5 Flink Doris Connector</h3><p>Flink 与 Doris 的集成是实时数仓的标准方案：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- pom.xml --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.apache.doris<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>flink-doris-connector-1.18_2.12<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>24.0.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Flink 写入 Doris</span></span><br><span class="line">DataStream&lt;Order&gt; orderStream = env.fromSource(kafkaSource, WatermarkStrategy.noWatermarks(), <span class="string">&quot;orders&quot;</span>);</span><br><span class="line"></span><br><span class="line">orderStream.addSink(</span><br><span class="line">    DorisSink.sink(</span><br><span class="line">        DorisSinkOptions.builder()</span><br><span class="line">            .setFenodes(<span class="string">&quot;127.0.0.1:8030&quot;</span>)</span><br><span class="line">            .setTableIdentifier(<span class="string">&quot;demo.orders&quot;</span>)</span><br><span class="line">            .setUsername(<span class="string">&quot;root&quot;</span>)</span><br><span class="line">            .setPassword(<span class="string">&quot;&quot;</span>)</span><br><span class="line">            .setStreamLoadProp(PropertiesUtil.fromYaml(</span><br><span class="line">                <span class="string">&quot;format: json\n&quot;</span> +</span><br><span class="line">                <span class="string">&quot;strip_outer_array: true\n&quot;</span> +</span><br><span class="line">                <span class="string">&quot;read_json_by_line: true&quot;</span></span><br><span class="line">            ))</span><br><span class="line">            .build()</span><br><span class="line">    )</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<h2 id="五、索引体系：从倒排到向量"><a href="#五、索引体系：从倒排到向量" class="headerlink" title="五、索引体系：从倒排到向量"></a>五、索引体系：从倒排到向量</h2><h3 id="5-1-索引类型全景"><a href="#5-1-索引类型全景" class="headerlink" title="5.1 索引类型全景"></a>5.1 索引类型全景</h3><table>
+<thead>
+<tr>
+<th>索引类型</th>
+<th>版本</th>
+<th>适用场景</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>前缀索引</strong></td>
+<td>全版本</td>
+<td>等值&#x2F;范围查询</td>
+<td>排序键前缀，自动创建</td>
+</tr>
+<tr>
+<td><strong>倒排索引</strong></td>
+<td>2.0+</td>
+<td>全文检索、数值范围</td>
+<td>BM25 全文 + BKD Tree 数值</td>
+</tr>
+<tr>
+<td><strong>向量索引 HNSW</strong></td>
+<td>4.0+</td>
+<td>向量相似性搜索</td>
+<td>高精度 ANN，内存占用大</td>
+</tr>
+<tr>
+<td><strong>向量索引 IVF</strong></td>
+<td>4.1+</td>
+<td>大规模向量搜索</td>
+<td>聚类分桶，内存占用小</td>
+</tr>
+<tr>
+<td><del>Bitmap 索引</del></td>
+<td>2.1 废弃</td>
+<td>低基数等值查询</td>
+<td>已被倒排索引替代</td>
+</tr>
+</tbody></table>
+<h3 id="5-2-倒排索引：全文检索-数值过滤"><a href="#5-2-倒排索引：全文检索-数值过滤" class="headerlink" title="5.2 倒排索引：全文检索 + 数值过滤"></a>5.2 倒排索引：全文检索 + 数值过滤</h3><p>Doris 的倒排索引（Inverted Index）是 2.0 引入的核心能力，支持全文检索和数值范围过滤，在日志分析场景可替代 Elasticsearch：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 创建带倒排索引的日志表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> access_logs (</span><br><span class="line">    log_time DATETIME <span class="keyword">NOT NULL</span>,</span><br><span class="line">    client_ip <span class="type">VARCHAR</span>(<span class="number">45</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">    <span class="keyword">method</span> <span class="type">VARCHAR</span>(<span class="number">10</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">    url <span class="type">VARCHAR</span>(<span class="number">500</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">    status_code <span class="type">INT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    response_time <span class="type">INT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    user_agent <span class="type">VARCHAR</span>(<span class="number">500</span>),</span><br><span class="line">    body TEXT</span><br><span class="line">) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line">DUPLICATE KEY(log_time)</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(log_time) BUCKETS <span class="number">10</span></span><br><span class="line">PROPERTIES (&quot;replication_num&quot; <span class="operator">=</span> &quot;3&quot;)</span><br><span class="line">INDEX idx_url (url) <span class="keyword">USING</span> INVERTED PROPERTIES(&quot;parser&quot; <span class="operator">=</span> &quot;unicode&quot;),</span><br><span class="line">INDEX idx_body (body) <span class="keyword">USING</span> INVERTED PROPERTIES(&quot;parser&quot; <span class="operator">=</span> &quot;unicode&quot;),</span><br><span class="line">INDEX idx_status (status_code) <span class="keyword">USING</span> INVERTED,</span><br><span class="line">INDEX idx_rt (response_time) <span class="keyword">USING</span> INVERTED;</span><br></pre></td></tr></table></figure>
+
+<p>查询示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 全文检索：URL 包含 &quot;api/v2&quot; 的日志</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> access_logs</span><br><span class="line"><span class="keyword">WHERE</span> url MATCH_PHRASE <span class="string">&#x27;api/v2&#x27;</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> log_time <span class="keyword">DESC</span> LIMIT <span class="number">20</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 数值范围：响应时间 &gt; 1000ms 的请求</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> access_logs</span><br><span class="line"><span class="keyword">WHERE</span> response_time <span class="operator">&gt;=</span> <span class="number">1000</span> <span class="keyword">AND</span> status_code <span class="operator">=</span> <span class="number">500</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 组合查询：全文 + 数值过滤</span></span><br><span class="line"><span class="keyword">SELECT</span> client_ip, <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">as</span> cnt</span><br><span class="line"><span class="keyword">FROM</span> access_logs</span><br><span class="line"><span class="keyword">WHERE</span> body MATCH_ANY <span class="string">&#x27;error timeout&#x27;</span></span><br><span class="line">  <span class="keyword">AND</span> response_time <span class="operator">&gt;</span> <span class="number">500</span></span><br><span class="line">  <span class="keyword">AND</span> log_time <span class="operator">&gt;</span> <span class="string">&#x27;2026-08-04 00:00:00&#x27;</span></span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> client_ip</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> cnt <span class="keyword">DESC</span> LIMIT <span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-向量索引：AI-原生检索"><a href="#5-3-向量索引：AI-原生检索" class="headerlink" title="5.3 向量索引：AI 原生检索"></a>5.3 向量索引：AI 原生检索</h3><p>Doris 4.0 引入向量索引，4.1 新增 IVF 算法，使 Doris 成为<strong>结构化分析 + 全文检索 + 向量语义搜索</strong>三位一体的 HSAP（Hybrid Serving &amp; Analytical Processing）引擎：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 创建带向量索引的表（4.0 HNSW）</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> doc_embeddings (</span><br><span class="line">    doc_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    content TEXT,</span><br><span class="line">    embedding <span class="keyword">ARRAY</span><span class="operator">&lt;</span><span class="type">FLOAT</span><span class="operator">&gt;</span>  <span class="comment">-- 向量列</span></span><br><span class="line">) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line">DUPLICATE KEY(doc_id)</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(doc_id) BUCKETS <span class="number">4</span></span><br><span class="line">PROPERTIES (&quot;replication_num&quot; <span class="operator">=</span> &quot;3&quot;)</span><br><span class="line">INDEX idx_embedding (embedding) <span class="keyword">USING</span> INVERTED PROPERTIES(</span><br><span class="line">    &quot;index_type&quot; <span class="operator">=</span> &quot;hnsw&quot;,</span><br><span class="line">    &quot;metric_type&quot; <span class="operator">=</span> &quot;cosine_similarity&quot;,</span><br><span class="line">    &quot;dim&quot; <span class="operator">=</span> &quot;768&quot;</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 4.1 新增 IVF 索引（适合大规模向量，内存占用更小）</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> large_embeddings (</span><br><span class="line">    id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    embedding <span class="keyword">ARRAY</span><span class="operator">&lt;</span><span class="type">FLOAT</span><span class="operator">&gt;</span></span><br><span class="line">) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line">DUPLICATE KEY(id)</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(id) BUCKETS <span class="number">8</span></span><br><span class="line">PROPERTIES (&quot;replication_num&quot; <span class="operator">=</span> &quot;3&quot;)</span><br><span class="line">INDEX idx_ivf (embedding) <span class="keyword">USING</span> INVERTED PROPERTIES(</span><br><span class="line">    &quot;index_type&quot; <span class="operator">=</span> &quot;ivf&quot;,</span><br><span class="line">    &quot;metric_type&quot; <span class="operator">=</span> &quot;l2_distance&quot;,</span><br><span class="line">    &quot;dim&quot; <span class="operator">=</span> &quot;1536&quot;</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>向量检索查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- KNN 向量检索：找到与查询向量最相似的 10 条文档</span></span><br><span class="line"><span class="keyword">SELECT</span> doc_id, content,</span><br><span class="line">       cosine_similarity(embedding, [<span class="number">0.1</span>, <span class="number">0.2</span>, ..., <span class="number">0.768</span>]) <span class="keyword">AS</span> score</span><br><span class="line"><span class="keyword">FROM</span> doc_embeddings</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> score <span class="keyword">DESC</span></span><br><span class="line">LIMIT <span class="number">10</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 混合检索：结构化过滤 + 全文检索 + 向量语义搜索</span></span><br><span class="line"><span class="keyword">SELECT</span> doc_id, content, score</span><br><span class="line"><span class="keyword">FROM</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> doc_id, content,</span><br><span class="line">           cosine_similarity(embedding, ?) <span class="keyword">AS</span> score</span><br><span class="line">    <span class="keyword">FROM</span> doc_embeddings</span><br><span class="line">    <span class="keyword">WHERE</span> content MATCH_PHRASE <span class="string">&#x27;database architecture&#x27;</span></span><br><span class="line">      <span class="keyword">AND</span> doc_id <span class="operator">&gt;</span> <span class="number">10000</span></span><br><span class="line">    <span class="keyword">ORDER</span> <span class="keyword">BY</span> score <span class="keyword">DESC</span></span><br><span class="line">    LIMIT <span class="number">20</span></span><br><span class="line">) t</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> score <span class="keyword">DESC</span> LIMIT <span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>性能实测</strong>（4.1 IVF 索引）：在 VectorDBBench 基准测试中达到 <strong>900 QPS @ 97% 召回率</strong>，可支撑生产级 RAG 系统。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>索引算法</th>
+<th>精度</th>
+<th>内存</th>
+<th>适用规模</th>
+<th>建议场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>HNSW</strong></td>
+<td>高（99%+）</td>
+<td>大（全量图在内存）</td>
+<td>中小规模（百万级）</td>
+<td>精度优先，内存充足</td>
+</tr>
+<tr>
+<td><strong>IVF</strong></td>
+<td>中高（95%+）</td>
+<td>小（仅聚类中心）</td>
+<td>大规模（亿级）</td>
+<td>规模优先，内存受限</td>
+</tr>
+<tr>
+<td><strong>IVF_ON_DISK</strong></td>
+<td>中高</td>
+<td>极小</td>
+<td>超大规模</td>
+<td>存算分离、成本优先</td>
+</tr>
+</tbody></table>
+<h2 id="六、物化视图：查询加速利器"><a href="#六、物化视图：查询加速利器" class="headerlink" title="六、物化视图：查询加速利器"></a>六、物化视图：查询加速利器</h2><h3 id="6-1-同步物化视图-vs-异步物化视图"><a href="#6-1-同步物化视图-vs-异步物化视图" class="headerlink" title="6.1 同步物化视图 vs 异步物化视图"></a>6.1 同步物化视图 vs 异步物化视图</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>同步物化视图（Rollup）</th>
+<th>异步物化视图</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>版本</td>
+<td>全版本</td>
+<td>2.1+</td>
+</tr>
+<tr>
+<td>刷新</td>
+<td>导入时自动增量刷新</td>
+<td>定时&#x2F;手动刷新</td>
+</tr>
+<tr>
+<td>透明改写</td>
+<td>✅ 自动</td>
+<td>✅ 自动</td>
+</tr>
+<tr>
+<td>多表 JOIN</td>
+<td>❌ 仅单表</td>
+<td>✅ 支持多表</td>
+</tr>
+<tr>
+<td>外表支持</td>
+<td>❌</td>
+<td>✅ 支持</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>预聚合、维度上卷</td>
+<td>复杂查询加速、数仓分层</td>
+</tr>
+</tbody></table>
+<h3 id="6-2-同步物化视图（Rollup）"><a href="#6-2-同步物化视图（Rollup）" class="headerlink" title="6.2 同步物化视图（Rollup）"></a>6.2 同步物化视图（Rollup）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 为 user_events 表创建按天聚合的同步物化视图</span></span><br><span class="line"><span class="keyword">CREATE</span> MATERIALIZED <span class="keyword">VIEW</span> mv_daily_events</span><br><span class="line"><span class="keyword">AS</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    <span class="type">DATE</span>(event_time) <span class="keyword">AS</span> dt,</span><br><span class="line">    event_type,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> event_count,</span><br><span class="line">    BITMAP_UNION(to_bitmap(user_id)) <span class="keyword">AS</span> uv</span><br><span class="line"><span class="keyword">FROM</span> user_events</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="type">DATE</span>(event_time), event_type;</span><br></pre></td></tr></table></figure>
+
+<p>查询时 Doris 会<strong>自动透明改写</strong>，无需用户指定物化视图名称：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 原始查询</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="type">DATE</span>(event_time), event_type, <span class="built_in">COUNT</span>(<span class="operator">*</span>), <span class="built_in">COUNT</span>(<span class="keyword">DISTINCT</span> user_id)</span><br><span class="line"><span class="keyword">FROM</span> user_events</span><br><span class="line"><span class="keyword">WHERE</span> event_time <span class="operator">&gt;=</span> <span class="string">&#x27;2026-08-01&#x27;</span></span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="type">DATE</span>(event_time), event_type;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- Doris 自动改写为查询物化视图 mv_daily_events，性能提升 10-100 倍</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="6-3-异步物化视图（多表-JOIN-加速）"><a href="#6-3-异步物化视图（多表-JOIN-加速）" class="headerlink" title="6.3 异步物化视图（多表 JOIN 加速）"></a>6.3 异步物化视图（多表 JOIN 加速）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 创建跨表异步物化视图</span></span><br><span class="line"><span class="keyword">CREATE</span> MATERIALIZED <span class="keyword">VIEW</span> mv_order_summary</span><br><span class="line">BUILD IMMEDIATE REFRESH AUTO <span class="keyword">ON</span> SCHEDULE <span class="keyword">EVERY</span> <span class="number">10</span> <span class="keyword">MINUTE</span></span><br><span class="line"><span class="keyword">AS</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    <span class="type">DATE</span>(o.created_at) <span class="keyword">AS</span> dt,</span><br><span class="line">    o.status,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> order_count,</span><br><span class="line">    <span class="built_in">SUM</span>(o.amount) <span class="keyword">AS</span> total_amount,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="keyword">DISTINCT</span> o.user_id) <span class="keyword">AS</span> paying_users</span><br><span class="line"><span class="keyword">FROM</span> orders o</span><br><span class="line"><span class="keyword">JOIN</span> user_events e <span class="keyword">ON</span> o.user_id <span class="operator">=</span> e.user_id</span><br><span class="line"><span class="keyword">WHERE</span> e.event_type <span class="operator">=</span> <span class="string">&#x27;purchase&#x27;</span></span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="type">DATE</span>(o.created_at), o.status;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>透明改写</strong>是异步物化视图最强大的能力：Doris 优化器会自动判断查询是否能被物化视图覆盖，如果能则自动改写查询计划。用户无需修改 SQL，物化视图的加速是”隐形的”。</p>
+</blockquote>
+<h2 id="七、湖仓一体：Catalog-联邦查询"><a href="#七、湖仓一体：Catalog-联邦查询" class="headerlink" title="七、湖仓一体：Catalog 联邦查询"></a>七、湖仓一体：Catalog 联邦查询</h2><h3 id="7-1-External-Catalog"><a href="#7-1-External-Catalog" class="headerlink" title="7.1 External Catalog"></a>7.1 External Catalog</h3><p>Doris 通过 External Catalog 实现湖仓一体，可以直接查询 Iceberg、Hive、Hudi、Paimon 等数据湖格式，无需数据搬迁：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 创建 Iceberg Catalog</span></span><br><span class="line"><span class="keyword">CREATE</span> CATALOG iceberg_catalog PROPERTIES (</span><br><span class="line">    <span class="string">&#x27;type&#x27;</span> <span class="operator">=</span> <span class="string">&#x27;iceberg&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;iceberg.catalog.type&#x27;</span> <span class="operator">=</span> <span class="string">&#x27;hive&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;hive.metastore.uris&#x27;</span> <span class="operator">=</span> <span class="string">&#x27;thrift://hms:9083&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;warehouse&#x27;</span> <span class="operator">=</span> <span class="string">&#x27;hdfs://namenode:8020/warehouse&#x27;</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 创建 Paimon Catalog（4.1 支持）</span></span><br><span class="line"><span class="keyword">CREATE</span> CATALOG paimon_catalog PROPERTIES (</span><br><span class="line">    <span class="string">&#x27;type&#x27;</span> <span class="operator">=</span> <span class="string">&#x27;paimon&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;warehouse&#x27;</span> <span class="operator">=</span> <span class="string">&#x27;hdfs://namenode:8020/paimon&#x27;</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 直接查询数据湖</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> iceberg_catalog.db_name.table_name LIMIT <span class="number">10</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 跨源联邦查询：Doris 内表 JOIN Iceberg 外表</span></span><br><span class="line"><span class="keyword">SELECT</span> d.region, <span class="built_in">SUM</span>(d.amount) <span class="keyword">AS</span> total</span><br><span class="line"><span class="keyword">FROM</span> demo.orders d</span><br><span class="line"><span class="keyword">JOIN</span> iceberg_catalog.dw.dim_region d <span class="keyword">ON</span> d.region_id <span class="operator">=</span> d.id</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> d.region;</span><br></pre></td></tr></table></figure>
+
+<h3 id="7-2-4-1-湖仓全生命周期管理"><a href="#7-2-4-1-湖仓全生命周期管理" class="headerlink" title="7.2 4.1 湖仓全生命周期管理"></a>7.2 4.1 湖仓全生命周期管理</h3><p>Doris 4.1 实现了 Iceberg V2&#x2F;V3 的<strong>完整读写支持</strong>，用户可以纯 SQL 完成数据湖的全部操作：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 在 Doris 中创建 Iceberg 表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> iceberg_catalog.dw.orders_iceberg (</span><br><span class="line">    order_id <span class="type">BIGINT</span>,</span><br><span class="line">    user_id <span class="type">INT</span>,</span><br><span class="line">    amount <span class="type">DECIMAL</span>(<span class="number">10</span>,<span class="number">2</span>),</span><br><span class="line">    created_at DATETIME</span><br><span class="line">) PROPERTIES (</span><br><span class="line">    <span class="string">&#x27;format-version&#x27;</span> <span class="operator">=</span> <span class="string">&#x27;2&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;write.format.default&#x27;</span> <span class="operator">=</span> <span class="string">&#x27;parquet&#x27;</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 直接写入 Iceberg 表（INSERT/UPDATE/DELETE/MERGE INTO）</span></span><br><span class="line"><span class="keyword">INSERT INTO</span> iceberg_catalog.dw.orders_iceberg</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> demo.orders <span class="keyword">WHERE</span> created_at <span class="operator">&gt;=</span> <span class="string">&#x27;2026-08-01&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- MERGE INTO：增量更新</span></span><br><span class="line"><span class="keyword">MERGE</span> <span class="keyword">INTO</span> iceberg_catalog.dw.orders_iceberg t</span><br><span class="line"><span class="keyword">USING</span> (<span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> demo.orders <span class="keyword">WHERE</span> status <span class="operator">=</span> <span class="string">&#x27;UPDATED&#x27;</span>) s</span><br><span class="line"><span class="keyword">ON</span> t.order_id <span class="operator">=</span> s.order_id</span><br><span class="line"><span class="keyword">WHEN</span> MATCHED <span class="keyword">THEN</span> <span class="keyword">UPDATE</span> <span class="keyword">SET</span> amount <span class="operator">=</span> s.amount, status <span class="operator">=</span> s.status;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- Iceberg Sorted Write：按列排序写入，加速查询</span></span><br><span class="line"><span class="keyword">INSERT INTO</span> iceberg_catalog.dw.orders_iceberg</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> demo.orders</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> created_at;  <span class="comment">-- 写入时排序，查询时利用 lower/upper bounds 裁剪文件</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>湖仓能力</th>
+<th>Doris 3.x</th>
+<th>Doris 4.0</th>
+<th>Doris 4.1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Iceberg 读取</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Iceberg 写入</td>
+<td>❌</td>
+<td>部分</td>
+<td>✅ INSERT&#x2F;UPDATE&#x2F;DELETE&#x2F;MERGE</td>
+</tr>
+<tr>
+<td>Iceberg V3</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅ Deletion Vector + Row Lineage</td>
+</tr>
+<tr>
+<td>Paimon 读取</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Paimon 管理</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅ DDL（CREATE&#x2F;DROP）</td>
+</tr>
+<tr>
+<td>湖仓性能优化</td>
+<td>基础</td>
+<td>基础</td>
+<td>✅ Manifest Cache + Parquet Page Cache + Sorted Write</td>
+</tr>
+</tbody></table>
+<h2 id="八、存算分离：云原生架构"><a href="#八、存算分离：云原生架构" class="headerlink" title="八、存算分离：云原生架构"></a>八、存算分离：云原生架构</h2><h3 id="8-1-存算一体-vs-存算分离"><a href="#8-1-存算一体-vs-存算分离" class="headerlink" title="8.1 存算一体 vs 存算分离"></a>8.1 存算一体 vs 存算分离</h3><p>Doris 3.0 引入存算分离架构，4.1 进一步优化弹性扩缩容：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">┌─────────── 存算一体（经典模式）───────────┐     ┌─────────── 存算分离（云原生模式）──────────┐</span><br><span class="line">│                                           │     │                                            │</span><br><span class="line">│  ┌─────┐  ┌─────┐  ┌─────┐               │     │  ┌─────┐  ┌─────┐                        │</span><br><span class="line">│  │ FE  │  │ FE  │  │ FE  │               │     │  │ FE  │  │ FE  │                        │</span><br><span class="line">│  └──┬──┘  └──┬──┘  └──┬──┘               │     │  └──┬──┘  └──┬──┘                        │</span><br><span class="line">│     │        │        │                   │     │     │        │                            │</span><br><span class="line">│  ┌──▼──┐  ┌──▼──┐  ┌──▼──┐               │     │  ┌──▼──┐  ┌──▼──┐  ← 无状态计算集群       │</span><br><span class="line">│  │ BE  │  │ BE  │  │ BE  │  ← 存算一体    │     │  │ CN  │  │ CN  │     独立扩缩容           │</span><br><span class="line">│  │存储+ │  │存储+ │  │存储+ │    本地存储   │     │  │计算  │  │计算  │                        │</span><br><span class="line">│  │计算  │  │计算  │  │计算  │    低延迟     │     │  └─────┘  └─────┘                        │</span><br><span class="line">│  └─────┘  └─────┘  └─────┘               │     │      │        │                            │</span><br><span class="line">│                                           │     │  ┌───▼────────▼───┐  Meta Service         │</span><br><span class="line">│  优势：本地 I/O、最低延迟                   │     │  │  Meta Service   │  (无状态元数据服务)    │</span><br><span class="line">│  劣势：扩容需迁移数据、读写不隔离            │     │  └───┬───────┬───┘                        │</span><br><span class="line">│                                           │     │      │       │                            │</span><br><span class="line">└───────────────────────────────────────────┘     │  ┌───▼───────▼───┐                        │</span><br><span class="line">                                                  │  │ Object Storage │  S3/OSS/MinIO           │</span><br><span class="line">                                                  │  │   (共享存储)    │  低成本、弹性容量         │</span><br><span class="line">                                                  │  └───────────────┘                        │</span><br><span class="line">                                                  │                                            │</span><br><span class="line">                                                  │  优势：弹性扩缩容、读写隔离、存算独立扩展     │</span><br><span class="line">                                                  │  劣势：网络 I/O、File Cache 需调优          │</span><br><span class="line">                                                  └────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="8-2-存算分离核心优势"><a href="#8-2-存算分离核心优势" class="headerlink" title="8.2 存算分离核心优势"></a>8.2 存算分离核心优势</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>存算一体</th>
+<th>存算分离</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>扩容</strong></td>
+<td>扩 BE 需迁移数据，小时级</td>
+<td>扩 CN 无状态，分钟级</td>
+</tr>
+<tr>
+<td><strong>弹性</strong></td>
+<td>固定资源，浪费闲时资源</td>
+<td>按需弹性，支持自动伸缩</td>
+</tr>
+<tr>
+<td><strong>隔离</strong></td>
+<td>读写共享 BE，互相影响</td>
+<td>多计算集群物理隔离读写</td>
+</tr>
+<tr>
+<td><strong>存储</strong></td>
+<td>本地盘，成本高</td>
+<td>对象存储，成本降低 70%+</td>
+</tr>
+<tr>
+<td><strong>延迟</strong></td>
+<td>本地 I&#x2F;O，最低</td>
+<td>网络 I&#x2F;O + File Cache 缓解</td>
+</tr>
+</tbody></table>
+<h3 id="8-3-4-1-存算分离优化"><a href="#8-3-4-1-存算分离优化" class="headerlink" title="8.3 4.1 存算分离优化"></a>8.3 4.1 存算分离优化</h3><p>Doris 4.1 在存算分离方向做了多项关键优化：</p>
+<ol>
+<li><strong>弹性优化</strong>：分钟级完成百万级 Tablet 的扩缩容，Balance 调度不再依赖全局 Tablet 数量</li>
+<li><strong>冷查询优化</strong>：基于 Page Scan 语义预取，充分利用远端存储带宽</li>
+<li><strong>超大规模部署</strong>：FE 对象”瘦身”，百万 Tablet 级别 FE 内存降低 30%+</li>
+<li><strong>对象存储成本优化</strong>：节点级合并，高频导入场景小文件问题解决，成本优化 90%+</li>
+</ol>
+<h2 id="九、Spring-Boot-集成实战"><a href="#九、Spring-Boot-集成实战" class="headerlink" title="九、Spring Boot 集成实战"></a>九、Spring Boot 集成实战</h2><h3 id="9-1-项目依赖"><a href="#9-1-项目依赖" class="headerlink" title="9.1 项目依赖"></a>9.1 项目依赖</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependencies</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-web<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-jdbc<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.mysql<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>mysql-connector-j<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">scope</span>&gt;</span>runtime<span class="tag">&lt;/<span class="name">scope</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.squareup.okhttp3<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>okhttp<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">version</span>&gt;</span>4.12.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependencies</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="9-2-配置文件"><a href="#9-2-配置文件" class="headerlink" title="9.2 配置文件"></a>9.2 配置文件</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">datasource:</span></span><br><span class="line">    <span class="attr">driver-class-name:</span> <span class="string">com.mysql.cj.jdbc.Driver</span></span><br><span class="line">    <span class="attr">url:</span> <span class="string">jdbc:mysql://127.0.0.1:9030/demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=Asia/Shanghai</span></span><br><span class="line">    <span class="attr">username:</span> <span class="string">root</span></span><br><span class="line">    <span class="attr">password:</span></span><br><span class="line">    <span class="attr">hikari:</span></span><br><span class="line">      <span class="attr">maximum-pool-size:</span> <span class="number">20</span></span><br><span class="line">      <span class="attr">minimum-idle:</span> <span class="number">5</span></span><br><span class="line"></span><br><span class="line"><span class="attr">doris:</span></span><br><span class="line">  <span class="attr">fe-host:</span> <span class="string">http://127.0.0.1:8030</span></span><br><span class="line">  <span class="attr">stream-load-url:</span> <span class="string">http://127.0.0.1:8030/api/demo/orders/_stream_load</span></span><br><span class="line">  <span class="attr">username:</span> <span class="string">root</span></span><br><span class="line">  <span class="attr">password:</span> <span class="string">&quot;&quot;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="9-3-Doris-Stream-Load-服务"><a href="#9-3-Doris-Stream-Load-服务" class="headerlink" title="9.3 Doris Stream Load 服务"></a>9.3 Doris Stream Load 服务</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="meta">@Slf4j</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DorisStreamLoadService</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;doris.fe-host&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> String feHost;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;doris.username&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> String username;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;doris.password&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> String password;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">OkHttpClient</span> <span class="variable">client</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OkHttpClient</span>.Builder()</span><br><span class="line">            .connectTimeout(<span class="number">10</span>, TimeUnit.SECONDS)</span><br><span class="line">            .writeTimeout(<span class="number">60</span>, TimeUnit.SECONDS)</span><br><span class="line">            .readTimeout(<span class="number">60</span>, TimeUnit.SECONDS)</span><br><span class="line">            .build();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Stream Load 批量写入</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">streamLoad</span><span class="params">(String database, String table, String csvData,</span></span><br><span class="line"><span class="params">                              String columns, String label)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">url</span> <span class="operator">=</span> String.format(<span class="string">&quot;%s/api/%s/%s/_stream_load&quot;</span>, feHost, database, table);</span><br><span class="line"></span><br><span class="line">        <span class="type">String</span> <span class="variable">auth</span> <span class="operator">=</span> Base64.getEncoder().encodeToString(</span><br><span class="line">                (username + <span class="string">&quot;:&quot;</span> + password).getBytes());</span><br><span class="line"></span><br><span class="line">        <span class="type">RequestBody</span> <span class="variable">body</span> <span class="operator">=</span> RequestBody.create(csvData,</span><br><span class="line">                MediaType.parse(<span class="string">&quot;text/plain; charset=utf-8&quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Request</span>.Builder()</span><br><span class="line">                .url(url)</span><br><span class="line">                .header(<span class="string">&quot;Authorization&quot;</span>, <span class="string">&quot;Basic &quot;</span> + auth)</span><br><span class="line">                .header(<span class="string">&quot;label&quot;</span>, label)</span><br><span class="line">                .header(<span class="string">&quot;column_separator&quot;</span>, <span class="string">&quot;,&quot;</span>)</span><br><span class="line">                .header(<span class="string">&quot;columns&quot;</span>, columns)</span><br><span class="line">                .header(<span class="string">&quot;format&quot;</span>, <span class="string">&quot;csv&quot;</span>)</span><br><span class="line">                .header(<span class="string">&quot;Expect&quot;</span>, <span class="string">&quot;100-continue&quot;</span>)</span><br><span class="line">                .post(body)</span><br><span class="line">                .build();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> (<span class="type">Response</span> <span class="variable">response</span> <span class="operator">=</span> client.newCall(request).execute()) &#123;</span><br><span class="line">            <span class="type">String</span> <span class="variable">result</span> <span class="operator">=</span> response.body().string();</span><br><span class="line">            <span class="keyword">if</span> (!response.isSuccessful()) &#123;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;Stream Load failed: &quot;</span> + result);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">return</span> result;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 批量导入订单数据</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Async</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">batchLoadOrders</span><span class="params">(List&lt;Order&gt; orders)</span> &#123;</span><br><span class="line">        <span class="type">StringBuilder</span> <span class="variable">sb</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringBuilder</span>();</span><br><span class="line">        <span class="keyword">for</span> (Order o : orders) &#123;</span><br><span class="line">            sb.append(o.getOrderId()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getUserId()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getProductId()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getAmount()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getStatus()).append(<span class="string">&quot;,&quot;</span>)</span><br><span class="line">              .append(o.getCreatedAt()).append(<span class="string">&quot;\n&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">String</span> <span class="variable">label</span> <span class="operator">=</span> <span class="string">&quot;order_load_&quot;</span> + System.currentTimeMillis();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">String</span> <span class="variable">result</span> <span class="operator">=</span> streamLoad(<span class="string">&quot;demo&quot;</span>, <span class="string">&quot;orders&quot;</span>, sb.toString(),</span><br><span class="line">                    <span class="string">&quot;order_id,user_id,product_id,amount,status,created_at&quot;</span>, label);</span><br><span class="line">            log.info(<span class="string">&quot;Stream Load success: &#123;&#125;&quot;</span>, result);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            log.error(<span class="string">&quot;Stream Load failed, label=&#123;&#125;&quot;</span>, label, e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="9-4-查询服务"><a href="#9-4-查询服务" class="headerlink" title="9.4 查询服务"></a>9.4 查询服务</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderQueryService</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> JdbcTemplate jdbcTemplate;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 实时 GMV 大屏查询</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> Map&lt;String, Object&gt; <span class="title function_">getRealtimeGMV</span><span class="params">(LocalDate dt)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;SELECT &quot;</span> +</span><br><span class="line">                <span class="string">&quot;COUNT(*) AS order_count, &quot;</span> +</span><br><span class="line">                <span class="string">&quot;SUM(amount) AS total_gmv, &quot;</span> +</span><br><span class="line">                <span class="string">&quot;COUNT(DISTINCT user_id) AS paying_users &quot;</span> +</span><br><span class="line">                <span class="string">&quot;FROM orders WHERE DATE(created_at) = ? AND status = &#x27;PAID&#x27;&quot;</span>;</span><br><span class="line"></span><br><span class="line">        Map&lt;String, Object&gt; result = jdbcTemplate.queryForMap(sql, dt);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 按小时统计 GMV 趋势</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">trendSql</span> <span class="operator">=</span> <span class="string">&quot;SELECT HOUR(created_at) AS hour, SUM(amount) AS gmv &quot;</span> +</span><br><span class="line">                <span class="string">&quot;FROM orders WHERE DATE(created_at) = ? AND status = &#x27;PAID&#x27; &quot;</span> +</span><br><span class="line">                <span class="string">&quot;GROUP BY HOUR(created_at) ORDER BY hour&quot;</span>;</span><br><span class="line"></span><br><span class="line">        List&lt;Map&lt;String, Object&gt;&gt; trend = jdbcTemplate.queryForList(trendSql, dt);</span><br><span class="line">        result.put(<span class="string">&quot;hourly_trend&quot;</span>, trend);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> result;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 用户行为漏斗分析</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> List&lt;Map&lt;String, Object&gt;&gt; <span class="title function_">funnelAnalysis</span><span class="params">(LocalDate dt)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">            SELECT</span></span><br><span class="line"><span class="string">                event_type,</span></span><br><span class="line"><span class="string">                COUNT(*) AS event_count,</span></span><br><span class="line"><span class="string">                BITMAP_UNION_COUNT(to_bitmap(user_id)) AS unique_users</span></span><br><span class="line"><span class="string">            FROM user_events</span></span><br><span class="line"><span class="string">            WHERE DATE(event_time) = ?</span></span><br><span class="line"><span class="string">            GROUP BY event_type</span></span><br><span class="line"><span class="string">            ORDER BY unique_users DESC</span></span><br><span class="line"><span class="string">            &quot;&quot;&quot;</span>;</span><br><span class="line">        <span class="keyword">return</span> jdbcTemplate.queryForList(sql, dt);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 混合检索：全文搜索 + 向量语义搜索</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> List&lt;Map&lt;String, Object&gt;&gt; <span class="title function_">hybridSearch</span><span class="params">(String keyword, <span class="type">float</span>[] queryVector)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">vectorStr</span> <span class="operator">=</span> Arrays.stream(queryVector)</span><br><span class="line">                .mapToObj(String::valueOf)</span><br><span class="line">                .collect(Collectors.joining(<span class="string">&quot;, &quot;</span>));</span><br><span class="line"></span><br><span class="line">        <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">            SELECT doc_id, content,</span></span><br><span class="line"><span class="string">                   cosine_similarity(embedding, ARRAY(?)) AS vector_score</span></span><br><span class="line"><span class="string">            FROM doc_embeddings</span></span><br><span class="line"><span class="string">            WHERE content MATCH_PHRASE ?</span></span><br><span class="line"><span class="string">            ORDER BY vector_score DESC</span></span><br><span class="line"><span class="string">            LIMIT 10</span></span><br><span class="line"><span class="string">            &quot;&quot;&quot;</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> jdbcTemplate.queryForList(sql, vectorStr, keyword);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="十、2026-年-Doris-4-x-新特性"><a href="#十、2026-年-Doris-4-x-新特性" class="headerlink" title="十、2026 年 Doris 4.x 新特性"></a>十、2026 年 Doris 4.x 新特性</h2><h3 id="10-1-版本演进时间线"><a href="#10-1-版本演进时间线" class="headerlink" title="10.1 版本演进时间线"></a>10.1 版本演进时间线</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">2.1 (2024-03) ──▶ 3.0 (2025-03) ──▶ 3.1 (2025-12) ──▶ 4.0 (2026-03) ──▶ 4.1 (2026-05) ──▶ 4.1.3 (2026-07)</span><br><span class="line">     │                   │                  │                   │                  │</span><br><span class="line">  Variant类型         存算分离         稀疏列+模板Schema     向量索引HNSW      IVF向量索引</span><br><span class="line">  Group Commit      云原生架构        异步物化视图增强       AI函数            SEARCH()函数</span><br><span class="line">  异步物化视图      多计算集群隔离     湖仓一体增强           HSAP架构          Iceberg V2/V3</span><br><span class="line">  倒排索引增强       对象存储          Iceberg/Paimon         Spill Disk        湖仓全生命周期</span><br><span class="line">  Workload Group                                          SQL Cache         Parquet Page Cache</span><br></pre></td></tr></table></figure>
+
+<h3 id="10-2-4-0-核心特性：AI-驱动-搜索增强"><a href="#10-2-4-0-核心特性：AI-驱动-搜索增强" class="headerlink" title="10.2 4.0 核心特性：AI 驱动 + 搜索增强"></a>10.2 4.0 核心特性：AI 驱动 + 搜索增强</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>向量索引 HNSW</strong></td>
+<td>高精度 ANN 检索，支持结构化 + 全文 + 向量混合搜索</td>
+</tr>
+<tr>
+<td><strong>AI 函数</strong></td>
+<td>内置 <code>ai_to_text</code>、<code>ai_text_embedding</code> 等函数，直接在 SQL 中调用大模型</td>
+</tr>
+<tr>
+<td><strong>SEARCH() 函数</strong></td>
+<td>类 Elasticsearch 的轻量 DSL 语法，文本检索更灵活</td>
+</tr>
+<tr>
+<td><strong>Spill Disk</strong></td>
+<td>溢出落盘能力，大规模 ETL&#x2F;ELT 和多表物化视图更稳定</td>
+</tr>
+<tr>
+<td><strong>TopN 延迟物化</strong></td>
+<td>只读取必要列，减少 I&#x2F;O，TopN 查询性能大幅提升</td>
+</tr>
+<tr>
+<td><strong>SQL Cache</strong></td>
+<td>默认开启的查询结果缓存，重复查询直接命中缓存</td>
+</tr>
+</tbody></table>
+<h3 id="10-3-4-1-核心特性：AI-原生-湖仓一体"><a href="#10-3-4-1-核心特性：AI-原生-湖仓一体" class="headerlink" title="10.3 4.1 核心特性：AI 原生 + 湖仓一体"></a>10.3 4.1 核心特性：AI 原生 + 湖仓一体</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>IVF 向量索引</strong></td>
+<td>大规模向量场景的经典 ANN 算法，内存占用远小于 HNSW</td>
+</tr>
+<tr>
+<td><strong>IVF_ON_DISK</strong></td>
+<td>向量索引落盘，存算分离模式下超大规模向量检索</td>
+</tr>
+<tr>
+<td><strong>Iceberg V2&#x2F;V3 全读写</strong></td>
+<td>INSERT&#x2F;UPDATE&#x2F;DELETE&#x2F;MERGE INTO + Deletion Vector + Row Lineage</td>
+</tr>
+<tr>
+<td><strong>湖仓全生命周期管理</strong></td>
+<td>纯 SQL 完成 Iceberg&#x2F;Paimon 建库建表到数据增删改</td>
+</tr>
+<tr>
+<td><strong>Iceberg Sorted Write</strong></td>
+<td>写入时按列排序，查询性能提升约 15%</td>
+</tr>
+<tr>
+<td><strong>Manifest Cache</strong></td>
+<td>Iceberg 元数据缓存，复杂元数据解析降至百毫秒级</td>
+</tr>
+<tr>
+<td><strong>Parquet Page Cache</strong></td>
+<td>Parquet 页缓存，高频查询场景整体性能提升 20%+</td>
+</tr>
+<tr>
+<td><strong>Python UDF</strong></td>
+<td>4.1.3 新增 Python UDF&#x2F;UDAF&#x2F;UDTF，支持 Python 自定义函数</td>
+</tr>
+<tr>
+<td><strong>工作负载策略增强</strong></td>
+<td>更精细的资源隔离和查询优先级控制</td>
+</tr>
+<tr>
+<td><strong>对象存储成本优化</strong></td>
+<td>节点级合并，高频导入小文件问题解决，成本优化 90%+</td>
+</tr>
+</tbody></table>
+<h3 id="10-4-AI-时代的-Doris：Agent-可观测与-RAG"><a href="#10-4-AI-时代的-Doris：Agent-可观测与-RAG" class="headerlink" title="10.4 AI 时代的 Doris：Agent 可观测与 RAG"></a>10.4 AI 时代的 Doris：Agent 可观测与 RAG</h3><p>4.1 版本的核心愿景是让 Doris 成为 <strong>AI 时代统一的数据存储与检索底座</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│                    AI Agent / RAG 系统                       │</span><br><span class="line">│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │</span><br><span class="line">│  │ 对话上下文 │  │ Agent轨迹 │  │ 工具调用  │  │ 模型监控  │   │</span><br><span class="line">│  │ 存储      │  │ 存储      │  │ 日志      │  │ 指标      │   │</span><br><span class="line">│  └─────┬────┘  └─────┬────┘  └─────┬────┘  └─────┬────┘   │</span><br><span class="line">│        │              │              │              │        │</span><br><span class="line">│        ▼              ▼              ▼              ▼        │</span><br><span class="line">│  ┌──────────────────────────────────────────────────────┐   │</span><br><span class="line">│  │              Apache Doris 统一存储引擎                 │   │</span><br><span class="line">│  │                                                        │   │</span><br><span class="line">│  │  结构化分析    +    全文检索    +    向量语义检索       │   │</span><br><span class="line">│  │  (SQL/聚合)        (BM25/倒排)      (HNSW/IVF)        │   │</span><br><span class="line">│  │                                                        │   │</span><br><span class="line">│  │  VARIANT 列存 → 50x 更快的 Agent 轨迹分析              │   │</span><br><span class="line">│  │  超宽表优化 → 百万列级 Agent 日志存储                   │   │</span><br><span class="line">│  │  混合检索 → 结构化过滤 + 全文 + 向量一站式查询          │   │</span><br><span class="line">│  └──────────────────────────────────────────────────────┘   │</span><br><span class="line">└─────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<p><strong>典型场景</strong>：StepFun 基于 Doris 构建了 PB 级 Agent 可观测平台 StepTrace，实时分析 Agent 执行轨迹、成本、搜索行为、评估循环和基础设施状态。</p>
+<h2 id="十一、Doris-vs-ClickHouse-vs-StarRocks-选型"><a href="#十一、Doris-vs-ClickHouse-vs-StarRocks-选型" class="headerlink" title="十一、Doris vs ClickHouse vs StarRocks 选型"></a>十一、Doris vs ClickHouse vs StarRocks 选型</h2><h3 id="11-1-核心维度对比"><a href="#11-1-核心维度对比" class="headerlink" title="11.1 核心维度对比"></a>11.1 核心维度对比</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Apache Doris</th>
+<th>ClickHouse</th>
+<th>StarRocks</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>定位</strong></td>
+<td>易用型实时 OLAP 数仓</td>
+<td>极致单表聚合分析</td>
+<td>高性能 MPP OLAP</td>
+</tr>
+<tr>
+<td><strong>架构</strong></td>
+<td>FE + BE（无外部依赖）</td>
+<td>单进程 + ZooKeeper</td>
+<td>FE + BE + CN</td>
+</tr>
+<tr>
+<td><strong>SQL 兼容</strong></td>
+<td>MySQL 协议，SQL 友好</td>
+<td>SQL 兼容性中等</td>
+<td>MySQL 协议，SQL 很强</td>
+</tr>
+<tr>
+<td><strong>单表聚合</strong></td>
+<td>强</td>
+<td>极强</td>
+<td>强</td>
+</tr>
+<tr>
+<td><strong>多表 JOIN</strong></td>
+<td>较好（Broadcast&#x2F;Shuffle&#x2F;Colocate）</td>
+<td>一般（推荐宽表）</td>
+<td>很强（CBO + Colocate）</td>
+</tr>
+<tr>
+<td><strong>并发支持</strong></td>
+<td>500+ QPS</td>
+<td>~100（需调优）</td>
+<td>1000+ QPS</td>
+</tr>
+<tr>
+<td><strong>实时写入</strong></td>
+<td>强（Stream Load + Group Commit）</td>
+<td>中等</td>
+<td>强</td>
+</tr>
+<tr>
+<td><strong>更新删除</strong></td>
+<td>主键模型 UPSERT，Merge-on-Write</td>
+<td>相对弱</td>
+<td>主键模型，较好</td>
+</tr>
+<tr>
+<td><strong>全文检索</strong></td>
+<td>倒排索引（可替代 ES）</td>
+<td>一般</td>
+<td>一般</td>
+</tr>
+<tr>
+<td><strong>向量检索</strong></td>
+<td>✅ HNSW + IVF（4.0+）</td>
+<td>✅ 实验性</td>
+<td>✅ Beta HNSW&#x2F;IVFPQ</td>
+</tr>
+<tr>
+<td><strong>物化视图</strong></td>
+<td>同步 + 异步（透明改写）</td>
+<td>部分</td>
+<td>强（异步 MV）</td>
+</tr>
+<tr>
+<td><strong>湖仓一体</strong></td>
+<td>✅ Iceberg&#x2F;Hudi&#x2F;Paimon&#x2F;Catalog</td>
+<td>有限</td>
+<td>✅ 较强</td>
+</tr>
+<tr>
+<td><strong>存算分离</strong></td>
+<td>✅ 3.0+</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>运维复杂度</strong></td>
+<td>低（最简单）</td>
+<td>中偏高</td>
+<td>中</td>
+</tr>
+<tr>
+<td><strong>生态</strong></td>
+<td>中国为主，5000+ 企业</td>
+<td>全球，社区最活跃</td>
+<td>中国为主，增长快</td>
+</tr>
+<tr>
+<td><strong>商业化</strong></td>
+<td>SelectDB（企业版）</td>
+<td>ClickHouse Cloud</td>
+<td>CelerData</td>
+</tr>
+</tbody></table>
+<h3 id="11-2-选型决策树"><a href="#11-2-选型决策树" class="headerlink" title="11.2 选型决策树"></a>11.2 选型决策树</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">              需要实时 OLAP 分析引擎？</span><br><span class="line">                        │</span><br><span class="line">        ┌───────────────┴───────────────┐</span><br><span class="line">        ▼                               ▼</span><br><span class="line">需要联邦查询多源数据？              数据量 &gt; 10TB 单宽表？</span><br><span class="line">        │                               │</span><br><span class="line">        ▼                               ▼</span><br><span class="line">    ┌──Trino──┐                   ┌─ClickHouse─┐</span><br><span class="line">    │ 独占优势  │                   │ 单表极致性能 │</span><br><span class="line">    └─────────┘                   └────────────┘</span><br><span class="line">                                        │</span><br><span class="line">                              不适合大宽表场景？</span><br><span class="line">                                        │</span><br><span class="line">                        ┌───────────────┴───────────────┐</span><br><span class="line">                        ▼                               ▼</span><br><span class="line">                团队 SQL 经验初级？                团队 SQL 经验高级？</span><br><span class="line">                        │                               │</span><br><span class="line">                        ▼                               ▼</span><br><span class="line">                  ┌─Apache Doris─┐               ┌─StarRocks─┐</span><br><span class="line">                  │ 易用+报表友好  │               │ 性能优先+  │</span><br><span class="line">                  │ 运维最简单    │               │ 复杂JOIN  │</span><br><span class="line">                  └──────────────┘               └──────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="11-3-选型建议"><a href="#11-3-选型建议" class="headerlink" title="11.3 选型建议"></a>11.3 选型建议</h3><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐引擎</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>企业数据中台 &#x2F; 实时数仓</strong></td>
+<td>Doris</td>
+<td>MySQL 兼容、运维极简、实时导入强</td>
+</tr>
+<tr>
+<td><strong>BI 报表 &#x2F; 经营驾驶舱</strong></td>
+<td>Doris</td>
+<td>高并发点查 + 复杂聚合都支持</td>
+</tr>
+<tr>
+<td><strong>日志分析 &#x2F; 用户行为</strong></td>
+<td>Doris &#x2F; ClickHouse</td>
+<td>Doris 有倒排索引，CH 单表更快</td>
+</tr>
+<tr>
+<td><strong>广告 &#x2F; 监控大宽表</strong></td>
+<td>ClickHouse</td>
+<td>单表聚合极致性能</td>
+</tr>
+<tr>
+<td><strong>复杂多表 JOIN &#x2F; 指标平台</strong></td>
+<td>StarRocks</td>
+<td>CBO + Colocate Join 最强</td>
+</tr>
+<tr>
+<td><strong>AI Agent 可观测 &#x2F; RAG</strong></td>
+<td>Doris 4.1</td>
+<td>向量 + 全文 + 结构化混合检索一体</td>
+</tr>
+<tr>
+<td><strong>阿里云生态</strong></td>
+<td>Hologres</td>
+<td>MaxCompute 深度集成</td>
+</tr>
+</tbody></table>
+<h2 id="十二、生产最佳实践与避坑指南"><a href="#十二、生产最佳实践与避坑指南" class="headerlink" title="十二、生产最佳实践与避坑指南"></a>十二、生产最佳实践与避坑指南</h2><h3 id="12-1-分区分桶设计"><a href="#12-1-分区分桶设计" class="headerlink" title="12.1 分区分桶设计"></a>12.1 分区分桶设计</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ✅ 正确：按天分区 + 合理分桶数</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> orders (...) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line"><span class="keyword">UNIQUE</span> KEY(order_id)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span>(created_at)()  <span class="comment">-- 动态分区</span></span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(order_id) BUCKETS <span class="number">8</span></span><br><span class="line">PROPERTIES (</span><br><span class="line">    &quot;replication_num&quot; <span class="operator">=</span> &quot;3&quot;,</span><br><span class="line">    &quot;dynamic_partition.enable&quot; <span class="operator">=</span> &quot;true&quot;,</span><br><span class="line">    &quot;dynamic_partition.time_unit&quot; <span class="operator">=</span> &quot;DAY&quot;,</span><br><span class="line">    &quot;dynamic_partition.start&quot; <span class="operator">=</span> &quot;-365&quot;,   <span class="comment">-- 保留365天</span></span><br><span class="line">    &quot;dynamic_partition.end&quot; <span class="operator">=</span> &quot;3&quot;,        <span class="comment">-- 预创建3天</span></span><br><span class="line">    &quot;dynamic_partition.prefix&quot; <span class="operator">=</span> &quot;p&quot;,</span><br><span class="line">    &quot;dynamic_partition.buckets&quot; <span class="operator">=</span> &quot;8&quot;     <span class="comment">-- 每个分区分桶数</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- ❌ 错误：不分区分桶（全表扫描）</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> orders (...) ENGINE<span class="operator">=</span>OLAP</span><br><span class="line"><span class="keyword">UNIQUE</span> KEY(order_id)</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> HASH(order_id) BUCKETS <span class="number">1</span>;  <span class="comment">-- 单 Tablet 无法并行</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>分桶数经验法则</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>数据量</th>
+<th>建议 BUCKETS</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>&lt; 1GB</td>
+<td>1-3</td>
+<td>小表无需过多分桶</td>
+</tr>
+<tr>
+<td>1GB - 10GB</td>
+<td>3-8</td>
+<td>单 Tablet 约 1-3GB</td>
+</tr>
+<tr>
+<td>10GB - 100GB</td>
+<td>8-32</td>
+<td>并行扫描</td>
+</tr>
+<tr>
+<td>&gt; 100GB</td>
+<td>32-128</td>
+<td>配合分区，单分区 8-32 桶</td>
+</tr>
+</tbody></table>
+<h3 id="12-2-十条生产避坑"><a href="#12-2-十条生产避坑" class="headerlink" title="12.2 十条生产避坑"></a>12.2 十条生产避坑</h3><ol>
+<li><strong>分桶键选择</strong>：选择高基数列（如 user_id），避免数据倾斜。不要用低基数列（如 status）作为分桶键</li>
+<li><strong>导入频率控制</strong>：Stream Load 单次导入建议 100MB-1GB，过小产生过多版本触发 Compaction 风暴，过大超时。高频小批量用 Group Commit</li>
+<li><strong>Label 幂等</strong>：每次导入必须指定唯一 Label，防止重复导入。Label 格式建议 <code>业务名_日期_序号</code></li>
+<li><strong>Compaction 监控</strong>：关注 <code>BE.WebServer</code> 中的 Compaction Score，超过 100 需排查导入频率是否过高</li>
+<li><strong>内存限制</strong>：大查询设置 <code>exec_mem_limit</code>，防止 OOM。BE 配置 <code>mem_limit</code> 不超过物理内存 80%</li>
+<li><strong>副本数一致</strong>：生产环境统一 3 副本，不要混用 1 副本和 3 副本的表</li>
+<li><strong>避免 SELECT *</strong>：只查需要的列，减少 I&#x2F;O 和内存消耗</li>
+<li><strong>JOIN 优化</strong>：大表 JOIN 小表用 Broadcast Join（自动），大表 JOIN 大表确保分桶键一致（Colocate Join）</li>
+<li><strong>时区一致</strong>：所有节点设置相同时区 <code>timezone = Asia/Shanghai</code>，避免时间查询偏差</li>
+<li><strong>版本升级</strong>：不要跳越大版本升级（如 2.1 → 4.0），按 2.1 → 3.0 → 3.1 → 4.0 → 4.1 顺序升级</li>
+</ol>
+<h3 id="12-3-集群规划"><a href="#12-3-集群规划" class="headerlink" title="12.3 集群规划"></a>12.3 集群规划</h3><table>
+<thead>
+<tr>
+<th>集群规模</th>
+<th>FE 节点</th>
+<th>BE 节点</th>
+<th>磁盘</th>
+<th>内存</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>开发测试</td>
+<td>1</td>
+<td>1</td>
+<td>SSD 100GB</td>
+<td>16GB</td>
+<td>功能验证</td>
+</tr>
+<tr>
+<td>小规模生产</td>
+<td>3</td>
+<td>3</td>
+<td>SSD 1TB ×4</td>
+<td>64GB</td>
+<td>日均亿级行</td>
+</tr>
+<tr>
+<td>中规模生产</td>
+<td>3</td>
+<td>5-10</td>
+<td>SSD 2TB ×6</td>
+<td>128GB</td>
+<td>日均百亿行</td>
+</tr>
+<tr>
+<td>大规模生产</td>
+<td>5</td>
+<td>10-50</td>
+<td>SSD 4TB ×8</td>
+<td>256GB</td>
+<td>日均千亿行</td>
+</tr>
+</tbody></table>
+<h2 id="十三、高频面试题"><a href="#十三、高频面试题" class="headerlink" title="十三、高频面试题"></a>十三、高频面试题</h2><h3 id="Q1：Doris-的-FE-和-BE-分别负责什么？FE-高可用如何实现？"><a href="#Q1：Doris-的-FE-和-BE-分别负责什么？FE-高可用如何实现？" class="headerlink" title="Q1：Doris 的 FE 和 BE 分别负责什么？FE 高可用如何实现？"></a>Q1：Doris 的 FE 和 BE 分别负责什么？FE 高可用如何实现？</h3><p><strong>答</strong>：FE 负责元数据管理、SQL 解析、查询优化（CBO）和分布式执行计划生成。BE 负责数据存储（列式 Tablet + 多副本）、查询执行（向量化 + Pipeline 引擎）和后台任务（Compaction、副本修复）。FE 高可用通过 BDB JE 实现 Master-Follower-Observer 主从架构：Master 负责元数据读写并同步到 Follower，Follower 参与选主，Observer 只读分担查询。元数据变更需多数 Follower 确认，保证一致性。Doris 不依赖 ZooKeeper，运维极简。</p>
+<h3 id="Q2：Doris-三大数据模型的区别和适用场景？"><a href="#Q2：Doris-三大数据模型的区别和适用场景？" class="headerlink" title="Q2：Doris 三大数据模型的区别和适用场景？"></a>Q2：Doris 三大数据模型的区别和适用场景？</h3><p><strong>答</strong>：</p>
+<ul>
+<li><strong>Duplicate Key（明细模型）</strong>：保留所有行，不去重。适合日志、明细数据，仅追加</li>
+<li><strong>Aggregate Key（聚合模型）</strong>：相同 Key 自动聚合（SUM&#x2F;MAX&#x2F;MIN&#x2F;REPLACE&#x2F;BITMAP_UNION）。适合预聚合报表，导入时聚合减少存储</li>
+<li><strong>Unique Key（主键模型）</strong>：按 Key 去重，支持 UPSERT。适合订单状态更新等实时更新场景。2.1+ 默认 Merge-on-Write，写入时标记旧版本删除，查询时无需合并，性能提升 5-10 倍</li>
+</ul>
+<h3 id="Q3：Doris-的-Tablet-是什么？分区分桶如何设计？"><a href="#Q3：Doris-的-Tablet-是什么？分区分桶如何设计？" class="headerlink" title="Q3：Doris 的 Tablet 是什么？分区分桶如何设计？"></a>Q3：Doris 的 Tablet 是什么？分区分桶如何设计？</h3><p><strong>答</strong>：Tablet 是 Doris 最小的数据分片和副本管理单元。一张表 → 多个 Partition（分区）→ 多个 Tablet（分桶）→ 多个 Replica（副本）。分区通常按时间，支持分区裁剪减少扫描；分桶按 Hash 键分布数据到不同 BE，支持并行扫描。设计原则：分区按天&#x2F;月，单分区数据量 1-10GB；分桶数使单 Tablet 约 1-3GB；分桶键选高基数列避免倾斜；生产 3 副本保证高可用。</p>
+<h3 id="Q4：Doris-的-Stream-Load-和-Routine-Load-有什么区别？"><a href="#Q4：Doris-的-Stream-Load-和-Routine-Load-有什么区别？" class="headerlink" title="Q4：Doris 的 Stream Load 和 Routine Load 有什么区别？"></a>Q4：Doris 的 Stream Load 和 Routine Load 有什么区别？</h3><p><strong>答</strong>：Stream Load 是 HTTP 同步导入方式，客户端主动推数据到 BE，适合 Flink&#x2F;程序直推实时数据，延迟秒级。Routine Load 是 Doris 内置 Kafka 消费者，持续从 Kafka Topic 拉数据导入，适合流式数据管道。两者都支持 Label 幂等和 Exactly-Once 语义。高频小批量场景建议用 Group Commit（async_mode）攒批提交。</p>
+<h3 id="Q5：Doris-4-0-引入的向量索引有什么意义？与专用向量数据库的区别？"><a href="#Q5：Doris-4-0-引入的向量索引有什么意义？与专用向量数据库的区别？" class="headerlink" title="Q5：Doris 4.0 引入的向量索引有什么意义？与专用向量数据库的区别？"></a>Q5：Doris 4.0 引入的向量索引有什么意义？与专用向量数据库的区别？</h3><p><strong>答</strong>：Doris 4.0 引入 HNSW 向量索引，4.1 新增 IVF 和 IVF_ON_DISK，使 Doris 成为结构化分析 + 全文检索 + 向量语义搜索三位一体的 HSAP 引擎。与专用向量数据库（Milvus&#x2F;Pinecone）的区别：Doris 在同一引擎中实现混合检索（结构化过滤 + BM25 全文 + 向量 KNN），无需跨系统 JOIN。在 VectorDBBench 测试中达到 900 QPS @ 97% 召回率。适合 RAG 系统、Agent 可观测等需要多模态检索的 AI 场景。</p>
+<h3 id="Q6：Doris-的存算分离架构有哪些优势？适合什么场景？"><a href="#Q6：Doris-的存算分离架构有哪些优势？适合什么场景？" class="headerlink" title="Q6：Doris 的存算分离架构有哪些优势？适合什么场景？"></a>Q6：Doris 的存算分离架构有哪些优势？适合什么场景？</h3><p><strong>答</strong>：Doris 3.0 引入存算分离：元数据由 Meta Service 管理（无状态），计算节点 CN 不存储数据，共享对象存储（S3&#x2F;OSS）。优势：①分钟级弹性扩缩容（CN 无状态）②读写物理隔离（多计算集群）③存储成本降低 70%+（对象存储）④超大规模部署（4.1 FE 内存优化 30%）。适合云原生部署、负载波动大、读写分离、多租户隔离场景。劣势是网络 I&#x2F;O 延迟高于本地盘，需配合 File Cache 优化。</p>
+<h3 id="Q7：Doris-vs-ClickHouse-vs-StarRocks-怎么选？"><a href="#Q7：Doris-vs-ClickHouse-vs-StarRocks-怎么选？" class="headerlink" title="Q7：Doris vs ClickHouse vs StarRocks 怎么选？"></a>Q7：Doris vs ClickHouse vs StarRocks 怎么选？</h3><p><strong>答</strong>：</p>
+<ul>
+<li><strong>选 Doris</strong>：团队 SQL 经验初级、需要 MySQL 兼容、运维简单、实时数仓 + BI 报表、需要全文检索（倒排索引替代 ES）、AI 原生混合检索</li>
+<li><strong>选 ClickHouse</strong>：数据量大宽表场景、单表聚合极致性能、日志&#x2F;监控&#x2F;广告分析、成本敏感</li>
+<li><strong>选 StarRocks</strong>：复杂多表 JOIN、CBO + Colocate Join、高并发 BI、指标平台、数据仓库分层建模</li>
+<li><strong>核心判断</strong>：单表宽表选 CH，复杂 JOIN 选 SR，易用+实时+全场景选 Doris</li>
+</ul>
+<h3 id="Q8：Doris-的物化视图如何实现查询透明改写？"><a href="#Q8：Doris-的物化视图如何实现查询透明改写？" class="headerlink" title="Q8：Doris 的物化视图如何实现查询透明改写？"></a>Q8：Doris 的物化视图如何实现查询透明改写？</h3><p><strong>答</strong>：Doris 支持同步物化视图（Rollup，导入时增量刷新）和异步物化视图（2.1+，定时刷新，支持多表 JOIN 和外表）。透明改写流程：①CBO 优化器解析 SQL 逻辑计划 ②匹配物化视图的 SPJG（SELECT-PROJECT-JOIN-GROUP BY）模式 ③如果物化视图能覆盖查询，自动改写为查询物化视图 ④利用物化视图预计算结果，跳过原始数据扫描。同步 MV 自动增量刷新，异步 MV 按 Schedule 刷新。用户无需修改 SQL，加速是”隐形的”。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Apache Doris 从百度 Palo 到 Apache 顶级项目，再到 2026 年 4.1 的 AI 原生数据库，其演进路线清晰地指向一个方向：<strong>统一分析引擎</strong>。它不追求 ClickHouse 的单表极致，也不追求 StarRocks 的多表 JOIN 性能巅峰，而是以”够用 + 易用 + 全场景”的哲学，成为大多数企业构建实时数仓的首选。</p>
+<p>回顾 Doris 的核心能力矩阵：</p>
+<table>
+<thead>
+<tr>
+<th>能力域</th>
+<th>关键特性</th>
+<th>版本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>存储模型</strong></td>
+<td>Duplicate &#x2F; Aggregate &#x2F; Unique Key (MoW)</td>
+<td>全版本</td>
+</tr>
+<tr>
+<td><strong>实时导入</strong></td>
+<td>Stream Load &#x2F; Routine Load &#x2F; Group Commit</td>
+<td>2.1+</td>
+</tr>
+<tr>
+<td><strong>索引体系</strong></td>
+<td>前缀索引 &#x2F; 倒排索引 &#x2F; 向量索引 HNSW+IVF</td>
+<td>2.0+&#x2F;4.0+</td>
+</tr>
+<tr>
+<td><strong>查询加速</strong></td>
+<td>向量化执行 &#x2F; Pipeline &#x2F; CBO &#x2F; 物化视图 &#x2F; SQL Cache</td>
+<td>全版本</td>
+</tr>
+<tr>
+<td><strong>湖仓一体</strong></td>
+<td>Iceberg&#x2F;Hive&#x2F;Hudi&#x2F;Paimon Catalog + 全生命周期</td>
+<td>3.1+&#x2F;4.1</td>
+</tr>
+<tr>
+<td><strong>存算分离</strong></td>
+<td>Meta Service + 无状态 CN + 对象存储</td>
+<td>3.0+</td>
+</tr>
+<tr>
+<td><strong>AI 原生</strong></td>
+<td>向量检索 + 全文搜索 + AI 函数 + 混合检索</td>
+<td>4.0+</td>
+</tr>
+</tbody></table>
+<p>在 Kafka → Flink → Doris 的实时数据栈中，Doris 承担”最后一公里”的查询和服务职责。无论是秒级刷新的实时大屏、分析师的自助即席查询、数据湖的联邦联邦分析，还是 AI Agent 的多模态检索，Doris 都能用一个引擎、一套 SQL 覆盖。</p>
+<p><strong>选 Doris 的核心理由</strong>：如果你不想维护 ES + ClickHouse + Hive 三个系统，不想在数据同步脚本上浪费团队精力，不想为了一个实时报表跑十几个 ETL 任务——Doris 就是你的答案。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/olap/" rel="tag"># olap</a>
+              <a href="/tags/%E5%A4%A7%E6%95%B0%E6%8D%AE/" rel="tag"># 大数据</a>
+              <a href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag"># 后端</a>
+              <a href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag"># 面试题</a>
+              <a href="/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/" rel="tag"># 向量检索</a>
+              <a href="/tags/doris/" rel="tag"># doris</a>
+              <a href="/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93/" rel="tag"># 实时数仓</a>
+              <a href="/tags/mpp/" rel="tag"># mpp</a>
+              <a href="/tags/%E6%B9%96%E4%BB%93%E4%B8%80%E4%BD%93/" rel="tag"># 湖仓一体</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/08/03/Flink%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E6%B5%81%E5%A4%84%E7%90%86%E5%8E%9F%E7%90%86%E5%88%B0%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93%E4%B8%8E%202026%20%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98/" rel="prev" title="Flink 详解：从流处理原理到实时数仓与 2026 生产实战">
+      <i class="fa fa-chevron-left"></i> Flink 详解：从流处理原理到实时数仓与 2026 生产实战
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Apache-Doris-%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E-MPP-%E6%9E%B6%E6%9E%84%E5%88%B0-AI-%E5%8E%9F%E7%94%9F%E4%B8%8E-2026-%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93%E5%AE%9E%E6%88%98"><span class="nav-number">1.</span> <span class="nav-text">Apache Doris 详解：从 MPP 架构到 AI 原生与 2026 实时数仓实战</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-Doris%EF%BC%9F%E4%BB%8E%E6%95%B0%E6%8D%AE%E5%AD%A4%E5%B2%9B%E5%88%B0%E7%BB%9F%E4%B8%80%E5%88%86%E6%9E%90"><span class="nav-number">1.1.</span> <span class="nav-text">一、为什么需要 Doris？从数据孤岛到统一分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-%E4%BC%A0%E7%BB%9F%E6%95%B0%E6%8D%AE%E6%9E%B6%E6%9E%84%E7%9A%84%E5%9B%B0%E5%B1%80"><span class="nav-number">1.1.1.</span> <span class="nav-text">1.1 传统数据架构的困局</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-Doris-%E7%9A%84%E5%AE%9A%E4%BD%8D%EF%BC%9A%E7%BB%9F%E4%B8%80%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-number">1.1.2.</span> <span class="nav-text">1.2 Doris 的定位：统一实时分析数据库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%A0%88%E4%B8%AD%E7%9A%84-Doris-%E4%BD%8D%E7%BD%AE"><span class="nav-number">1.1.3.</span> <span class="nav-text">1.3 实时数据栈中的 Doris 位置</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84%EF%BC%9AFE-BE-%E5%8F%8C%E8%8A%82%E7%82%B9-MPP"><span class="nav-number">1.2.</span> <span class="nav-text">二、核心架构：FE + BE 双节点 MPP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 整体架构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-FE-%E8%8A%82%E7%82%B9%E8%AF%A6%E8%A7%A3"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 FE 节点详解</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-BE-%E8%8A%82%E7%82%B9%E8%AF%A6%E8%A7%A3"><span class="nav-number">1.2.3.</span> <span class="nav-text">2.3 BE 节点详解</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-Tablet%EF%BC%9A%E6%9C%80%E5%B0%8F%E6%95%B0%E6%8D%AE%E5%8D%95%E5%85%83"><span class="nav-number">1.2.4.</span> <span class="nav-text">2.4 Tablet：最小数据单元</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E4%B8%89%E5%A4%A7%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.3.</span> <span class="nav-text">三、三大数据模型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E6%A8%A1%E5%9E%8B%E5%AF%B9%E6%AF%94"><span class="nav-number">1.3.1.</span> <span class="nav-text">3.1 模型对比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-Duplicate-Key%EF%BC%88%E6%98%8E%E7%BB%86%E6%A8%A1%E5%9E%8B%EF%BC%89"><span class="nav-number">1.3.2.</span> <span class="nav-text">3.2 Duplicate Key（明细模型）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-Aggregate-Key%EF%BC%88%E8%81%9A%E5%90%88%E6%A8%A1%E5%9E%8B%EF%BC%89"><span class="nav-number">1.3.3.</span> <span class="nav-text">3.3 Aggregate Key（聚合模型）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-Unique-Key%EF%BC%88%E4%B8%BB%E9%94%AE%E6%A8%A1%E5%9E%8B%EF%BC%89"><span class="nav-number">1.3.4.</span> <span class="nav-text">3.4 Unique Key（主键模型）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%95%B0%E6%8D%AE%E5%AF%BC%E5%85%A5%EF%BC%9A%E4%BB%8E%E5%AE%9E%E6%97%B6%E6%B5%81%E5%88%B0%E6%89%B9%E9%87%8F%E5%8A%A0%E8%BD%BD"><span class="nav-number">1.4.</span> <span class="nav-text">四、数据导入：从实时流到批量加载</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E5%AF%BC%E5%85%A5%E6%96%B9%E5%BC%8F%E5%85%A8%E6%99%AF"><span class="nav-number">1.4.1.</span> <span class="nav-text">4.1 导入方式全景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-Stream-Load%EF%BC%9A%E5%AE%9E%E6%97%B6%E5%86%99%E5%85%A5%E9%A6%96%E9%80%89"><span class="nav-number">1.4.2.</span> <span class="nav-text">4.2 Stream Load：实时写入首选</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-Routine-Load%EF%BC%9AKafka-%E8%87%AA%E5%8A%A8%E6%B6%88%E8%B4%B9"><span class="nav-number">1.4.3.</span> <span class="nav-text">4.3 Routine Load：Kafka 自动消费</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-Group-Commit%EF%BC%9A%E9%AB%98%E9%A2%91%E5%B0%8F%E6%89%B9%E9%87%8F%E5%86%99%E5%85%A5%E5%88%A9%E5%99%A8"><span class="nav-number">1.4.4.</span> <span class="nav-text">4.4 Group Commit：高频小批量写入利器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-5-Flink-Doris-Connector"><span class="nav-number">1.4.5.</span> <span class="nav-text">4.5 Flink Doris Connector</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E7%B4%A2%E5%BC%95%E4%BD%93%E7%B3%BB%EF%BC%9A%E4%BB%8E%E5%80%92%E6%8E%92%E5%88%B0%E5%90%91%E9%87%8F"><span class="nav-number">1.5.</span> <span class="nav-text">五、索引体系：从倒排到向量</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E7%B4%A2%E5%BC%95%E7%B1%BB%E5%9E%8B%E5%85%A8%E6%99%AF"><span class="nav-number">1.5.1.</span> <span class="nav-text">5.1 索引类型全景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%EF%BC%9A%E5%85%A8%E6%96%87%E6%A3%80%E7%B4%A2-%E6%95%B0%E5%80%BC%E8%BF%87%E6%BB%A4"><span class="nav-number">1.5.2.</span> <span class="nav-text">5.2 倒排索引：全文检索 + 数值过滤</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95%EF%BC%9AAI-%E5%8E%9F%E7%94%9F%E6%A3%80%E7%B4%A2"><span class="nav-number">1.5.3.</span> <span class="nav-text">5.3 向量索引：AI 原生检索</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE%EF%BC%9A%E6%9F%A5%E8%AF%A2%E5%8A%A0%E9%80%9F%E5%88%A9%E5%99%A8"><span class="nav-number">1.6.</span> <span class="nav-text">六、物化视图：查询加速利器</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-%E5%90%8C%E6%AD%A5%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE-vs-%E5%BC%82%E6%AD%A5%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE"><span class="nav-number">1.6.1.</span> <span class="nav-text">6.1 同步物化视图 vs 异步物化视图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-%E5%90%8C%E6%AD%A5%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE%EF%BC%88Rollup%EF%BC%89"><span class="nav-number">1.6.2.</span> <span class="nav-text">6.2 同步物化视图（Rollup）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-3-%E5%BC%82%E6%AD%A5%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE%EF%BC%88%E5%A4%9A%E8%A1%A8-JOIN-%E5%8A%A0%E9%80%9F%EF%BC%89"><span class="nav-number">1.6.3.</span> <span class="nav-text">6.3 异步物化视图（多表 JOIN 加速）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E6%B9%96%E4%BB%93%E4%B8%80%E4%BD%93%EF%BC%9ACatalog-%E8%81%94%E9%82%A6%E6%9F%A5%E8%AF%A2"><span class="nav-number">1.7.</span> <span class="nav-text">七、湖仓一体：Catalog 联邦查询</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-External-Catalog"><span class="nav-number">1.7.1.</span> <span class="nav-text">7.1 External Catalog</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-4-1-%E6%B9%96%E4%BB%93%E5%85%A8%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E7%AE%A1%E7%90%86"><span class="nav-number">1.7.2.</span> <span class="nav-text">7.2 4.1 湖仓全生命周期管理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E5%AD%98%E7%AE%97%E5%88%86%E7%A6%BB%EF%BC%9A%E4%BA%91%E5%8E%9F%E7%94%9F%E6%9E%B6%E6%9E%84"><span class="nav-number">1.8.</span> <span class="nav-text">八、存算分离：云原生架构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#8-1-%E5%AD%98%E7%AE%97%E4%B8%80%E4%BD%93-vs-%E5%AD%98%E7%AE%97%E5%88%86%E7%A6%BB"><span class="nav-number">1.8.1.</span> <span class="nav-text">8.1 存算一体 vs 存算分离</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-2-%E5%AD%98%E7%AE%97%E5%88%86%E7%A6%BB%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8A%BF"><span class="nav-number">1.8.2.</span> <span class="nav-text">8.2 存算分离核心优势</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-3-4-1-%E5%AD%98%E7%AE%97%E5%88%86%E7%A6%BB%E4%BC%98%E5%8C%96"><span class="nav-number">1.8.3.</span> <span class="nav-text">8.3 4.1 存算分离优化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81Spring-Boot-%E9%9B%86%E6%88%90%E5%AE%9E%E6%88%98"><span class="nav-number">1.9.</span> <span class="nav-text">九、Spring Boot 集成实战</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#9-1-%E9%A1%B9%E7%9B%AE%E4%BE%9D%E8%B5%96"><span class="nav-number">1.9.1.</span> <span class="nav-text">9.1 项目依赖</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-2-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6"><span class="nav-number">1.9.2.</span> <span class="nav-text">9.2 配置文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-3-Doris-Stream-Load-%E6%9C%8D%E5%8A%A1"><span class="nav-number">1.9.3.</span> <span class="nav-text">9.3 Doris Stream Load 服务</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-4-%E6%9F%A5%E8%AF%A2%E6%9C%8D%E5%8A%A1"><span class="nav-number">1.9.4.</span> <span class="nav-text">9.4 查询服务</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%812026-%E5%B9%B4-Doris-4-x-%E6%96%B0%E7%89%B9%E6%80%A7"><span class="nav-number">1.10.</span> <span class="nav-text">十、2026 年 Doris 4.x 新特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#10-1-%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E6%97%B6%E9%97%B4%E7%BA%BF"><span class="nav-number">1.10.1.</span> <span class="nav-text">10.1 版本演进时间线</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-2-4-0-%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7%EF%BC%9AAI-%E9%A9%B1%E5%8A%A8-%E6%90%9C%E7%B4%A2%E5%A2%9E%E5%BC%BA"><span class="nav-number">1.10.2.</span> <span class="nav-text">10.2 4.0 核心特性：AI 驱动 + 搜索增强</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-3-4-1-%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7%EF%BC%9AAI-%E5%8E%9F%E7%94%9F-%E6%B9%96%E4%BB%93%E4%B8%80%E4%BD%93"><span class="nav-number">1.10.3.</span> <span class="nav-text">10.3 4.1 核心特性：AI 原生 + 湖仓一体</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10-4-AI-%E6%97%B6%E4%BB%A3%E7%9A%84-Doris%EF%BC%9AAgent-%E5%8F%AF%E8%A7%82%E6%B5%8B%E4%B8%8E-RAG"><span class="nav-number">1.10.4.</span> <span class="nav-text">10.4 AI 时代的 Doris：Agent 可观测与 RAG</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%80%E3%80%81Doris-vs-ClickHouse-vs-StarRocks-%E9%80%89%E5%9E%8B"><span class="nav-number">1.11.</span> <span class="nav-text">十一、Doris vs ClickHouse vs StarRocks 选型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#11-1-%E6%A0%B8%E5%BF%83%E7%BB%B4%E5%BA%A6%E5%AF%B9%E6%AF%94"><span class="nav-number">1.11.1.</span> <span class="nav-text">11.1 核心维度对比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#11-2-%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96%E6%A0%91"><span class="nav-number">1.11.2.</span> <span class="nav-text">11.2 选型决策树</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#11-3-%E9%80%89%E5%9E%8B%E5%BB%BA%E8%AE%AE"><span class="nav-number">1.11.3.</span> <span class="nav-text">11.3 选型建议</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81%E7%94%9F%E4%BA%A7%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E4%B8%8E%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97"><span class="nav-number">1.12.</span> <span class="nav-text">十二、生产最佳实践与避坑指南</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#12-1-%E5%88%86%E5%8C%BA%E5%88%86%E6%A1%B6%E8%AE%BE%E8%AE%A1"><span class="nav-number">1.12.1.</span> <span class="nav-text">12.1 分区分桶设计</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#12-2-%E5%8D%81%E6%9D%A1%E7%94%9F%E4%BA%A7%E9%81%BF%E5%9D%91"><span class="nav-number">1.12.2.</span> <span class="nav-text">12.2 十条生产避坑</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#12-3-%E9%9B%86%E7%BE%A4%E8%A7%84%E5%88%92"><span class="nav-number">1.12.3.</span> <span class="nav-text">12.3 集群规划</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E4%B8%89%E3%80%81%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.13.</span> <span class="nav-text">十三、高频面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Q1%EF%BC%9ADoris-%E7%9A%84-FE-%E5%92%8C-BE-%E5%88%86%E5%88%AB%E8%B4%9F%E8%B4%A3%E4%BB%80%E4%B9%88%EF%BC%9FFE-%E9%AB%98%E5%8F%AF%E7%94%A8%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%EF%BC%9F"><span class="nav-number">1.13.1.</span> <span class="nav-text">Q1：Doris 的 FE 和 BE 分别负责什么？FE 高可用如何实现？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q2%EF%BC%9ADoris-%E4%B8%89%E5%A4%A7%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B%E7%9A%84%E5%8C%BA%E5%88%AB%E5%92%8C%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.13.2.</span> <span class="nav-text">Q2：Doris 三大数据模型的区别和适用场景？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q3%EF%BC%9ADoris-%E7%9A%84-Tablet-%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E5%88%86%E5%8C%BA%E5%88%86%E6%A1%B6%E5%A6%82%E4%BD%95%E8%AE%BE%E8%AE%A1%EF%BC%9F"><span class="nav-number">1.13.3.</span> <span class="nav-text">Q3：Doris 的 Tablet 是什么？分区分桶如何设计？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q4%EF%BC%9ADoris-%E7%9A%84-Stream-Load-%E5%92%8C-Routine-Load-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="nav-number">1.13.4.</span> <span class="nav-text">Q4：Doris 的 Stream Load 和 Routine Load 有什么区别？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q5%EF%BC%9ADoris-4-0-%E5%BC%95%E5%85%A5%E7%9A%84%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95%E6%9C%89%E4%BB%80%E4%B9%88%E6%84%8F%E4%B9%89%EF%BC%9F%E4%B8%8E%E4%B8%93%E7%94%A8%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="nav-number">1.13.5.</span> <span class="nav-text">Q5：Doris 4.0 引入的向量索引有什么意义？与专用向量数据库的区别？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q6%EF%BC%9ADoris-%E7%9A%84%E5%AD%98%E7%AE%97%E5%88%86%E7%A6%BB%E6%9E%B6%E6%9E%84%E6%9C%89%E5%93%AA%E4%BA%9B%E4%BC%98%E5%8A%BF%EF%BC%9F%E9%80%82%E5%90%88%E4%BB%80%E4%B9%88%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="nav-number">1.13.6.</span> <span class="nav-text">Q6：Doris 的存算分离架构有哪些优势？适合什么场景？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q7%EF%BC%9ADoris-vs-ClickHouse-vs-StarRocks-%E6%80%8E%E4%B9%88%E9%80%89%EF%BC%9F"><span class="nav-number">1.13.7.</span> <span class="nav-text">Q7：Doris vs ClickHouse vs StarRocks 怎么选？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q8%EF%BC%9ADoris-%E7%9A%84%E7%89%A9%E5%8C%96%E8%A7%86%E5%9B%BE%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E6%9F%A5%E8%AF%A2%E9%80%8F%E6%98%8E%E6%94%B9%E5%86%99%EF%BC%9F"><span class="nav-number">1.13.8.</span> <span class="nav-text">Q8：Doris 的物化视图如何实现查询透明改写？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.14.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">38</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">104</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">35</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/clickhouse/" rel="tag">clickhouse</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/doris/" rel="tag">doris</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/druid/" rel="tag">druid</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/flink/" rel="tag">flink</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/graalvm/" rel="tag">graalvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grpc/" rel="tag">grpc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hikaricp/" rel="tag">hikaricp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http2/" rel="tag">http2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">14</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jdk/" rel="tag">jdk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kafka/" rel="tag">kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mongodb/" rel="tag">mongodb</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mpp/" rel="tag">mpp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis/" rel="tag">mybatis</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis-plus/" rel="tag">mybatis-plus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/netty/" rel="tag">netty</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nio/" rel="tag">nio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nosql/" rel="tag">nosql</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/olap/" rel="tag">olap</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/orm/" rel="tag">orm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/protobuf/" rel="tag">protobuf</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rocketmq/" rel="tag">rocketmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rpc/" rel="tag">rpc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring/" rel="tag">spring</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zab/" rel="tag">zab</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/" rel="tag">zookeeper</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%85%A8%E6%96%87%E6%A3%80%E7%B4%A2/" rel="tag">全文检索</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E5%8D%8F%E8%B0%83/" rel="tag">分布式协调</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">26</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/" rel="tag">向量检索</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%A7%E6%95%B0%E6%8D%AE/" rel="tag">大数据</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90/" rel="tag">实时分析</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93/" rel="tag">实时数仓</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%9E%E6%97%B6%E8%AE%A1%E7%AE%97/" rel="tag">实时计算</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/" rel="tag">搜索引擎</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B5%81%E5%A4%84%E7%90%86/" rel="tag">流处理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B9%96%E4%BB%93%E4%B8%80%E4%BD%93/" rel="tag">湖仓一体</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%BA%90%E7%A0%81/" rel="tag">源码</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/" rel="tag">网络编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/" rel="tag">自动装配</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%99%9A%E6%8B%9F%E7%BA%BF%E7%A8%8B/" rel="tag">虚拟线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%9E%E6%8E%A5%E6%B1%A0/" rel="tag">连接池</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6/" rel="tag">集合框架</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" rel="tag">面向对象</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">24</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/" rel="tag">高并发</a><span class="tag-list-count">1</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>
