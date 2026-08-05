@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="OpenTelemetry（简称 OTel）是 CNCF 继 Kubernetes 之后的第二个毕业级可观测性项目，也是 2026 年后端基础设施领域的事实标准。它统一了 Traces（追踪）、Metrics（指标）、Logs（日志）三大遥测信号，并在 2026 年 3 月引入了第四大信号——Profiles（性能剖析 Alpha）。如果你已经用 Prometheus 采集指标、用 ELK 收集日">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenTelemetry 详解：从可观测性标准到 2026 CNCF 毕业生产实战">
+<meta property="og:url" content="http://example.com/2026/08/05/OpenTelemetry%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E6%A0%87%E5%87%86%E5%88%B0%202026%20CNCF%20%E6%AF%95%E4%B8%9A%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98/index.html">
+<meta property="og:site_name" content="瀚峰的学习笔记">
+<meta property="og:description" content="OpenTelemetry（简称 OTel）是 CNCF 继 Kubernetes 之后的第二个毕业级可观测性项目，也是 2026 年后端基础设施领域的事实标准。它统一了 Traces（追踪）、Metrics（指标）、Logs（日志）三大遥测信号，并在 2026 年 3 月引入了第四大信号——Profiles（性能剖析 Alpha）。如果你已经用 Prometheus 采集指标、用 ELK 收集日">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-05T04:00:00.000Z">
+<meta property="article:modified_time" content="2026-08-05T02:20:56.099Z">
+<meta property="article:author" content="往事随风飘散">
+<meta property="article:tag" content="observability">
+<meta property="article:tag" content="opentelemetry">
+<meta property="article:tag" content="otel">
+<meta property="article:tag" content="tracing">
+<meta property="article:tag" content="分布式追踪">
+<meta property="article:tag" content="可观测性">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试题">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2026/08/05/OpenTelemetry%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E6%A0%87%E5%87%86%E5%88%B0%202026%20CNCF%20%E6%AF%95%E4%B8%9A%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>OpenTelemetry 详解：从可观测性标准到 2026 CNCF 毕业生产实战 | 瀚峰的学习笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  <link rel="preconnect" href="https://cdn.staticfile.org" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-28.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/files/lxgwwenkai-regular-subset-29.woff2">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.7.0/lxgwwenkai-regular.css"></noscript>
+  <style>
+    /* 全站正文字体：霞鹜文楷 LXGW WenKai */
+    body,
+    h1, h2, h3, h4, h5, h6,
+    p, a, li, td, th, blockquote, figcaption, label, dt, dd,
+    input, button, textarea, select,
+    .site-title, .site-subtitle, .brand, .site-meta,
+    .menu-item, .post-title, .post-title-link, .post-button,
+    .post-body, .post-meta, .posts-expand, .post-header,
+    .sidebar, .sidebar-inner, .site-author-name, .site-description,
+    .site-state, .links-of-author, .cc-license,
+    .pagination, .comments, .footer, .footer-inner,
+    .aplayer .aplayer-info .aplayer-music .aplayer-title,
+    .aplayer .aplayer-info .aplayer-music .aplayer-author,
+    .aplayer .aplayer-list ol li {
+      font-family: 'LXGW WenKai', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif !important;
+    }
+    /* 代码块保持等宽字体，不受影响 */
+    code, pre, kbd, tt, .code, .highlight, .gutter, .hljs, samp {
+      font-family: 'Consolas', 'Monaco', 'Menlo', 'Courier New', monospace !important;
+    }
+  </style>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">瀚峰的学习笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">Like A Rolling Stone</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2026/08/05/OpenTelemetry%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E6%A0%87%E5%87%86%E5%88%B0%202026%20CNCF%20%E6%AF%95%E4%B8%9A%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpg">
+      <meta itemprop="name" content="往事随风飘散">
+      <meta itemprop="description" content="一路步履不停，却总是慢一拍。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="瀚峰的学习笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenTelemetry 详解：从可观测性标准到 2026 CNCF 毕业生产实战
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-08-05 12:00:00 / 修改时间：10:20:56" itemprop="dateCreated datePublished" datetime="2026-08-05T12:00:00+08:00">2026-08-05</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>OpenTelemetry（简称 OTel）是 CNCF 继 Kubernetes 之后的第二个<strong>毕业级</strong>可观测性项目，也是 2026 年后端基础设施领域的事实标准。它统一了 Traces（追踪）、Metrics（指标）、Logs（日志）三大遥测信号，并在 2026 年 3 月引入了第四大信号——Profiles（性能剖析 Alpha）。如果你已经用 Prometheus 采集指标、用 ELK 收集日志，那么 OpenTelemetry 就是把”分散的三套系统”统一为”一套 API + 一套协议 + 一个 Collector”的终极方案。本文从可观测性演进出发，系统讲清 OTel 核心架构、OTLP 协议、语义约定、Collector 管道、四大信号、Spring Boot 集成完整代码、Docker Compose 全链路部署、2026 最新特性（CNCF 毕业&#x2F;Profiles Alpha&#x2F;Go 编译时插桩&#x2F;GenAI 可观测性&#x2F;eBPF 零侵入），并给出 OTel vs SkyWalking vs Jaeger 选型、生产 10 条避坑与 8 道高频面试题。读完这篇，你能在公司落地 OTel 可观测性方案，在面试中讲清”OTel 和 Prometheus 是什么关系”。</p>
+<span id="more"></span>
+
+<h1 id="OpenTelemetry-详解：从可观测性标准到-2026-CNCF-毕业生产实战"><a href="#OpenTelemetry-详解：从可观测性标准到-2026-CNCF-毕业生产实战" class="headerlink" title="OpenTelemetry 详解：从可观测性标准到 2026 CNCF 毕业生产实战"></a>OpenTelemetry 详解：从可观测性标准到 2026 CNCF 毕业生产实战</h1><h2 id="一、为什么需要-OpenTelemetry？可观测性的标准化战争"><a href="#一、为什么需要-OpenTelemetry？可观测性的标准化战争" class="headerlink" title="一、为什么需要 OpenTelemetry？可观测性的标准化战争"></a>一、为什么需要 OpenTelemetry？可观测性的标准化战争</h2><h3 id="1-1-可观测性三支柱"><a href="#1-1-可观测性三支柱" class="headerlink" title="1.1 可观测性三支柱"></a>1.1 可观测性三支柱</h3><p>“可观测性”（Observability）一词源自控制论，指<strong>通过外部输出推断系统内部状态的能力</strong>。在软件工程中，它由三大遥测信号构成：</p>
+<table>
+<thead>
+<tr>
+<th>信号</th>
+<th>回答的问题</th>
+<th>典型工具</th>
+<th>OTel 状态（2026.07）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Traces（追踪）</strong></td>
+<td>请求在哪一步慢了？跨服务调用链路如何？</td>
+<td>Jaeger、Zipkin、Tempo</td>
+<td>Stable ✅</td>
+</tr>
+<tr>
+<td><strong>Metrics（指标）</strong></td>
+<td>系统当前的 QPS&#x2F;延迟&#x2F;错误率是多少？</td>
+<td>Prometheus、Grafana</td>
+<td>Stable ✅</td>
+</tr>
+<tr>
+<td><strong>Logs（日志）</strong></td>
+<td>应用发生了什么？错误细节是什么？</td>
+<td>ELK、Loki、Fluentd</td>
+<td>Stable ✅</td>
+</tr>
+<tr>
+<td><strong>Profiles（剖析）</strong></td>
+<td>哪段代码消耗了 CPU&#x2F;内存？</td>
+<td>pprof、Pyroscope</td>
+<td>Alpha 🧪</td>
+</tr>
+</tbody></table>
+<h3 id="1-2-前-OTel-时代：碎片化地狱"><a href="#1-2-前-OTel-时代：碎片化地狱" class="headerlink" title="1.2 前 OTel 时代：碎片化地狱"></a>1.2 前 OTel 时代：碎片化地狱</h3><p>在 OpenTelemetry 出现之前（2019 年前），可观测性领域存在两大阵营：</p>
+<ul>
+<li><strong>OpenTracing</strong>（CNCF）：API 标准，支持 Jaeger、Zipkin、Lightstep</li>
+<li><strong>OpenCensus</strong>（Google）：API + Library，支持 Stackdriver、Prometheus</li>
+</ul>
+<p>两者 API 不兼容，库作者必须选边站。如果你的项目用了 OpenTracing 的库 A，又引入了 OpenCensus 的库 B，追踪链路就会断裂。更糟糕的是，每换一个后端（从 Jaeger 迁到 Datadog），就要重写所有 instrumentation 代码。</p>
+<h3 id="1-3-OTel-的统一之道"><a href="#1-3-OTel-的统一之道" class="headerlink" title="1.3 OTel 的统一之道"></a>1.3 OTel 的统一之道</h3><p>2019 年，OpenTracing 和 OpenCensus 合并为 <strong>OpenTelemetry</strong>，核心设计理念是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────┐</span><br><span class="line">│                  你的应用程序                         │</span><br><span class="line">│         (通过 OTel API 写入遥测数据)                  │</span><br><span class="line">└──────────────────────┬──────────────────────────────┘</span><br><span class="line">                       │ OTLP (OpenTelemetry Protocol)</span><br><span class="line">                       ▼</span><br><span class="line">┌─────────────────────────────────────────────────────┐</span><br><span class="line">│              OpenTelemetry Collector                 │</span><br><span class="line">│     (接收 → 处理 → 导出，vendor-neutral 管道)         │</span><br><span class="line">└──┬──────────┬──────────┬──────────┬─────────────────┘</span><br><span class="line">   │          │          │          │</span><br><span class="line">   ▼          ▼          ▼          ▼</span><br><span class="line">Jaeger    Prometheus    Loki      Datadog</span><br><span class="line">(Traces)  (Metrics)    (Logs)    (SaaS)</span><br></pre></td></tr></table></figure>
+
+<p><strong>三大解耦设计</strong>：</p>
+<ol>
+<li><strong>API 与 SDK 解耦</strong>：库代码只依赖 OTel API（接口），具体实现由应用层的 SDK 提供</li>
+<li><strong>SDK 与后端解耦</strong>：应用统一输出 OTLP 协议，后端选择由 Collector 配置决定，不改一行代码</li>
+<li><strong>Collector 与后端解耦</strong>：Collector 是独立的数据管道，支持数十种后端导出器</li>
+</ol>
+<h3 id="1-4-2026-里程碑：CNCF-毕业"><a href="#1-4-2026-里程碑：CNCF-毕业" class="headerlink" title="1.4 2026 里程碑：CNCF 毕业"></a>1.4 2026 里程碑：CNCF 毕业</h3><p>2026 年 7 月，OpenTelemetry 正式从 CNCF <strong>毕业</strong>（Graduated），与 Kubernetes、Prometheus 并列。这意味着：</p>
+<ul>
+<li>项目治理成熟、社区活跃（GitHub Star 30k+，贡献者 2000+）</li>
+<li>被 Netflix、Apple、LinkedIn、Uber、字节跳动等大规模采用</li>
+<li>三大信号全部 GA（Traces 2023、Metrics 2024、Logs 2025）</li>
+<li>成为业界唯一被广泛采纳的可观测性标准</li>
+</ul>
+<hr>
+<h2 id="二、OpenTelemetry-核心架构"><a href="#二、OpenTelemetry-核心架构" class="headerlink" title="二、OpenTelemetry 核心架构"></a>二、OpenTelemetry 核心架构</h2><h3 id="2-1-三层架构总览"><a href="#2-1-三层架构总览" class="headerlink" title="2.1 三层架构总览"></a>2.1 三层架构总览</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">┌──────────────────────────────────────────────────────┐</span><br><span class="line">│                    OTel 架构全景                      │</span><br><span class="line">├──────────────────────────────────────────────────────┤</span><br><span class="line">│                                                      │</span><br><span class="line">│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌────────┐ │</span><br><span class="line">│  │ API     │  │ SDK     │  │ Collector│  │Backend │ │</span><br><span class="line">│  │ (接口)  │→ │ (实现)  │→ │ (管道)   │→ │ (存储)  │ │</span><br><span class="line">│  └─────────┘  └─────────┘  └─────────┘  └────────┘ │</span><br><span class="line">│                                                      │</span><br><span class="line">│  库作者用API   应用配SDK    独立进程     自由选择     │</span><br><span class="line">│  不绑定实现    负责采集     处理+导出    任何后端     │</span><br><span class="line">└──────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h4 id="API-层"><a href="#API-层" class="headerlink" title="API 层"></a>API 层</h4><p>OTel API 是一组接口定义，<strong>库代码只依赖 API</strong>，不引入具体实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 库代码示例：只使用 API，不关心数据发到哪里</span></span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.trace.Tracer;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.trace.Span;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.trace.StatusCode;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Tracer tracer; <span class="comment">// 注入 API 接口</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">processOrder</span><span class="params">(OrderRequest req)</span> &#123;</span><br><span class="line">        <span class="type">Span</span> <span class="variable">span</span> <span class="operator">=</span> tracer.spanBuilder(<span class="string">&quot;process-order&quot;</span>)</span><br><span class="line">            .setAttribute(<span class="string">&quot;order.id&quot;</span>, req.getId())</span><br><span class="line">            .startSpan();</span><br><span class="line">        <span class="keyword">try</span> (<span class="type">var</span> <span class="variable">scope</span> <span class="operator">=</span> span.makeCurrent()) &#123;</span><br><span class="line">            <span class="comment">// 业务逻辑</span></span><br><span class="line">            span.setStatus(StatusCode.OK);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            span.setStatus(StatusCode.ERROR, e.getMessage());</span><br><span class="line">            span.recordException(e);</span><br><span class="line">            <span class="keyword">throw</span> e;</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            span.end();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>关键设计</strong>：当应用没有引入任何 OTel SDK 时，API 调用全部是 NoOp（空操作），零性能开销。这就是库可以安全依赖 API 的原因。</p>
+</blockquote>
+<h4 id="SDK-层"><a href="#SDK-层" class="headerlink" title="SDK 层"></a>SDK 层</h4><p>SDK 是 API 的具体实现，由<strong>应用层</strong>引入，负责：</p>
+<ul>
+<li>采样（Sampling）：决定哪些 trace 上报</li>
+<li>批处理（Batching）：合并数据减少网络请求</li>
+<li>导出（Export）：通过 OTLP 发送到 Collector</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SDK 配置示例</span></span><br><span class="line">SdkTracerProvider.builder()</span><br><span class="line">    .setResource(Resource.getDefault()</span><br><span class="line">        .merge(Resource.create Attributes.of(</span><br><span class="line">            ResourceAttributes.SERVICE_NAME, <span class="string">&quot;order-service&quot;</span>,</span><br><span class="line">            ResourceAttributes.DEPLOYMENT_ENVIRONMENT, <span class="string">&quot;production&quot;</span></span><br><span class="line">        )))</span><br><span class="line">    .setSampler(Sampler.traceIdRatioBased(<span class="number">0.1</span>)) <span class="comment">// 10% 采样</span></span><br><span class="line">    .addSpanProcessor(BatchSpanProcessor.builder(</span><br><span class="line">        OtlpGrpcSpanExporter.builder()</span><br><span class="line">            .setEndpoint(<span class="string">&quot;http://otel-collector:4317&quot;</span>)</span><br><span class="line">            .build()</span><br><span class="line">    ).build())</span><br><span class="line">    .build();</span><br></pre></td></tr></table></figure>
+
+<h4 id="Collector-层"><a href="#Collector-层" class="headerlink" title="Collector 层"></a>Collector 层</h4><p>Collector 是独立的可执行文件（Go 编写），接收、处理、导出遥测数据。后文详解。</p>
+<h3 id="2-2-OTLP-协议详解"><a href="#2-2-OTLP-协议详解" class="headerlink" title="2.2 OTLP 协议详解"></a>2.2 OTLP 协议详解</h3><p><strong>OTLP（OpenTelemetry Protocol）</strong> 是 OTel 的核心传输协议，基于 Protobuf 定义，支持两种传输方式：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>OTLP&#x2F;gRPC</th>
+<th>OTLP&#x2F;HTTP</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>传输协议</td>
+<td>HTTP&#x2F;2 + Protobuf</td>
+<td>HTTP&#x2F;1.1 + Protobuf&#x2F;JSON</td>
+</tr>
+<tr>
+<td>默认端口</td>
+<td>4317</td>
+<td>4318</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>最优（多路复用、流式）</td>
+<td>稍差（受 HTTP&#x2F;1.1 限制）</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>服务端、容器内</td>
+<td>浏览器、Lambda、防火墙限制 gRPC</td>
+</tr>
+<tr>
+<td>路径</td>
+<td>-</td>
+<td><code>/v1/traces</code>、<code>/v1/metrics</code>、<code>/v1/logs</code></td>
+</tr>
+</tbody></table>
+<p>OTLP 数据模型（简化）：</p>
+<figure class="highlight protobuf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">message </span><span class="title class_">ExportTraceServiceRequest</span> &#123;</span><br><span class="line">    <span class="keyword">repeated</span> ResourceSpans resource_spans = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">message </span><span class="title class_">ResourceSpans</span> &#123;</span><br><span class="line">    Resource resource = <span class="number">1</span>;           <span class="comment">// 服务名、环境等元信息</span></span><br><span class="line">    <span class="keyword">repeated</span> ScopeSpans scope_spans = <span class="number">2</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">message </span><span class="title class_">Span</span> &#123;</span><br><span class="line">    <span class="type">bytes</span> trace_id = <span class="number">1</span>;              <span class="comment">// 16字节，全局唯一</span></span><br><span class="line">    <span class="type">bytes</span> span_id = <span class="number">2</span>;               <span class="comment">// 8字节，本 Span 唯一</span></span><br><span class="line">    <span class="type">bytes</span> parent_span_id = <span class="number">3</span>;        <span class="comment">// 父 Span ID（根 Span 为空）</span></span><br><span class="line">    <span class="type">string</span> name = <span class="number">4</span>;                 <span class="comment">// Span 名称</span></span><br><span class="line">    SpanKind kind = <span class="number">5</span>;               <span class="comment">// CLIENT/SERVER/INTERNAL/PRODUCER/CONSUMER</span></span><br><span class="line">    <span class="type">fixed64</span> start_time_unix_nano = <span class="number">6</span>;</span><br><span class="line">    <span class="type">fixed64</span> end_time_unix_nano = <span class="number">7</span>;</span><br><span class="line">    <span class="keyword">repeated</span> KeyValue attributes = <span class="number">8</span>; <span class="comment">// 业务属性</span></span><br><span class="line">    Status status = <span class="number">9</span>;                <span class="comment">// OK/ERROR</span></span><br><span class="line">    <span class="keyword">repeated</span> Event events = <span class="number">10</span>;       <span class="comment">// 事件（如异常记录）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>为什么 OTLP 统一了一切</strong>：无论你的后端是 Jaeger、Tempo、Datadog 还是 Honeycomb，只要支持 OTLP 接收，应用代码无需任何修改。这是 OTel 最核心的价值主张。</p>
+</blockquote>
+<h3 id="2-3-语义约定（Semantic-Conventions）"><a href="#2-3-语义约定（Semantic-Conventions）" class="headerlink" title="2.3 语义约定（Semantic Conventions）"></a>2.3 语义约定（Semantic Conventions）</h3><p>语义约定定义了<strong>遥测数据的标准属性名</strong>，确保不同语言、不同框架产生的数据语义一致：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>标准属性</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>HTTP</td>
+<td><code>http.request.method</code></td>
+<td><code>GET</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>http.response.status_code</code></td>
+<td><code>200</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>url.full</code></td>
+<td><code>https://api.example.com/orders/123</code></td>
+</tr>
+<tr>
+<td>Database</td>
+<td><code>db.system.name</code></td>
+<td><code>mysql</code>、<code>postgresql</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>db.query.text</code></td>
+<td><code>SELECT * FROM orders WHERE id = ?</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>db.operation.name</code></td>
+<td><code>INSERT</code>、<code>SELECT</code></td>
+</tr>
+<tr>
+<td>Messaging</td>
+<td><code>messaging.system</code></td>
+<td><code>kafka</code>、<code>rabbitmq</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>messaging.destination.name</code></td>
+<td><code>order-events</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>messaging.operation</code></td>
+<td><code>publish</code>、<code>process</code></td>
+</tr>
+<tr>
+<td>Resource</td>
+<td><code>service.name</code></td>
+<td><code>order-service</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>deployment.environment</code></td>
+<td><code>production</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>host.name</code></td>
+<td><code>pod-abc123</code></td>
+</tr>
+<tr>
+<td>GenAI（2026 新增）</td>
+<td><code>gen_ai.system</code></td>
+<td><code>openai</code>、<code>anthropic</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>gen_ai.request.model</code></td>
+<td><code>gpt-4</code>、<code>claude-3</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>gen_ai.usage.input_tokens</code></td>
+<td><code>1500</code></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>语义约定是 OTel 的”隐形杀手锏”</strong>：没有它，OTel 只是一个传输管道；有了它，所有后端可以用统一的仪表盘模板、统一的告警规则，真正实现”一次插桩，到处可用”。</p>
+</blockquote>
+<hr>
+<h2 id="三、四大遥测信号详解"><a href="#三、四大遥测信号详解" class="headerlink" title="三、四大遥测信号详解"></a>三、四大遥测信号详解</h2><h3 id="3-1-Traces（分布式追踪）"><a href="#3-1-Traces（分布式追踪）" class="headerlink" title="3.1 Traces（分布式追踪）"></a>3.1 Traces（分布式追踪）</h3><p>追踪是 OTel 最核心的信号，用于还原一次请求在分布式系统中的完整调用链路。</p>
+<p><strong>核心概念</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Trace（一次完整请求）</span><br><span class="line">├── Span A: HTTP GET /api/orders（Server Span, gateway-service）</span><br><span class="line">│   ├── Span B: HTTP POST /order-service/orders（Client Span, gateway→order）</span><br><span class="line">│   │   ├── Span C: SELECT * FROM orders（DB Span, order-service→MySQL）</span><br><span class="line">│   │   └── Span D: HTTP POST /payment-service/charge（Client Span, order→payment）</span><br><span class="line">│   │       └── Span E: Kafka Publish order-created（Producer Span）</span><br><span class="line">│   └── Span F: Redis GET user:123（Client Span, gateway→Redis）</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Trace</strong></td>
+<td>一次完整请求的调用链，由一个全局唯一的 <code>trace_id</code>（16 字节）标识</td>
+</tr>
+<tr>
+<td><strong>Span</strong></td>
+<td>链路中的一个操作节点，有 <code>span_id</code>（8 字节）、<code>parent_span_id</code>、开始&#x2F;结束时间</td>
+</tr>
+<tr>
+<td><strong>SpanKind</strong></td>
+<td><code>SERVER</code>（服务端接收）、<code>CLIENT</code>（客户端发起）、<code>INTERNAL</code>（内部操作）、<code>PRODUCER</code>（消息生产者）、<code>CONSUMER</code>（消息消费者）</td>
+</tr>
+<tr>
+<td><strong>Context Propagation</strong></td>
+<td>跨服务传递 trace_id + span_id 的机制，通过 W3C TraceContext HTTP 头 <code>traceparent</code> 实现</td>
+</tr>
+<tr>
+<td><strong>Baggage</strong></td>
+<td>跨服务传递的业务键值对（如 <code>tenant_id=acme</code>），不产生 Span 但可被沿途所有服务读取</td>
+</tr>
+</tbody></table>
+<p><strong>W3C TraceContext 传播</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># HTTP 请求头</span><br><span class="line">traceparent: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01</span><br><span class="line">             │  └─────────── trace_id ──────────┘ └── span_id ──┘ └┘</span><br><span class="line">             版本                                     flags(采样)</span><br></pre></td></tr></table></figure>
+
+<p><strong>采样策略</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>采样器</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>AlwaysOn</code></td>
+<td>100% 上报</td>
+<td>开发&#x2F;测试</td>
+</tr>
+<tr>
+<td><code>AlwaysOff</code></td>
+<td>0% 上报</td>
+<td>关闭追踪</td>
+</tr>
+<tr>
+<td><code>TraceIdRatioBased</code></td>
+<td>按 trace_id 哈希比例采样</td>
+<td>生产环境（如 10%）</td>
+</tr>
+<tr>
+<td><code>ParentBased</code></td>
+<td>子 Span 跟随父 Span 采样决策</td>
+<td>默认，保证链路完整性</td>
+</tr>
+<tr>
+<td><strong>Tail-based Sampling</strong>（Collector 端）</td>
+<td>看完整链路后再决定是否保留</td>
+<td>生产高级：保留所有错误链路 + 慢请求</td>
+</tr>
+</tbody></table>
+<h3 id="3-2-Metrics（指标）"><a href="#3-2-Metrics（指标）" class="headerlink" title="3.2 Metrics（指标）"></a>3.2 Metrics（指标）</h3><p>指标是<strong>可聚合的数值时间序列</strong>，适合监控仪表盘和告警。</p>
+<p><strong>OTel 指标仪器（Instrument）类型</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>说明</th>
+<th>示例</th>
+<th>Prometheus 对应</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Counter</strong></td>
+<td>单调递增计数器</td>
+<td>请求总数、错误总数</td>
+<td><code>counter</code></td>
+</tr>
+<tr>
+<td><strong>UpDownCounter</strong></td>
+<td>可增减计数器</td>
+<td>活跃连接数、队列长度</td>
+<td><code>gauge</code></td>
+</tr>
+<tr>
+<td><strong>Histogram</strong></td>
+<td>值分布统计</td>
+<td>请求延迟分布</td>
+<td><code>histogram</code></td>
+</tr>
+<tr>
+<td><strong>Gauge</strong></td>
+<td>瞬时值</td>
+<td>当前内存使用、CPU 温度</td>
+<td><code>gauge</code></td>
+</tr>
+<tr>
+<td><strong>ObservableCounter&#x2F;UpDownCounter&#x2F;Gauge</strong></td>
+<td>异步回调采集</td>
+<td>定期采集系统指标</td>
+<td>-</td>
+</tr>
+</tbody></table>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 自定义指标示例</span></span><br><span class="line"><span class="type">Meter</span> <span class="variable">meter</span> <span class="operator">=</span> openTelemetry.getMeter(<span class="string">&quot;order-service&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="type">LongCounter</span> <span class="variable">orderCounter</span> <span class="operator">=</span> meter</span><br><span class="line">    .counterBuilder(<span class="string">&quot;orders_created&quot;</span>)</span><br><span class="line">    .setDescription(<span class="string">&quot;Total orders created&quot;</span>)</span><br><span class="line">    .setUnit(<span class="string">&quot;1&quot;</span>)</span><br><span class="line">    .build();</span><br><span class="line"></span><br><span class="line"><span class="type">DoubleHistogram</span> <span class="variable">orderValueHistogram</span> <span class="operator">=</span> meter</span><br><span class="line">    .histogramBuilder(<span class="string">&quot;order.value&quot;</span>)</span><br><span class="line">    .setDescription(<span class="string">&quot;Order value distribution&quot;</span>)</span><br><span class="line">    .setUnit(<span class="string">&quot;USD&quot;</span>)</span><br><span class="line">    .build();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 记录指标</span></span><br><span class="line">orderCounter.add(<span class="number">1</span>, Attributes.of(</span><br><span class="line">    AttributeKey.stringKey(<span class="string">&quot;order.type&quot;</span>), <span class="string">&quot;digital&quot;</span></span><br><span class="line">));</span><br><span class="line">orderValueHistogram.record(<span class="number">99.99</span>, Attributes.of(</span><br><span class="line">    AttributeKey.stringKey(<span class="string">&quot;payment.method&quot;</span>), <span class="string">&quot;credit_card&quot;</span></span><br><span class="line">));</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-3-Logs（日志）"><a href="#3-3-Logs（日志）" class="headerlink" title="3.3 Logs（日志）"></a>3.3 Logs（日志）</h3><p>OTel Logs 信号于 2025 年正式 GA，将日志纳入统一遥测体系。</p>
+<p><strong>核心概念</strong>：</p>
+<ul>
+<li><strong>LogRecord</strong>：一条日志记录，包含时间戳、严重级别、消息体、属性</li>
+<li><strong>LoggerProvider</strong>：日志采集器，管理 Logger 实例</li>
+<li><strong>Log Bridge</strong>：将现有日志框架（Logback、Log4j2、SLF4J）桥接到 OTel</li>
+</ul>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- Logback 集成 OTel：logback-spring.xml --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">configuration</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- OTel Appender：将日志通过 OTLP 发送 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">appender</span> <span class="attr">name</span>=<span class="string">&quot;OTEL&quot;</span></span></span><br><span class="line"><span class="tag">              <span class="attr">class</span>=<span class="string">&quot;io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">captureLogsAsAttributes</span>&gt;</span>true<span class="tag">&lt;/<span class="name">captureLogsAsAttributes</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">appender</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">&lt;!-- 控制台输出带 traceId --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">appender</span> <span class="attr">name</span>=<span class="string">&quot;CONSOLE&quot;</span> <span class="attr">class</span>=<span class="string">&quot;ch.qos.logback.core.ConsoleAppender&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">encoder</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">pattern</span>&gt;</span>%d&#123;HH:mm:ss&#125; [%X&#123;trace_id&#125;] [%X&#123;span_id&#125;] %-5level %logger - %msg%n<span class="tag">&lt;/<span class="name">pattern</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">encoder</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">appender</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">root</span> <span class="attr">level</span>=<span class="string">&quot;INFO&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">appender-ref</span> <span class="attr">ref</span>=<span class="string">&quot;OTEL&quot;</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">appender-ref</span> <span class="attr">ref</span>=<span class="string">&quot;CONSOLE&quot;</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">root</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">configuration</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>Trace-Log 关联是杀手级特性</strong>：每条日志自动注入当前 <code>trace_id</code> 和 <code>span_id</code>，在 Jaeger 中点击某个慢 Span，可以直接跳转到该 Span 时间窗口内的日志，无需手动搜索。</p>
+</blockquote>
+<h3 id="3-4-Profiles（性能剖析）—-2026-Alpha"><a href="#3-4-Profiles（性能剖析）—-2026-Alpha" class="headerlink" title="3.4 Profiles（性能剖析）— 2026 Alpha"></a>3.4 Profiles（性能剖析）— 2026 Alpha</h3><p>2026 年 3 月，OTel Profiling SIG 宣布 <strong>Profiles 信号进入公开 Alpha</strong>，成为继 Traces、Metrics、Logs 之后的第四大信号。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>回答的问题</strong></td>
+<td>哪段代码消耗了 CPU&#x2F;内存？</td>
+</tr>
+<tr>
+<td><strong>数据格式</strong></td>
+<td>OTLP Profiles（Protobuf），与 pprof 无损互转，wire size 减小约 40%</td>
+</tr>
+<tr>
+<td><strong>采集方式</strong></td>
+<td>eBPF 全系统内核级采样，零代码修改</td>
+</tr>
+<tr>
+<td><strong>Collector 支持</strong></td>
+<td>v0.148.0+，含 pprof receiver + k8sattributesprocessor + OTTL 变换</td>
+</tr>
+<tr>
+<td><strong>贡献者</strong></td>
+<td>Google、Datadog、Elastic、Grafana Labs、Polar Signals</td>
+</tr>
+<tr>
+<td><strong>状态</strong></td>
+<td>Alpha，不建议生产关键负载使用</td>
+</tr>
+</tbody></table>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Metrics  →  系统CPU高</span><br><span class="line">Traces   →  哪个请求慢</span><br><span class="line">Logs     →  应用发生了什么</span><br><span class="line">Profiles →  哪个函数吃掉了CPU  ←  2026 新增</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Profiles 将 Google Fleet-Wide Profiling 论文（2010）的生产实践标准化为开放协议，结束了每个厂商用私有 Agent 和不兼容格式的历史。</p>
+</blockquote>
+<hr>
+<h2 id="四、Collector-管道架构详解"><a href="#四、Collector-管道架构详解" class="headerlink" title="四、Collector 管道架构详解"></a>四、Collector 管道架构详解</h2><h3 id="4-1-三阶段管道模型"><a href="#4-1-三阶段管道模型" class="headerlink" title="4.1 三阶段管道模型"></a>4.1 三阶段管道模型</h3><p>Collector 的核心是 <strong>Receiver → Processor → Exporter</strong> 管道：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">┌──────────┐     ┌────────────┐     ┌──────────┐</span><br><span class="line">│ Receiver │ ──→ │ Processor  │ ──→ │ Exporter │</span><br><span class="line">│ (接收)   │     │ (处理)     │     │ (导出)   │</span><br><span class="line">└──────────┘     └────────────┘     └──────────┘</span><br><span class="line">   推/拉模式       变换/过滤/增强      发送到后端</span><br></pre></td></tr></table></figure>
+
+<p>每个信号（traces&#x2F;metrics&#x2F;logs）有独立的管道，组件按信号类型匹配。</p>
+<h3 id="4-2-配置文件结构"><a href="#4-2-配置文件结构" class="headerlink" title="4.2 配置文件结构"></a>4.2 配置文件结构</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># otel-collector-config.yaml</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. Receivers — 数据接收</span></span><br><span class="line"><span class="attr">receivers:</span></span><br><span class="line">  <span class="attr">otlp:</span></span><br><span class="line">    <span class="attr">protocols:</span></span><br><span class="line">      <span class="attr">grpc:</span></span><br><span class="line">        <span class="attr">endpoint:</span> <span class="number">0.0</span><span class="number">.0</span><span class="number">.0</span><span class="string">:4317</span></span><br><span class="line">      <span class="attr">http:</span></span><br><span class="line">        <span class="attr">endpoint:</span> <span class="number">0.0</span><span class="number">.0</span><span class="number">.0</span><span class="string">:4318</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 拉取 Prometheus 指标</span></span><br><span class="line">  <span class="attr">prometheus:</span></span><br><span class="line">    <span class="attr">config:</span></span><br><span class="line">      <span class="attr">scrape_configs:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">job_name:</span> <span class="string">&#x27;spring-boot-app&#x27;</span></span><br><span class="line">          <span class="attr">scrape_interval:</span> <span class="string">15s</span></span><br><span class="line">          <span class="attr">static_configs:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">targets:</span> [<span class="string">&#x27;app:8080&#x27;</span>]</span><br><span class="line"></span><br><span class="line">  <span class="comment"># 采集主机指标</span></span><br><span class="line">  <span class="attr">hostmetrics:</span></span><br><span class="line">    <span class="attr">collection_interval:</span> <span class="string">30s</span></span><br><span class="line">    <span class="attr">scrapers:</span></span><br><span class="line">      <span class="attr">cpu:</span> &#123;&#125;</span><br><span class="line">      <span class="attr">memory:</span> &#123;&#125;</span><br><span class="line">      <span class="attr">disk:</span> &#123;&#125;</span><br><span class="line">      <span class="attr">network:</span> &#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment"># 采集日志文件</span></span><br><span class="line">  <span class="attr">filelog:</span></span><br><span class="line">    <span class="attr">include:</span> [<span class="string">/var/log/app/*.log</span>]</span><br><span class="line">    <span class="attr">operators:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">type:</span> <span class="string">json_parser</span></span><br><span class="line">        <span class="attr">parse_from:</span> <span class="string">body</span></span><br><span class="line">        <span class="attr">parse_to:</span> <span class="string">attributes</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. Processors — 数据处理</span></span><br><span class="line"><span class="attr">processors:</span></span><br><span class="line">  <span class="comment"># 内存限制，防止 OOM</span></span><br><span class="line">  <span class="attr">memory_limiter:</span></span><br><span class="line">    <span class="attr">check_interval:</span> <span class="string">1s</span></span><br><span class="line">    <span class="attr">limit_mib:</span> <span class="number">512</span></span><br><span class="line">    <span class="attr">spike_limit_mib:</span> <span class="number">128</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 批处理，减少网络请求</span></span><br><span class="line">  <span class="attr">batch:</span></span><br><span class="line">    <span class="attr">timeout:</span> <span class="string">5s</span></span><br><span class="line">    <span class="attr">send_batch_size:</span> <span class="number">1024</span></span><br><span class="line">    <span class="attr">send_batch_max_size:</span> <span class="number">2048</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 添加 Kubernetes 元数据</span></span><br><span class="line">  <span class="attr">k8sattributes:</span></span><br><span class="line">    <span class="attr">auth_type:</span> <span class="string">serviceAccount</span></span><br><span class="line">    <span class="attr">extract:</span></span><br><span class="line">      <span class="attr">metadata:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">k8s.pod.name</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">k8s.pod.uid</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">k8s.namespace.name</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">k8s.deployment.name</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">k8s.node.name</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 资源属性补充</span></span><br><span class="line">  <span class="attr">resource:</span></span><br><span class="line">    <span class="attr">attributes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">deployment.environment</span></span><br><span class="line">        <span class="attr">value:</span> <span class="string">production</span></span><br><span class="line">        <span class="attr">action:</span> <span class="string">upsert</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 过滤健康检查噪声</span></span><br><span class="line">  <span class="attr">filter:</span></span><br><span class="line">    <span class="attr">traces:</span></span><br><span class="line">      <span class="attr">span:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">&#x27;attributes[&quot;http.route&quot;] == &quot;/actuator/health&quot;&#x27;</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 属性脱敏（去除 PII）</span></span><br><span class="line">  <span class="attr">attributes:</span></span><br><span class="line">    <span class="attr">actions:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">http.request.header.authorization</span></span><br><span class="line">        <span class="attr">action:</span> <span class="string">delete</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">db.query.text</span></span><br><span class="line">        <span class="attr">pattern:</span> <span class="string">&#x27;password=\\S+&#x27;</span></span><br><span class="line">        <span class="attr">action:</span> <span class="string">hash</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 尾部采样：看完整链路后决策</span></span><br><span class="line">  <span class="attr">tail_sampling:</span></span><br><span class="line">    <span class="attr">decision_wait:</span> <span class="string">10s</span></span><br><span class="line">    <span class="attr">policies:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">errors</span></span><br><span class="line">        <span class="attr">type:</span> <span class="string">status_code</span></span><br><span class="line">        <span class="attr">status_code:</span></span><br><span class="line">          <span class="attr">status_codes:</span> [<span class="string">ERROR</span>]</span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">slow</span></span><br><span class="line">        <span class="attr">type:</span> <span class="string">latency</span></span><br><span class="line">        <span class="attr">latency:</span></span><br><span class="line">          <span class="attr">threshold_ms:</span> <span class="number">500</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">random</span></span><br><span class="line">        <span class="attr">type:</span> <span class="string">probabilistic</span></span><br><span class="line">        <span class="attr">probabilistic:</span></span><br><span class="line">          <span class="attr">sampling_percentage:</span> <span class="number">5</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. Exporters — 数据导出</span></span><br><span class="line"><span class="attr">exporters:</span></span><br><span class="line">  <span class="comment"># Traces → Jaeger</span></span><br><span class="line">  <span class="attr">otlp/jaeger:</span></span><br><span class="line">    <span class="attr">endpoint:</span> <span class="string">jaeger:4317</span></span><br><span class="line">    <span class="attr">tls:</span></span><br><span class="line">      <span class="attr">insecure:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># Metrics → Prometheus Remote Write</span></span><br><span class="line">  <span class="attr">prometheusremotewrite:</span></span><br><span class="line">    <span class="attr">endpoint:</span> <span class="string">http://prometheus:9090/api/v1/write</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># Logs → Loki</span></span><br><span class="line">  <span class="attr">loki:</span></span><br><span class="line">    <span class="attr">endpoint:</span> <span class="string">http://loki:3100/loki/api/v1/push</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 全部 → OTLP 兼容后端</span></span><br><span class="line">  <span class="attr">otlp:</span></span><br><span class="line">    <span class="attr">endpoint:</span> <span class="string">backend.example.com:4317</span></span><br><span class="line">    <span class="attr">headers:</span></span><br><span class="line">      <span class="attr">api-key:</span> <span class="string">$&#123;env:OTEL_API_KEY&#125;</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 调试用</span></span><br><span class="line">  <span class="attr">debug:</span></span><br><span class="line">    <span class="attr">verbosity:</span> <span class="string">detailed</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. Extensions — 扩展功能</span></span><br><span class="line"><span class="attr">extensions:</span></span><br><span class="line">  <span class="attr">health_check:</span></span><br><span class="line">    <span class="attr">endpoint:</span> <span class="number">0.0</span><span class="number">.0</span><span class="number">.0</span><span class="string">:13133</span></span><br><span class="line">  <span class="attr">zpages:</span></span><br><span class="line">    <span class="attr">endpoint:</span> <span class="number">0.0</span><span class="number">.0</span><span class="number">.0</span><span class="string">:55679</span></span><br><span class="line">  <span class="attr">pprof:</span></span><br><span class="line">    <span class="attr">endpoint:</span> <span class="number">0.0</span><span class="number">.0</span><span class="number">.0</span><span class="string">:1777</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 5. Service — 激活管道</span></span><br><span class="line"><span class="attr">service:</span></span><br><span class="line">  <span class="attr">extensions:</span> [<span class="string">health_check</span>, <span class="string">zpages</span>]</span><br><span class="line">  <span class="attr">pipelines:</span></span><br><span class="line">    <span class="attr">traces:</span></span><br><span class="line">      <span class="attr">receivers:</span> [<span class="string">otlp</span>]</span><br><span class="line">      <span class="attr">processors:</span> [<span class="string">memory_limiter</span>, <span class="string">k8sattributes</span>, <span class="string">resource</span>, <span class="string">filter</span>, <span class="string">tail_sampling</span>, <span class="string">batch</span>]</span><br><span class="line">      <span class="attr">exporters:</span> [<span class="string">otlp/jaeger</span>, <span class="string">debug</span>]</span><br><span class="line">    <span class="attr">metrics:</span></span><br><span class="line">      <span class="attr">receivers:</span> [<span class="string">otlp</span>, <span class="string">hostmetrics</span>, <span class="string">prometheus</span>]</span><br><span class="line">      <span class="attr">processors:</span> [<span class="string">memory_limiter</span>, <span class="string">resource</span>, <span class="string">batch</span>]</span><br><span class="line">      <span class="attr">exporters:</span> [<span class="string">prometheusremotewrite</span>]</span><br><span class="line">    <span class="attr">logs:</span></span><br><span class="line">      <span class="attr">receivers:</span> [<span class="string">otlp</span>, <span class="string">filelog</span>]</span><br><span class="line">      <span class="attr">processors:</span> [<span class="string">memory_limiter</span>, <span class="string">k8sattributes</span>, <span class="string">attributes</span>, <span class="string">batch</span>]</span><br><span class="line">      <span class="attr">exporters:</span> [<span class="string">loki</span>]</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-3-核心处理器速查"><a href="#4-3-核心处理器速查" class="headerlink" title="4.3 核心处理器速查"></a>4.3 核心处理器速查</h3><table>
+<thead>
+<tr>
+<th>处理器</th>
+<th>作用</th>
+<th>使用频率</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>batch</code></td>
+<td>批处理，减少导出请求</td>
+<td>⭐⭐⭐⭐⭐ 必用</td>
+</tr>
+<tr>
+<td><code>memory_limiter</code></td>
+<td>内存限制，防止 OOM</td>
+<td>⭐⭐⭐⭐⭐ 必用</td>
+</tr>
+<tr>
+<td><code>resource</code></td>
+<td>添加&#x2F;修改资源属性</td>
+<td>⭐⭐⭐⭐ 常用</td>
+</tr>
+<tr>
+<td><code>k8sattributes</code></td>
+<td>Kubernetes 元数据增强</td>
+<td>⭐⭐⭐⭐ K8s 必用</td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td>过滤噪声数据</td>
+<td>⭐⭐⭐ 常用</td>
+</tr>
+<tr>
+<td><code>attributes</code></td>
+<td>属性增删改&#x2F;脱敏</td>
+<td>⭐⭐⭐ 常用</td>
+</tr>
+<tr>
+<td><code>tail_sampling</code></td>
+<td>尾部采样</td>
+<td>⭐⭐⭐ 生产推荐</td>
+</tr>
+<tr>
+<td><code>probabilistic_sampler</code></td>
+<td>概率采样</td>
+<td>⭐⭐ 按需</td>
+</tr>
+<tr>
+<td><code>transform</code></td>
+<td>OTTL 变换语言</td>
+<td>⭐⭐ 高级场景</td>
+</tr>
+<tr>
+<td><code>spanmetrics</code></td>
+<td>Span 转 RED 指标（Connector）</td>
+<td>⭐⭐ 高级场景</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>处理器顺序很重要</strong>：数据按配置列表顺序依次流过处理器。<code>memory_limiter</code> 应放最前（尽早丢弃），<code>batch</code> 应放最后（导出前聚合）。</p>
+</blockquote>
+<h3 id="4-4-部署模式"><a href="#4-4-部署模式" class="headerlink" title="4.4 部署模式"></a>4.4 部署模式</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">模式一：Agent（每节点一个）          模式二：Gateway（集群级）</span><br><span class="line">┌──────────────┐                   ┌──────────────────────┐</span><br><span class="line">│   Node 1     │                   │    Load Balancer     │</span><br><span class="line">│ ┌──────────┐ │                   │  ┌─────┐  ┌─────┐   │</span><br><span class="line">│ │ App      │ │                   │  │OTel │  │OTel │   │</span><br><span class="line">│ │ OTel Agent│ │                   │  │ GW1 │  │ GW2 │   │</span><br><span class="line">│ └────┬─────┘ │                   │  └──┬──┘  └──┬──┘   │</span><br><span class="line">└──────┼───────┘                   └─────┼────────┼───────┘</span><br><span class="line">       │ OTLP                            │ OTLP   │</span><br><span class="line">       ▼                                 ▼        ▼</span><br><span class="line">   Backend                           Backend  Backend</span><br><span class="line"></span><br><span class="line">模式三：Agent + Gateway（生产推荐）</span><br><span class="line">┌──────────────┐     ┌──────────────┐     ┌──────────┐</span><br><span class="line">│   Node       │     │  Gateway     │     │ Backend  │</span><br><span class="line">│ ┌──────────┐ │     │ ┌──────────┐ │     │ Jaeger   │</span><br><span class="line">│ │ App      │ │     │ │ Tail     │ │     │ Prometheus│</span><br><span class="line">│ │ OTel     │─┼─────┼→│ Sampling │─┼────→│ Loki     │</span><br><span class="line">│ │ Agent    │ │OTLP │ │ Filter   │ │OTLP │ Datadog  │</span><br><span class="line">│ └──────────┘ │     │ │ Batch    │ │     └──────────┘</span><br><span class="line">│ hostmetrics  │     │ └──────────┘ │</span><br><span class="line">│ filelog      │     │ k8sattrs    │</span><br><span class="line">└──────────────┘     └──────────────┘</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Agent</strong></td>
+<td>低延迟、本地采集主机指标&#x2F;日志</td>
+<td>每节点一个，管理开销</td>
+<td>VM&#x2F;物理机</td>
+</tr>
+<tr>
+<td><strong>Gateway</strong></td>
+<td>集中管理、统一采样</td>
+<td>多一跳延迟</td>
+<td>小规模集群</td>
+</tr>
+<tr>
+<td><strong>Agent + Gateway</strong></td>
+<td>兼顾两者，Agent 做本地采集，Gateway 做尾部采样&#x2F;脱敏</td>
+<td>架构复杂</td>
+<td>大规模 K8s 生产</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>两层数据面关键</strong>：Tail-based Sampling 需要看完整链路才能决策，但 Load Balancer 会把同一 Trace 的 Span 分散到不同 Gateway。解决方案：第一层 Gateway 用 <code>loadbalancing</code> exporter 按 <code>traceID</code> 哈希路由到第二层，保证同一 Trace 的 Span 落在同一实例。</p>
+</blockquote>
+<hr>
+<h2 id="五、自动-Instrumentation"><a href="#五、自动-Instrumentation" class="headerlink" title="五、自动 Instrumentation"></a>五、自动 Instrumentation</h2><h3 id="5-1-Java-Agent（零代码修改）"><a href="#5-1-Java-Agent（零代码修改）" class="headerlink" title="5.1 Java Agent（零代码修改）"></a>5.1 Java Agent（零代码修改）</h3><p>OTel Java Agent 是最简单的接入方式，<strong>无需改一行代码</strong>，只需启动时附加 Agent JAR：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">java -javaagent:opentelemetry-javaagent.jar \</span><br><span class="line">     -Dotel.service.name=order-service \</span><br><span class="line">     -Dotel.exporter.otlp.endpoint=http://otel-collector:4317 \</span><br><span class="line">     -Dotel.traces.sampler=parentbased_traceidratio \</span><br><span class="line">     -Dotel.traces.sampler.arg=0.1 \</span><br><span class="line">     -jar order-service.jar</span><br></pre></td></tr></table></figure>
+
+<p><strong>自动插桩覆盖范围</strong>（Java Agent 2.x）：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>支持的框架</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>HTTP Server</td>
+<td>Spring MVC、Spring WebFlux、JAX-RS、Servlet、Vert.x、Netty</td>
+</tr>
+<tr>
+<td>HTTP Client</td>
+<td>RestTemplate、WebClient、OkHttp、Apache HttpClient、Java 11+ HttpClient</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>JDBC、Hibernate、MyBatis、MongoDB、Redis (Lettuce&#x2F;Jedis)、Cassandra</td>
+</tr>
+<tr>
+<td>Messaging</td>
+<td>Kafka、RabbitMQ、RocketMQ、Pulsar</td>
+</tr>
+<tr>
+<td>RPC</td>
+<td>gRPC、Dubbo</td>
+</tr>
+<tr>
+<td>Logging</td>
+<td>Logback、Log4j2（自动注入 traceId&#x2F;spanId 到 MDC）</td>
+</tr>
+<tr>
+<td>其他</td>
+<td>AWS SDK、Redisson、Elasticsearch、ClickHouse</td>
+</tr>
+</tbody></table>
+<h3 id="5-2-Spring-Boot-集成"><a href="#5-2-Spring-Boot-集成" class="headerlink" title="5.2 Spring Boot 集成"></a>5.2 Spring Boot 集成</h3><h4 id="Spring-Boot-3-x-方式（四依赖）"><a href="#Spring-Boot-3-x-方式（四依赖）" class="headerlink" title="Spring Boot 3.x 方式（四依赖）"></a>Spring Boot 3.x 方式（四依赖）</h4><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependencies</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 1. Actuator（指标暴露） --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-actuator<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 2. Micrometer → OTel 桥接 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.micrometer<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>micrometer-tracing-bridge-otel<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 3. OTLP 导出器 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.opentelemetry<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>opentelemetry-exporter-otlp<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 4. Micrometer OTLP Registry（指标导出） --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>io.micrometer<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>micrometer-registry-otlp<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependencies</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># application.yml</span></span><br><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">application:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">order-service</span></span><br><span class="line"></span><br><span class="line"><span class="attr">management:</span></span><br><span class="line">  <span class="attr">tracing:</span></span><br><span class="line">    <span class="attr">sampling:</span></span><br><span class="line">      <span class="attr">probability:</span> <span class="number">1.0</span>   <span class="comment"># 开发环境 100%，生产调到 0.1</span></span><br><span class="line">  <span class="attr">otlp:</span></span><br><span class="line">    <span class="attr">tracing:</span></span><br><span class="line">      <span class="attr">endpoint:</span> <span class="string">http://otel-collector:4318/v1/traces</span></span><br><span class="line">    <span class="attr">metrics:</span></span><br><span class="line">      <span class="attr">export:</span></span><br><span class="line">        <span class="attr">url:</span> <span class="string">http://otel-collector:4318/v1/metrics</span></span><br><span class="line">        <span class="attr">step:</span> <span class="string">30s</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="Spring-Boot-4-x-方式（单一-Starter）"><a href="#Spring-Boot-4-x-方式（单一-Starter）" class="headerlink" title="Spring Boot 4.x 方式（单一 Starter）"></a>Spring Boot 4.x 方式（单一 Starter）</h4><p>Spring Boot 4 提供了一等公民支持，<strong>一个依赖搞定一切</strong>：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-starter-opentelemetry<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Spring Boot 4 配置（属性名变更）</span></span><br><span class="line"><span class="attr">management:</span></span><br><span class="line">  <span class="attr">opentelemetry:</span></span><br><span class="line">    <span class="attr">tracing:</span></span><br><span class="line">      <span class="attr">export:</span></span><br><span class="line">        <span class="attr">otlp:</span></span><br><span class="line">          <span class="attr">endpoint:</span> <span class="string">http://otel-collector:4318</span>  <span class="comment"># 注意：不再加 /v1/traces</span></span><br><span class="line">  <span class="attr">tracing:</span></span><br><span class="line">    <span class="attr">sampling:</span></span><br><span class="line">      <span class="attr">probability:</span> <span class="number">0.1</span></span><br><span class="line">  <span class="attr">otlp:</span>  <span class="comment"># 指标导出路径不变</span></span><br><span class="line">    <span class="attr">metrics:</span></span><br><span class="line">      <span class="attr">export:</span></span><br><span class="line">        <span class="attr">url:</span> <span class="string">http://otel-collector:4318/v1/metrics</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>配置项</th>
+<th>Spring Boot 3</th>
+<th>Spring Boot 4</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>依赖数量</td>
+<td>4 个</td>
+<td>1 个</td>
+</tr>
+<tr>
+<td>Tracing 导出</td>
+<td><code>management.otlp.tracing.endpoint</code></td>
+<td><code>management.opentelemetry.tracing.export.otlp.endpoint</code></td>
+</tr>
+<tr>
+<td>指标导出</td>
+<td><code>management.otlp.metrics.export.url</code></td>
+<td>不变</td>
+</tr>
+<tr>
+<td>采样率</td>
+<td><code>management.tracing.sampling.probability</code></td>
+<td>不变</td>
+</tr>
+</tbody></table>
+<h3 id="5-3-自定义-Span-与指标"><a href="#5-3-自定义-Span-与指标" class="headerlink" title="5.3 自定义 Span 与指标"></a>5.3 自定义 Span 与指标</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.example.order.service;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.trace.Tracer;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.trace.Span;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.trace.StatusCode;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.metrics.Meter;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.metrics.LongCounter;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.api.metrics.DoubleHistogram;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.context.Scope;</span><br><span class="line"><span class="keyword">import</span> io.opentelemetry.instrumentation.annotations.WithSpan;</span><br><span class="line"><span class="keyword">import</span> org.springframework.stereotype.Service;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Tracer tracer;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> LongCounter orderCounter;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> DoubleHistogram orderValueHistogram;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">OrderService</span><span class="params">(Tracer tracer, Meter meter)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.tracer = tracer;</span><br><span class="line">        <span class="built_in">this</span>.orderCounter = meter.counterBuilder(<span class="string">&quot;orders_created_total&quot;</span>)</span><br><span class="line">                .setDescription(<span class="string">&quot;Total orders created&quot;</span>)</span><br><span class="line">                .build();</span><br><span class="line">        <span class="built_in">this</span>.orderValueHistogram = meter.histogramBuilder(<span class="string">&quot;order_value&quot;</span>)</span><br><span class="line">                .setDescription(<span class="string">&quot;Order value in USD&quot;</span>)</span><br><span class="line">                .setUnit(<span class="string">&quot;USD&quot;</span>)</span><br><span class="line">                .build();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 方式一：@WithSpan 注解自动创建 Span</span></span><br><span class="line">    <span class="meta">@WithSpan(&quot;process-order&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> Order <span class="title function_">processOrder</span><span class="params">(OrderRequest request)</span> &#123;</span><br><span class="line">        <span class="type">Span</span> <span class="variable">currentSpan</span> <span class="operator">=</span> Span.current();</span><br><span class="line">        currentSpan.setAttribute(<span class="string">&quot;order.customer_id&quot;</span>, request.getCustomerId());</span><br><span class="line">        currentSpan.setAttribute(<span class="string">&quot;order.item_count&quot;</span>, request.getItems().size());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 子操作：验证</span></span><br><span class="line">        validateOrder(request);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 子操作：计算总价</span></span><br><span class="line">        <span class="type">BigDecimal</span> <span class="variable">total</span> <span class="operator">=</span> calculateTotal(request);</span><br><span class="line">        currentSpan.setAttribute(<span class="string">&quot;order.total&quot;</span>, total.doubleValue());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 子操作：支付</span></span><br><span class="line">        <span class="type">PaymentResult</span> <span class="variable">payment</span> <span class="operator">=</span> processPayment(request.getCustomerId(), total);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 记录指标</span></span><br><span class="line">        orderCounter.add(<span class="number">1</span>, Attributes.of(</span><br><span class="line">            AttributeKey.stringKey(<span class="string">&quot;order.type&quot;</span>), request.getType()</span><br><span class="line">        ));</span><br><span class="line">        orderValueHistogram.record(total.doubleValue(), Attributes.of(</span><br><span class="line">            AttributeKey.stringKey(<span class="string">&quot;payment.method&quot;</span>), payment.getMethod()</span><br><span class="line">        ));</span><br><span class="line"></span><br><span class="line">        currentSpan.setStatus(StatusCode.OK);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">Order</span>(request, total, payment);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 方式二：手动创建子 Span</span></span><br><span class="line">    <span class="keyword">private</span> BigDecimal <span class="title function_">calculateTotal</span><span class="params">(OrderRequest request)</span> &#123;</span><br><span class="line">        <span class="type">Span</span> <span class="variable">span</span> <span class="operator">=</span> tracer.spanBuilder(<span class="string">&quot;calculate-total&quot;</span>)</span><br><span class="line">                .setSpanKind(SpanKind.INTERNAL)</span><br><span class="line">                .startSpan();</span><br><span class="line">        <span class="keyword">try</span> (<span class="type">Scope</span> <span class="variable">scope</span> <span class="operator">=</span> span.makeCurrent()) &#123;</span><br><span class="line">            <span class="type">BigDecimal</span> <span class="variable">total</span> <span class="operator">=</span> request.getItems().stream()</span><br><span class="line">                    .map(item -&gt; item.getPrice()</span><br><span class="line">                            .multiply(BigDecimal.valueOf(item.getQuantity())))</span><br><span class="line">                    .reduce(BigDecimal.ZERO, BigDecimal::add);</span><br><span class="line">            span.setAttribute(<span class="string">&quot;calculated.total&quot;</span>, total.doubleValue());</span><br><span class="line">            <span class="keyword">return</span> total;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            span.setStatus(StatusCode.ERROR, e.getMessage());</span><br><span class="line">            span.recordException(e);</span><br><span class="line">            <span class="keyword">throw</span> e;</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            span.end();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-4-eBPF-零侵入（2026-新方案）"><a href="#5-4-eBPF-零侵入（2026-新方案）" class="headerlink" title="5.4 eBPF 零侵入（2026 新方案）"></a>5.4 eBPF 零侵入（2026 新方案）</h3><p>对于无法修改代码的遗留系统，OTel 社区推出了基于 <strong>eBPF</strong> 的零侵入方案：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>原理</th>
+<th>支持语言</th>
+<th>部署方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Beyla</strong>（OTel 社区）</td>
+<td>eBPF 拦截 syscall，解析 HTTP&#x2F;gRPC 协议</td>
+<td>任意语言</td>
+<td>K8s DaemonSet</td>
+</tr>
+<tr>
+<td><strong>OBI</strong>（阿里云贡献）</td>
+<td>内核函数级拦截，支持 GenAI 协议</td>
+<td>Go&#x2F;Java&#x2F;Python&#x2F;Node&#x2F;.NET</td>
+<td>独立进程&#x2F;Docker&#x2F;K8s</td>
+</tr>
+<tr>
+<td><strong>Elastic eBPF Profiler</strong></td>
+<td>全系统 CPU 采样</td>
+<td>Go&#x2F;Node&#x2F;Ruby&#x2F;.NET&#x2F;Erlang</td>
+<td>Collector 组件</td>
+</tr>
+</tbody></table>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Beyla K8s 部署：零代码修改自动追踪</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">DaemonSet</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">beyla</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">beyla</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">hostPID:</span> <span class="literal">true</span>          <span class="comment"># 需要访问主机进程</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">beyla</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">ghcr.io/open-telemetry/opentelemetry-go-instrumentation:latest</span></span><br><span class="line">          <span class="attr">securityContext:</span></span><br><span class="line">            <span class="attr">privileged:</span> <span class="literal">true</span>  <span class="comment"># eBPF 需要特权</span></span><br><span class="line">          <span class="attr">env:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_EXPORTER_OTLP_ENDPOINT</span></span><br><span class="line">              <span class="attr">value:</span> <span class="string">&quot;http://otel-collector:4317&quot;</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">OTEL_SERVICE_NAME</span></span><br><span class="line">              <span class="attr">value:</span> <span class="string">&quot;auto-instrumented&quot;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>eBPF 的革命性</strong>：不需要 Java Agent、不需要改 pom.xml、不需要重启应用——一个 DaemonSet 搞定全集群所有服务的 HTTP&#x2F;gRPC 追踪。2026 年 7 月 OTel Go 编译时 Instrumentation v1 也已发布，Go 终于也有了零代码修改方案。</p>
+</blockquote>
+<hr>
+<h2 id="六、Docker-Compose-全链路部署"><a href="#六、Docker-Compose-全链路部署" class="headerlink" title="六、Docker Compose 全链路部署"></a>六、Docker Compose 全链路部署</h2><p>以下是一个完整的本地开发环境，包含 <strong>Spring Boot 应用 + OTel Collector + Jaeger + Prometheus + Grafana</strong>：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># docker-compose.yml</span></span><br><span class="line"><span class="attr">version:</span> <span class="string">&#x27;3.8&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="comment"># 1. Spring Boot 应用</span></span><br><span class="line">  <span class="attr">app:</span></span><br><span class="line">    <span class="attr">build:</span> <span class="string">.</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">OTEL_SERVICE_NAME=order-service</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">OTEL_TRACES_SAMPLER=parentbased_traceidratio</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">OTEL_TRACES_SAMPLER_ARG=1.0</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;8080:8080&quot;</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">otel-collector</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 2. OTel Collector</span></span><br><span class="line">  <span class="attr">otel-collector:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">otel/opentelemetry-collector-contrib:latest</span></span><br><span class="line">    <span class="attr">command:</span> [<span class="string">&quot;--config=/etc/otelcol/config.yaml&quot;</span>]</span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./otel-collector-config.yaml:/etc/otelcol/config.yaml</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;4317:4317&quot;</span>   <span class="comment"># OTLP gRPC</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;4318:4318&quot;</span>   <span class="comment"># OTLP HTTP</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;13133:13133&quot;</span> <span class="comment"># Health check</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;55679:55679&quot;</span> <span class="comment"># zPages</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">jaeger</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">prometheus</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 3. Jaeger（Traces 后端）</span></span><br><span class="line">  <span class="attr">jaeger:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">jaegertracing/all-in-one:1.60</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">COLLECTOR_OTLP_ENABLED=true</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;16686:16686&quot;</span> <span class="comment"># Jaeger UI</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;14250:14250&quot;</span> <span class="comment"># Jaeger gRPC</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 4. Prometheus（Metrics 后端）</span></span><br><span class="line">  <span class="attr">prometheus:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">prom/prometheus:latest</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./prometheus.yml:/etc/prometheus/prometheus.yml</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;9090:9090&quot;</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># 5. Grafana（可视化）</span></span><br><span class="line">  <span class="attr">grafana:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">grafana/grafana:latest</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">GF_AUTH_ANONYMOUS_ENABLED=true</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">GF_AUTH_ANONYMOUS_ORG_ROLE=Admin</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;3000:3000&quot;</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">prometheus</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">jaeger</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># prometheus.yml — 接收 Collector 的 remote write</span></span><br><span class="line"><span class="attr">global:</span></span><br><span class="line">  <span class="attr">scrape_interval:</span> <span class="string">15s</span></span><br><span class="line"></span><br><span class="line"><span class="attr">remote_write:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">url:</span> <span class="string">&quot;http://otel-collector:9090/api/v1/write&quot;</span></span><br><span class="line">    <span class="comment"># 注：Collector 需启用 prometheusremotewrite exporter</span></span><br><span class="line"></span><br><span class="line"><span class="attr">scrape_configs:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">job_name:</span> <span class="string">&#x27;otel-collector&#x27;</span></span><br><span class="line">    <span class="attr">static_configs:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">targets:</span> [<span class="string">&#x27;otel-collector:8888&#x27;</span>]  <span class="comment"># Collector 自身指标</span></span><br></pre></td></tr></table></figure>
+
+<p>启动后：</p>
+<ul>
+<li>应用：<code>http://localhost:8080</code></li>
+<li>Jaeger UI：<code>http://localhost:16686</code> — 查看分布式追踪</li>
+<li>Prometheus：<code>http://localhost:9090</code> — 查看指标</li>
+<li>Grafana：<code>http://localhost:3000</code> — 统一仪表盘</li>
+<li>Collector zPages：<code>http://localhost:55679</code> — Collector 调试</li>
+</ul>
+<hr>
+<h2 id="七、2026-年-OpenTelemetry-新特性"><a href="#七、2026-年-OpenTelemetry-新特性" class="headerlink" title="七、2026 年 OpenTelemetry 新特性"></a>七、2026 年 OpenTelemetry 新特性</h2><h3 id="7-1-CNCF-毕业（2026-07）"><a href="#7-1-CNCF-毕业（2026-07）" class="headerlink" title="7.1 CNCF 毕业（2026.07）"></a>7.1 CNCF 毕业（2026.07）</h3><p>OpenTelemetry 成为继 Kubernetes、Prometheus、Envoy、Istio、containerd、CoreDNS、Vitess、Cilium、Argo、Fluentd 之后 CNCF 第 12 个毕业项目。意义：</p>
+<ul>
+<li>七年开发、2000+ 贡献者、30k+ Star</li>
+<li>三大信号全部 Stable（Traces 2023.01 &#x2F; Metrics 2024.05 &#x2F; Logs 2025.03）</li>
+<li>被 Netflix、Apple、LinkedIn、Uber、字节、美团等大规模采用</li>
+<li>OTLP 成为事实上的唯一可观测性传输协议</li>
+</ul>
+<h3 id="7-2-Profiles-信号公开-Alpha（2026-03）"><a href="#7-2-Profiles-信号公开-Alpha（2026-03）" class="headerlink" title="7.2 Profiles 信号公开 Alpha（2026.03）"></a>7.2 Profiles 信号公开 Alpha（2026.03）</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>详情</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>发布时间</td>
+<td>2026 年 3 月，Profiling SIG 宣布</td>
+</tr>
+<tr>
+<td>Collector 版本</td>
+<td>v0.148.0+</td>
+</tr>
+<tr>
+<td>数据格式</td>
+<td>OTLP Profiles（Protobuf），与 pprof 无损互转，wire size 减小约 40%</td>
+</tr>
+<tr>
+<td>采集方式</td>
+<td>eBPF 全系统内核级采样（Elastic 捐赠的 devfiler）</td>
+</tr>
+<tr>
+<td>支持运行时</td>
+<td>Go、Node.js (V8)、Ruby、.NET 9&#x2F;10、BEAM (Erlang&#x2F;Elixir)</td>
+</tr>
+<tr>
+<td>后端支持</td>
+<td>进行中，暂不建议生产关键负载</td>
+</tr>
+</tbody></table>
+<h3 id="7-3-Go-编译时-Instrumentation-v1（2026-07）"><a href="#7-3-Go-编译时-Instrumentation-v1（2026-07）" class="headerlink" title="7.3 Go 编译时 Instrumentation v1（2026.07）"></a>7.3 Go 编译时 Instrumentation v1（2026.07）</h3><p>Go 一直是 OTel 自动插桩的”最后堡垒”——Go 编译为单一二进制，无法像 Java 那样运行时注入 Agent。2026 年 7 月，OTel Go Compile-Time Instrumentation v1 发布：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 编译时自动注入追踪代码</span></span><br><span class="line">go build -toolexec=<span class="string">&quot;otel-go-instrumentation&quot;</span> -o app .</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>语言</th>
+<th>自动插桩方式</th>
+<th>成熟度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Java</td>
+<td>JVM Agent（运行时）</td>
+<td>✅ 成熟</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>Monkey Patching</td>
+<td>✅ 成熟</td>
+</tr>
+<tr>
+<td>Node.js</td>
+<td>require hook</td>
+<td>✅ 成熟</td>
+</tr>
+<tr>
+<td>.NET</td>
+<td>Profiling API</td>
+<td>✅ 成熟</td>
+</tr>
+<tr>
+<td><strong>Go</strong></td>
+<td><strong>编译时注入（2026.07 v1）</strong></td>
+<td>🆕 v1</td>
+</tr>
+<tr>
+<td>Ruby</td>
+<td>Monkey Patching</td>
+<td>✅ 成熟</td>
+</tr>
+<tr>
+<td>Rust</td>
+<td>宏 + 社区 crate</td>
+<td>🔧 进行中</td>
+</tr>
+<tr>
+<td>C++</td>
+<td>手动 API</td>
+<td>🔧 进行中</td>
+</tr>
+</tbody></table>
+<h3 id="7-4-GenAI-可观测性（2026-热点）"><a href="#7-4-GenAI-可观测性（2026-热点）" class="headerlink" title="7.4 GenAI 可观测性（2026 热点）"></a>7.4 GenAI 可观测性（2026 热点）</h3><p>随着 LLM 应用爆发，OTel 社区快速推进 GenAI 语义约定：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>GenAI SemConv v1.41.0</strong></td>
+<td>流式响应支持、reasoning token 追踪、time-to-first-chunk 指标、工具调用定义</td>
+</tr>
+<tr>
+<td><strong>gen_ai_normalizer processor</strong></td>
+<td>将 OpenInference&#x2F;OpenLLMetry 属性归一化为 OTel 官方语义约定</td>
+</tr>
+<tr>
+<td><strong>OpenInference 捐赠提案</strong></td>
+<td>Arize 提议将 OpenInference instrumentation 代码捐赠给 OTel（Python&#x2F;JS&#x2F;Java&#x2F;Go）</td>
+</tr>
+<tr>
+<td><strong>自动追踪 LLM 调用</strong></td>
+<td>OpenAI、Anthropic、Google Gemini、通义千问的协议级追踪</td>
+</tr>
+<tr>
+<td><strong>RAG 全链路追踪</strong></td>
+<td>Embedding、Retrieval、Rerank、Tool Call 全覆盖</td>
+</tr>
+</tbody></table>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// GenAI Span 示例（自动生成）</span></span><br><span class="line"><span class="type">Span</span> <span class="variable">llmSpan</span> <span class="operator">=</span> tracer.spanBuilder(<span class="string">&quot;chat.completion&quot;</span>)</span><br><span class="line">    .setSpanKind(SpanKind.CLIENT)</span><br><span class="line">    .setAttribute(<span class="string">&quot;gen_ai.system&quot;</span>, <span class="string">&quot;openai&quot;</span>)</span><br><span class="line">    .setAttribute(<span class="string">&quot;gen_ai.request.model&quot;</span>, <span class="string">&quot;gpt-4&quot;</span>)</span><br><span class="line">    .setAttribute(<span class="string">&quot;gen_ai.usage.input_tokens&quot;</span>, <span class="number">1500</span>)</span><br><span class="line">    .setAttribute(<span class="string">&quot;gen_ai.usage.output_tokens&quot;</span>, <span class="number">800</span>)</span><br><span class="line">    .setAttribute(<span class="string">&quot;gen_ai.response.finish_reasons&quot;</span>, <span class="string">&quot;stop&quot;</span>)</span><br><span class="line">    .startSpan();</span><br></pre></td></tr></table></figure>
+
+<h3 id="7-5-Collector-新能力"><a href="#7-5-Collector-新能力" class="headerlink" title="7.5 Collector 新能力"></a>7.5 Collector 新能力</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>版本</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cardinality_guardian</code> processor</td>
+<td>v0.153.0</td>
+<td>动态限制高基数指标标签，使用 HyperLogLog++ 估算器，只剥离问题标签而非丢弃整个数据点</td>
+</tr>
+<tr>
+<td><code>extension/mcp</code></td>
+<td>v0.152.0+</td>
+<td>Collector 的 MCP Server 扩展基座（AI Agent 可查询&#x2F;操控 Collector）</td>
+</tr>
+<tr>
+<td>OTTL Lambda 函数</td>
+<td>2026.07</td>
+<td>OTTL 变换语言支持 Lambda，复杂脱敏&#x2F;归一化逻辑可声明式编写</td>
+</tr>
+<tr>
+<td>Semantic Convention Schema v2</td>
+<td>2026.05</td>
+<td>属性命名规范化，向后兼容</td>
+</tr>
+<tr>
+<td>Browser SDK 首发版</td>
+<td>2026.05</td>
+<td>浏览器端 RUM（Real User Monitoring）标准化</td>
+</tr>
+</tbody></table>
+<h3 id="7-6-OpenCensus-兼容性废弃（2026-06）"><a href="#7-6-OpenCensus-兼容性废弃（2026-06）" class="headerlink" title="7.6 OpenCensus 兼容性废弃（2026.06）"></a>7.6 OpenCensus 兼容性废弃（2026.06）</h3><p>2026 年 6 月，OTel 规范项目合并 PR #5138，正式废弃 OpenCensus 兼容性要求。OpenCensus 已被废弃多年，社区决定从规范层面移除兼容义务。</p>
+<h3 id="7-7-声明式配置（Declarative-Configuration）"><a href="#7-7-声明式配置（Declarative-Configuration）" class="headerlink" title="7.7 声明式配置（Declarative Configuration）"></a>7.7 声明式配置（Declarative Configuration）</h3><p>OTel Spring Boot Starter 2.26.0+ 支持声明式配置，在 <code>application.yml</code> 中直接写 OTel Collector 级别的处理规则：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">otel:</span></span><br><span class="line">  <span class="comment"># 声明式配置：在应用侧定义轻量处理管道</span></span><br><span class="line">  <span class="attr">instrumentation:</span></span><br><span class="line">    <span class="attr">common:</span></span><br><span class="line">      <span class="attr">default-log-enabled:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># 资源属性</span></span><br><span class="line">  <span class="attr">resource:</span></span><br><span class="line">    <span class="attr">attributes:</span></span><br><span class="line">      <span class="attr">service.name:</span> <span class="string">order-service</span></span><br><span class="line">      <span class="attr">deployment.environment:</span> <span class="string">production</span></span><br><span class="line">      <span class="attr">service.version:</span> <span class="string">$&#123;project.version&#125;</span></span><br><span class="line">  <span class="comment"># 导出</span></span><br><span class="line">  <span class="attr">exporter:</span></span><br><span class="line">    <span class="attr">otlp:</span></span><br><span class="line">      <span class="attr">endpoint:</span> <span class="string">http://otel-collector:4317</span></span><br><span class="line">      <span class="attr">protocol:</span> <span class="string">grpc</span></span><br><span class="line">  <span class="comment"># 采样</span></span><br><span class="line">  <span class="attr">traces:</span></span><br><span class="line">    <span class="attr">sampler:</span></span><br><span class="line">      <span class="attr">type:</span> <span class="string">parentbased_traceidratio</span></span><br><span class="line">      <span class="attr">arg:</span> <span class="number">0.1</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="八、OpenTelemetry-vs-传统方案选型"><a href="#八、OpenTelemetry-vs-传统方案选型" class="headerlink" title="八、OpenTelemetry vs 传统方案选型"></a>八、OpenTelemetry vs 传统方案选型</h2><h3 id="8-1-vs-SkyWalking-Zipkin-Jaeger"><a href="#8-1-vs-SkyWalking-Zipkin-Jaeger" class="headerlink" title="8.1 vs SkyWalking &#x2F; Zipkin &#x2F; Jaeger"></a>8.1 vs SkyWalking &#x2F; Zipkin &#x2F; Jaeger</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>OpenTelemetry</th>
+<th>SkyWalking</th>
+<th>Zipkin</th>
+<th>Jaeger</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>定位</strong></td>
+<td>可观测性标准 + 工具链</td>
+<td>APM 平台</td>
+<td>追踪系统</td>
+<td>追踪系统</td>
+</tr>
+<tr>
+<td><strong>信号覆盖</strong></td>
+<td>Traces + Metrics + Logs + Profiles</td>
+<td>Traces + Metrics + Logs</td>
+<td>Traces</td>
+<td>Traces</td>
+</tr>
+<tr>
+<td><strong>语言支持</strong></td>
+<td>11+ 语言</td>
+<td>Java 为主，其他较弱</td>
+<td>多语言</td>
+<td>多语言</td>
+</tr>
+<tr>
+<td><strong>后端绑定</strong></td>
+<td>无（vendor-neutral）</td>
+<td>内置后端</td>
+<td>内置后端</td>
+<td>内置后端</td>
+</tr>
+<tr>
+<td><strong>Agent 模式</strong></td>
+<td>Java Agent + Spring Starter + eBPF</td>
+<td>Java Agent</td>
+<td>库依赖</td>
+<td>库依赖</td>
+</tr>
+<tr>
+<td><strong>社区活跃度</strong></td>
+<td>CNCF 毕业，最活跃</td>
+<td>Apache 顶级，活跃</td>
+<td>维护模式</td>
+<td>CNCF 毕业，活跃</td>
+</tr>
+<tr>
+<td><strong>云原生集成</strong></td>
+<td>K8s Operator 原生</td>
+<td>K8s 支持</td>
+<td>弱</td>
+<td>中等</td>
+</tr>
+<tr>
+<td><strong>适合场景</strong></td>
+<td>新项目、多语言、多后端</td>
+<td>Java 为主的国内团队</td>
+<td>简单追踪</td>
+<td>分布式追踪</td>
+</tr>
+</tbody></table>
+<p><strong>选型建议</strong>：</p>
+<ul>
+<li><strong>新项目</strong>：直接用 OTel，不留技术债</li>
+<li><strong>已有 SkyWalking</strong>：SkyWalking 8.x+ 已支持接收 OTLP 数据，可以渐进迁移——应用改用 OTel SDK，后端暂时不动</li>
+<li><strong>已有 Jaeger</strong>：Jaeger 1.35+ 原生支持 OTLP，直接切换 SDK 即可</li>
+<li><strong>只用 Zipkin</strong>：Zipkin 接收器仍在 Collector 中支持，迁移路径畅通</li>
+</ul>
+<h3 id="8-2-vs-商业-APM（Datadog-New-Relic-Dynatrace）"><a href="#8-2-vs-商业-APM（Datadog-New-Relic-Dynatrace）" class="headerlink" title="8.2 vs 商业 APM（Datadog &#x2F; New Relic &#x2F; Dynatrace）"></a>8.2 vs 商业 APM（Datadog &#x2F; New Relic &#x2F; Dynatrace）</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>OpenTelemetry</th>
+<th>商业 APM</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>成本</strong></td>
+<td>免费（自建后端基础设施成本）</td>
+<td>按量计费，大规模昂贵</td>
+</tr>
+<tr>
+<td><strong>数据所有权</strong></td>
+<td>数据在自己基础设施内</td>
+<td>数据在厂商云</td>
+</tr>
+<tr>
+<td><strong>功能深度</strong></td>
+<td>标准化采集 + 多后端选择</td>
+<td>一体化平台 + AI 异常检测</td>
+</tr>
+<tr>
+<td><strong>上手难度</strong></td>
+<td>需自行搭建后端</td>
+<td>开箱即用</td>
+</tr>
+<tr>
+<td><strong>混合方案</strong></td>
+<td>OTel 采集 → 同时发到自建 + 商业</td>
+<td>通常不支持</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>最佳实践</strong>：用 OTel SDK 采集，Collector 同时导出到自建后端（Prometheus + Jaeger + Loki）和商业 APM（按需），享受两者的优势。</p>
+</blockquote>
+<hr>
+<h2 id="九、生产最佳实践与避坑"><a href="#九、生产最佳实践与避坑" class="headerlink" title="九、生产最佳实践与避坑"></a>九、生产最佳实践与避坑</h2><h3 id="9-1-生产部署-Checklist"><a href="#9-1-生产部署-Checklist" class="headerlink" title="9.1 生产部署 Checklist"></a>9.1 生产部署 Checklist</h3><ul>
+<li><input disabled="" type="checkbox"> 采样率生产环境设为 1%~10%（<code>parentbased_traceidratio</code>）</li>
+<li><input disabled="" type="checkbox"> Collector 启用 <code>memory_limiter</code> + <code>batch</code> 两个必用处理器</li>
+<li><input disabled="" type="checkbox"> Collector 部署为 Agent + Gateway 两层架构</li>
+<li><input disabled="" type="checkbox"> Gateway 层启用 <code>tail_sampling</code>（保留 100% 错误 + 慢请求）</li>
+<li><input disabled="" type="checkbox"> 日志 MDC 注入 <code>trace_id</code> &#x2F; <code>span_id</code>，实现 Trace-Log 关联</li>
+<li><input disabled="" type="checkbox"> 敏感数据脱敏（<code>attributes</code> processor 删除 <code>authorization</code> 头等）</li>
+<li><input disabled="" type="checkbox"> Collector 启用 <code>health_check</code> 扩展，接入 K8s liveness&#x2F;readiness</li>
+<li><input disabled="" type="checkbox"> Collector 持久化队列（<code>file_storage</code> extension），防止后端宕机丢数据</li>
+<li><input disabled="" type="checkbox"> 资源属性统一注入 <code>service.name</code> + <code>deployment.environment</code> + <code>service.version</code></li>
+<li><input disabled="" type="checkbox"> 高基数标签排查：避免在 Span&#x2F;Metric 属性中使用 <code>user_id</code>、<code>request_id</code></li>
+</ul>
+<h3 id="9-2-十条避坑清单"><a href="#9-2-十条避坑清单" class="headerlink" title="9.2 十条避坑清单"></a>9.2 十条避坑清单</h3><table>
+<thead>
+<tr>
+<th>#</th>
+<th>坑</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><strong>采样率为 0</strong>：Traces 完全不出现</td>
+<td>检查 <code>sampler.probability</code>，开发环境设 1.0</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>链路断裂</strong>：跨服务 trace_id 未传递</td>
+<td>确保所有服务使用 W3C TraceContext，检查 HTTP Client 是否自动传播</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>高基数指标爆炸</strong>：标签含 user_id 导致 Prometheus series 暴涨</td>
+<td>用 <code>cardinality_guardian</code> processor 或避免高基数标签</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Collector OOM</strong>：大流量下内存耗尽</td>
+<td>配置 <code>memory_limiter</code>，设置合理的 <code>limit_mib</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>日志无 trace_id</strong>：Logback 未桥接 OTel</td>
+<td>引入 <code>opentelemetry-logback-appender</code> 或使用 Java Agent 自动桥接</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>后端切换要改代码</strong>：SDK 直接配了后端地址</td>
+<td>应用统一发 OTLP 到 Collector，后端地址在 Collector 配置</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>K8s 元数据缺失</strong>：Span 没有 pod&#x2F;namespace 信息</td>
+<td>Collector Agent 启用 <code>k8sattributes</code> processor，配置 RBAC</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Tail Sampling 链路分散</strong>：LB 把同一 Trace 的 Span 分到不同 Collector</td>
+<td>第一层用 <code>loadbalancing</code> exporter 按 <code>traceID</code> 哈希路由</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Span 噪声过多</strong>：健康检查 Span 淹没业务 Span</td>
+<td>用 <code>filter</code> processor 过滤 <code>/actuator/health</code> 等路径</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>Go 应用无法自动插桩</strong>：Go 没有 JVM Agent</td>
+<td>2026.07 起用 Go Compile-Time Instrumentation v1</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="十、八道高频面试题"><a href="#十、八道高频面试题" class="headerlink" title="十、八道高频面试题"></a>十、八道高频面试题</h2><h3 id="Q1：OpenTelemetry-和-Prometheus-是什么关系？会取代-Prometheus-吗？"><a href="#Q1：OpenTelemetry-和-Prometheus-是什么关系？会取代-Prometheus-吗？" class="headerlink" title="Q1：OpenTelemetry 和 Prometheus 是什么关系？会取代 Prometheus 吗？"></a>Q1：OpenTelemetry 和 Prometheus 是什么关系？会取代 Prometheus 吗？</h3><p><strong>答</strong>：两者是互补而非替代关系。</p>
+<ul>
+<li><strong>Prometheus</strong> 是一个完整的监控系统（采集 + 存储 + 查询 + 告警），有自己的数据模型和 PromQL</li>
+<li><strong>OpenTelemetry</strong> 是一个可观测性标准和工具链（API + SDK + Collector + OTLP 协议），覆盖 Traces + Metrics + Logs</li>
+</ul>
+<p>实际关系：</p>
+<ol>
+<li>OTel SDK 可以采集 Metrics，通过 Collector 的 <code>prometheusremotewrite</code> exporter 导出到 Prometheus</li>
+<li>Prometheus 也可以作为 Collector 的 <code>prometheus</code> receiver 数据源</li>
+<li>OTel 不会取代 Prometheus 的存储和查询能力，而是<strong>统一了数据采集层</strong>——以前用 Prometheus Client Library 采集指标、用 Jaeger Client 采集追踪、用 Filebeat 采集日志；现在统一用 OTel SDK 采集所有信号，通过 Collector 路由到各自后端</li>
+</ol>
+<h3 id="Q2：Trace-上下文是如何跨服务传播的？"><a href="#Q2：Trace-上下文是如何跨服务传播的？" class="headerlink" title="Q2：Trace 上下文是如何跨服务传播的？"></a>Q2：Trace 上下文是如何跨服务传播的？</h3><p><strong>答</strong>：通过 W3C TraceContext 规范。</p>
+<ol>
+<li>请求入口的 Server Span 生成 <code>trace_id</code> + <code>span_id</code></li>
+<li>调用下游服务时，HTTP Client 自动注入 <code>traceparent</code> 请求头：<code>00-{trace_id}-{span_id}-{flags}</code></li>
+<li>下游服务接收到请求后，从 <code>traceparent</code> 头提取上下文，创建子 Span（<code>parent_span_id</code> &#x3D; 上游的 <code>span_id</code>）</li>
+<li>整个链路通过 <code>trace_id</code> 串联，形成调用树</li>
+</ol>
+<p>OTel 默认使用 W3C TraceContext，也兼容 B3（Zipkin）等旧格式。除了 HTTP，还支持 gRPC metadata、Kafka headers、RabbitMQ properties 等传播载体。</p>
+<h3 id="Q3：Head-based-Sampling-和-Tail-based-Sampling-的区别？"><a href="#Q3：Head-based-Sampling-和-Tail-based-Sampling-的区别？" class="headerlink" title="Q3：Head-based Sampling 和 Tail-based Sampling 的区别？"></a>Q3：Head-based Sampling 和 Tail-based Sampling 的区别？</h3><p><strong>答</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Head-based（头部采样）</th>
+<th>Tail-based（尾部采样）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>决策时机</strong></td>
+<td>请求入口立即决定</td>
+<td>等完整链路结束后决定</td>
+</tr>
+<tr>
+<td><strong>决策依据</strong></td>
+<td>trace_id 哈希或固定比例</td>
+<td>链路特征（错误&#x2F;延迟&#x2F;属性）</td>
+</tr>
+<tr>
+<td><strong>实现位置</strong></td>
+<td>SDK 端（应用内）</td>
+<td>Collector 端</td>
+</tr>
+<tr>
+<td><strong>优点</strong></td>
+<td>简单、低资源消耗</td>
+<td>精准：可保留所有错误 + 慢请求</td>
+</tr>
+<tr>
+<td><strong>缺点</strong></td>
+<td>可能丢弃有价值的错误链路</td>
+<td>需缓存完整链路，内存开销大</td>
+</tr>
+<tr>
+<td><strong>典型策略</strong></td>
+<td>10% 随机采样</td>
+<td>100% 错误 + 100% &gt; 500ms 慢请求 + 5% 随机</td>
+</tr>
+</tbody></table>
+<p>生产最佳实践：SDK 端用 <code>ParentBased(TraceIdRatioBased(1.0))</code> 全量上报到 Collector，Collector Gateway 层用 Tail-based Sampling 精准过滤。</p>
+<h3 id="Q4：OTel-Collector-的-Agent-和-Gateway-部署模式有什么区别？什么时候用哪个？"><a href="#Q4：OTel-Collector-的-Agent-和-Gateway-部署模式有什么区别？什么时候用哪个？" class="headerlink" title="Q4：OTel Collector 的 Agent 和 Gateway 部署模式有什么区别？什么时候用哪个？"></a>Q4：OTel Collector 的 Agent 和 Gateway 部署模式有什么区别？什么时候用哪个？</h3><p><strong>答</strong>：</p>
+<ul>
+<li><strong>Agent 模式</strong>：Collector 运行在每个节点上（K8s DaemonSet），应用发 OTLP 到 localhost。优点是低延迟、可采集主机指标和日志文件、做本地 K8s 元数据增强。适合 VM&#x2F;K8s 节点级采集。</li>
+<li><strong>Gateway 模式</strong>：一组 Collector 实例在集群级别运行，应用直接发到 Gateway。优点是集中管理、统一采样策略、后端凭证集中配置。适合小规模集群或无主机指标需求场景。</li>
+<li><strong>Agent + Gateway 两层</strong>：Agent 做本地采集和元数据增强，Gateway 做尾部采样、脱敏、成本控制。这是生产推荐模式，兼顾灵活性和集中管控。</li>
+</ul>
+<h3 id="Q5：OTel-的-API-和-SDK-为什么要分离？"><a href="#Q5：OTel-的-API-和-SDK-为什么要分离？" class="headerlink" title="Q5：OTel 的 API 和 SDK 为什么要分离？"></a>Q5：OTel 的 API 和 SDK 为什么要分离？</h3><p><strong>答</strong>：核心目标是<strong>让库代码零依赖具体实现</strong>。</p>
+<ul>
+<li>库代码只依赖 OTel API（接口），当应用没有引入 SDK 时，API 调用全部是 NoOp（空操作），零性能开销</li>
+<li>应用层引入 SDK 后，API 调用才真正产生遥测数据</li>
+<li>这意味着开源库可以安全地内置 OTel API 插桩，不会给不用 OTel 的用户带来任何负担</li>
+</ul>
+<p>这是 OTel 最精妙的设计之一，它解决了”库作者应该不应该内置追踪代码”的经典难题。</p>
+<h3 id="Q6：如何在-Spring-Boot-中实现-Trace-Log-关联？"><a href="#Q6：如何在-Spring-Boot-中实现-Trace-Log-关联？" class="headerlink" title="Q6：如何在 Spring Boot 中实现 Trace-Log 关联？"></a>Q6：如何在 Spring Boot 中实现 Trace-Log 关联？</h3><p><strong>答</strong>：两种方式：</p>
+<p><strong>方式一：Java Agent 自动注入</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">java -javaagent:opentelemetry-javaagent.jar \</span><br><span class="line">     -Dotel.service.name=order-service \</span><br><span class="line">     -jar app.jar</span><br></pre></td></tr></table></figure>
+<p>Agent 会自动将 <code>trace_id</code> 和 <code>span_id</code> 注入 MDC（Mapped Diagnostic Context），Logback&#x2F;Log4j2 的 pattern 中使用 <code>%X{trace_id}</code> 即可输出。</p>
+<p><strong>方式二：Spring Boot Starter + Logback Appender</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- logback-spring.xml --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">appender</span> <span class="attr">name</span>=<span class="string">&quot;OTEL&quot;</span></span></span><br><span class="line"><span class="tag">    <span class="attr">class</span>=<span class="string">&quot;io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">captureLogsAsAttributes</span>&gt;</span>true<span class="tag">&lt;/<span class="name">captureLogsAsAttributes</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">appender</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>在 Jaeger 中点击某个 Span，可以直接跳转到对应时间窗口的日志，反之亦然。</p>
+<h3 id="Q7：OTel-Profiles-信号解决什么问题？什么时候能用？"><a href="#Q7：OTel-Profiles-信号解决什么问题？什么时候能用？" class="headerlink" title="Q7：OTel Profiles 信号解决什么问题？什么时候能用？"></a>Q7：OTel Profiles 信号解决什么问题？什么时候能用？</h3><p><strong>答</strong>：</p>
+<p>Metrics 告诉你 CPU 高了，Traces 告诉你哪个请求慢，Logs 告诉你发生了什么错误——但<strong>没有一个能告诉你哪段代码消耗了 CPU&#x2F;内存</strong>。Profiles 信号填补了这个空白。</p>
+<ul>
+<li><strong>2026.03 Alpha</strong>：OTLP Profiles 数据格式 + Collector v0.148.0 支持 + eBPF 全系统采样器</li>
+<li><strong>与 pprof 互转</strong>：Go 的 pprof 格式可以无损转为 OTLP Profiles，wire size 减小约 40%</li>
+<li><strong>Trace-Span-Profile 关联</strong>：Profile 采样点关联到当时活跃的 Trace 和 Span，慢 Span 可直接定位到代码</li>
+<li><strong>建议</strong>：2026 年是评估窗口，等 Beta&#x2F;GA 后再用于生产关键负载</li>
+</ul>
+<h3 id="Q8：GenAI-应用如何用-OTel-做可观测性？"><a href="#Q8：GenAI-应用如何用-OTel-做可观测性？" class="headerlink" title="Q8：GenAI 应用如何用 OTel 做可观测性？"></a>Q8：GenAI 应用如何用 OTel 做可观测性？</h3><p><strong>答</strong>：2026 年 OTel 社区快速推进了 GenAI 可观测性标准化：</p>
+<ol>
+<li><strong>语义约定 v1.41.0</strong>：定义了 <code>gen_ai.system</code>（openai&#x2F;anthropic）、<code>gen_ai.request.model</code>（gpt-4）、<code>gen_ai.usage.input_tokens</code>、<code>gen_ai.usage.output_tokens</code> 等标准属性</li>
+<li><strong>自动追踪 LLM 调用</strong>：通过 OpenInference instrumentation 自动追踪 OpenAI&#x2F;Anthropic&#x2F;Gemini API 调用，包括 streaming 响应、reasoning token、time-to-first-chunk</li>
+<li><strong>RAG 全链路</strong>：追踪 Embedding → Vector Retrieval → Rerank → LLM → Tool Call 完整链路</li>
+<li><strong>归一化处理器</strong>：<code>gen_ai_normalizer</code> processor 将 OpenInference&#x2F;OpenLLMetry 属性自动归一化为 OTel 官方语义约定</li>
+<li><strong>eBPF 零侵入</strong>：阿里云 OBI 已内置 OpenAI&#x2F;Anthropic&#x2F;Gemini&#x2F;通义千问的协议级追踪，无需改代码</li>
+</ol>
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>OpenTelemetry 在 2026 年已经从一个”有前途的标准”成长为”不可绕过的基础设施”。它的价值不在于发明了新的可观测性技术，而在于<strong>终结了碎片化</strong>——一套 API、一套协议、一个 Collector，覆盖 Traces、Metrics、Logs、Profiles 四大信号，支持 11+ 语言，对接任何后端。</p>
+<p>如果你正在做技术选型：</p>
+<ul>
+<li><strong>新项目</strong>：直接用 OTel，没有第二个选项</li>
+<li><strong>已有 Prometheus + Jaeger + ELK</strong>：后端不动，SDK 层逐步迁移到 OTel</li>
+<li><strong>已有 SkyWalking</strong>：8.x+ 支持 OTLP 接收，应用侧改用 OTel SDK 即可</li>
+<li><strong>Go 服务</strong>：2026.07 编译时 Instrumentation v1 已发布，终于可以零代码插桩</li>
+<li><strong>GenAI 应用</strong>：OTel 的 GenAI 语义约定 + 自动追踪已覆盖主流 LLM 和 RAG 管道</li>
+</ul>
+<p>记住一句话：<strong>OTel 采数据，后端存数据，前端看数据。三者解耦，才是云原生可观测性的正确姿势。</strong></p>
+<blockquote>
+<p><strong>系列文章关联</strong>：本文与 <a href="./Prometheus-Grafana-%E7%9B%91%E6%8E%A7%E5%AE%9E%E6%88%98.md">Prometheus + Grafana 监控实战</a>（Metrics 后端）、<a href="./ELK-%E6%97%A5%E5%BF%97%E6%A0%88%E8%AF%A6%E8%A7%A3.md">ELK 日志栈详解</a>（Logs 后端）、<a href="./%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84%E8%AF%A6%E8%A7%A3.md">微服务架构详解</a>（分布式追踪场景）、<a href="./Spring-Boot-%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3.md">Spring Boot 核心原理</a>（Spring Boot 4 OTel Starter）形成完整的可观测性知识体系。</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag"># 后端</a>
+              <a href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag"># 面试题</a>
+              <a href="/tags/observability/" rel="tag"># observability</a>
+              <a href="/tags/opentelemetry/" rel="tag"># opentelemetry</a>
+              <a href="/tags/%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/" rel="tag"># 可观测性</a>
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E8%BF%BD%E8%B8%AA/" rel="tag"># 分布式追踪</a>
+              <a href="/tags/otel/" rel="tag"># otel</a>
+              <a href="/tags/tracing/" rel="tag"># tracing</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/08/04/Apache%20Doris%20%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%20MPP%20%E6%9E%B6%E6%9E%84%E5%88%B0%20AI%20%E5%8E%9F%E7%94%9F%E4%B8%8E%202026%20%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93%E5%AE%9E%E6%88%98/" rel="prev" title="Apache Doris 详解：从 MPP 架构到 AI 原生与 2026 实时数仓实战">
+      <i class="fa fa-chevron-left"></i> Apache Doris 详解：从 MPP 架构到 AI 原生与 2026 实时数仓实战
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#OpenTelemetry-%E8%AF%A6%E8%A7%A3%EF%BC%9A%E4%BB%8E%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E6%A0%87%E5%87%86%E5%88%B0-2026-CNCF-%E6%AF%95%E4%B8%9A%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98"><span class="nav-number">1.</span> <span class="nav-text">OpenTelemetry 详解：从可观测性标准到 2026 CNCF 毕业生产实战</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-OpenTelemetry%EF%BC%9F%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E7%9A%84%E6%A0%87%E5%87%86%E5%8C%96%E6%88%98%E4%BA%89"><span class="nav-number">1.1.</span> <span class="nav-text">一、为什么需要 OpenTelemetry？可观测性的标准化战争</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1-%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%89%E6%94%AF%E6%9F%B1"><span class="nav-number">1.1.1.</span> <span class="nav-text">1.1 可观测性三支柱</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2-%E5%89%8D-OTel-%E6%97%B6%E4%BB%A3%EF%BC%9A%E7%A2%8E%E7%89%87%E5%8C%96%E5%9C%B0%E7%8B%B1"><span class="nav-number">1.1.2.</span> <span class="nav-text">1.2 前 OTel 时代：碎片化地狱</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-3-OTel-%E7%9A%84%E7%BB%9F%E4%B8%80%E4%B9%8B%E9%81%93"><span class="nav-number">1.1.3.</span> <span class="nav-text">1.3 OTel 的统一之道</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-4-2026-%E9%87%8C%E7%A8%8B%E7%A2%91%EF%BC%9ACNCF-%E6%AF%95%E4%B8%9A"><span class="nav-number">1.1.4.</span> <span class="nav-text">1.4 2026 里程碑：CNCF 毕业</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81OpenTelemetry-%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84"><span class="nav-number">1.2.</span> <span class="nav-text">二、OpenTelemetry 核心架构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E4%B8%89%E5%B1%82%E6%9E%B6%E6%9E%84%E6%80%BB%E8%A7%88"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 三层架构总览</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#API-%E5%B1%82"><span class="nav-number">1.2.1.1.</span> <span class="nav-text">API 层</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SDK-%E5%B1%82"><span class="nav-number">1.2.1.2.</span> <span class="nav-text">SDK 层</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Collector-%E5%B1%82"><span class="nav-number">1.2.1.3.</span> <span class="nav-text">Collector 层</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-OTLP-%E5%8D%8F%E8%AE%AE%E8%AF%A6%E8%A7%A3"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 OTLP 协议详解</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E8%AF%AD%E4%B9%89%E7%BA%A6%E5%AE%9A%EF%BC%88Semantic-Conventions%EF%BC%89"><span class="nav-number">1.2.3.</span> <span class="nav-text">2.3 语义约定（Semantic Conventions）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%9B%9B%E5%A4%A7%E9%81%A5%E6%B5%8B%E4%BF%A1%E5%8F%B7%E8%AF%A6%E8%A7%A3"><span class="nav-number">1.3.</span> <span class="nav-text">三、四大遥测信号详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-Traces%EF%BC%88%E5%88%86%E5%B8%83%E5%BC%8F%E8%BF%BD%E8%B8%AA%EF%BC%89"><span class="nav-number">1.3.1.</span> <span class="nav-text">3.1 Traces（分布式追踪）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-Metrics%EF%BC%88%E6%8C%87%E6%A0%87%EF%BC%89"><span class="nav-number">1.3.2.</span> <span class="nav-text">3.2 Metrics（指标）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-Logs%EF%BC%88%E6%97%A5%E5%BF%97%EF%BC%89"><span class="nav-number">1.3.3.</span> <span class="nav-text">3.3 Logs（日志）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-Profiles%EF%BC%88%E6%80%A7%E8%83%BD%E5%89%96%E6%9E%90%EF%BC%89%E2%80%94-2026-Alpha"><span class="nav-number">1.3.4.</span> <span class="nav-text">3.4 Profiles（性能剖析）— 2026 Alpha</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81Collector-%E7%AE%A1%E9%81%93%E6%9E%B6%E6%9E%84%E8%AF%A6%E8%A7%A3"><span class="nav-number">1.4.</span> <span class="nav-text">四、Collector 管道架构详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E4%B8%89%E9%98%B6%E6%AE%B5%E7%AE%A1%E9%81%93%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.4.1.</span> <span class="nav-text">4.1 三阶段管道模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E7%BB%93%E6%9E%84"><span class="nav-number">1.4.2.</span> <span class="nav-text">4.2 配置文件结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-%E6%A0%B8%E5%BF%83%E5%A4%84%E7%90%86%E5%99%A8%E9%80%9F%E6%9F%A5"><span class="nav-number">1.4.3.</span> <span class="nav-text">4.3 核心处理器速查</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-%E9%83%A8%E7%BD%B2%E6%A8%A1%E5%BC%8F"><span class="nav-number">1.4.4.</span> <span class="nav-text">4.4 部署模式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E8%87%AA%E5%8A%A8-Instrumentation"><span class="nav-number">1.5.</span> <span class="nav-text">五、自动 Instrumentation</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-Java-Agent%EF%BC%88%E9%9B%B6%E4%BB%A3%E7%A0%81%E4%BF%AE%E6%94%B9%EF%BC%89"><span class="nav-number">1.5.1.</span> <span class="nav-text">5.1 Java Agent（零代码修改）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-Spring-Boot-%E9%9B%86%E6%88%90"><span class="nav-number">1.5.2.</span> <span class="nav-text">5.2 Spring Boot 集成</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Spring-Boot-3-x-%E6%96%B9%E5%BC%8F%EF%BC%88%E5%9B%9B%E4%BE%9D%E8%B5%96%EF%BC%89"><span class="nav-number">1.5.2.1.</span> <span class="nav-text">Spring Boot 3.x 方式（四依赖）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Spring-Boot-4-x-%E6%96%B9%E5%BC%8F%EF%BC%88%E5%8D%95%E4%B8%80-Starter%EF%BC%89"><span class="nav-number">1.5.2.2.</span> <span class="nav-text">Spring Boot 4.x 方式（单一 Starter）</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-%E8%87%AA%E5%AE%9A%E4%B9%89-Span-%E4%B8%8E%E6%8C%87%E6%A0%87"><span class="nav-number">1.5.3.</span> <span class="nav-text">5.3 自定义 Span 与指标</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-eBPF-%E9%9B%B6%E4%BE%B5%E5%85%A5%EF%BC%882026-%E6%96%B0%E6%96%B9%E6%A1%88%EF%BC%89"><span class="nav-number">1.5.4.</span> <span class="nav-text">5.4 eBPF 零侵入（2026 新方案）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81Docker-Compose-%E5%85%A8%E9%93%BE%E8%B7%AF%E9%83%A8%E7%BD%B2"><span class="nav-number">1.6.</span> <span class="nav-text">六、Docker Compose 全链路部署</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%812026-%E5%B9%B4-OpenTelemetry-%E6%96%B0%E7%89%B9%E6%80%A7"><span class="nav-number">1.7.</span> <span class="nav-text">七、2026 年 OpenTelemetry 新特性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-CNCF-%E6%AF%95%E4%B8%9A%EF%BC%882026-07%EF%BC%89"><span class="nav-number">1.7.1.</span> <span class="nav-text">7.1 CNCF 毕业（2026.07）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-Profiles-%E4%BF%A1%E5%8F%B7%E5%85%AC%E5%BC%80-Alpha%EF%BC%882026-03%EF%BC%89"><span class="nav-number">1.7.2.</span> <span class="nav-text">7.2 Profiles 信号公开 Alpha（2026.03）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-3-Go-%E7%BC%96%E8%AF%91%E6%97%B6-Instrumentation-v1%EF%BC%882026-07%EF%BC%89"><span class="nav-number">1.7.3.</span> <span class="nav-text">7.3 Go 编译时 Instrumentation v1（2026.07）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-4-GenAI-%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%EF%BC%882026-%E7%83%AD%E7%82%B9%EF%BC%89"><span class="nav-number">1.7.4.</span> <span class="nav-text">7.4 GenAI 可观测性（2026 热点）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-5-Collector-%E6%96%B0%E8%83%BD%E5%8A%9B"><span class="nav-number">1.7.5.</span> <span class="nav-text">7.5 Collector 新能力</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-6-OpenCensus-%E5%85%BC%E5%AE%B9%E6%80%A7%E5%BA%9F%E5%BC%83%EF%BC%882026-06%EF%BC%89"><span class="nav-number">1.7.6.</span> <span class="nav-text">7.6 OpenCensus 兼容性废弃（2026.06）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-7-%E5%A3%B0%E6%98%8E%E5%BC%8F%E9%85%8D%E7%BD%AE%EF%BC%88Declarative-Configuration%EF%BC%89"><span class="nav-number">1.7.7.</span> <span class="nav-text">7.7 声明式配置（Declarative Configuration）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81OpenTelemetry-vs-%E4%BC%A0%E7%BB%9F%E6%96%B9%E6%A1%88%E9%80%89%E5%9E%8B"><span class="nav-number">1.8.</span> <span class="nav-text">八、OpenTelemetry vs 传统方案选型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#8-1-vs-SkyWalking-Zipkin-Jaeger"><span class="nav-number">1.8.1.</span> <span class="nav-text">8.1 vs SkyWalking &#x2F; Zipkin &#x2F; Jaeger</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-2-vs-%E5%95%86%E4%B8%9A-APM%EF%BC%88Datadog-New-Relic-Dynatrace%EF%BC%89"><span class="nav-number">1.8.2.</span> <span class="nav-text">8.2 vs 商业 APM（Datadog &#x2F; New Relic &#x2F; Dynatrace）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81%E7%94%9F%E4%BA%A7%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E4%B8%8E%E9%81%BF%E5%9D%91"><span class="nav-number">1.9.</span> <span class="nav-text">九、生产最佳实践与避坑</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#9-1-%E7%94%9F%E4%BA%A7%E9%83%A8%E7%BD%B2-Checklist"><span class="nav-number">1.9.1.</span> <span class="nav-text">9.1 生产部署 Checklist</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-2-%E5%8D%81%E6%9D%A1%E9%81%BF%E5%9D%91%E6%B8%85%E5%8D%95"><span class="nav-number">1.9.2.</span> <span class="nav-text">9.2 十条避坑清单</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%81%E3%80%81%E5%85%AB%E9%81%93%E9%AB%98%E9%A2%91%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">1.10.</span> <span class="nav-text">十、八道高频面试题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Q1%EF%BC%9AOpenTelemetry-%E5%92%8C-Prometheus-%E6%98%AF%E4%BB%80%E4%B9%88%E5%85%B3%E7%B3%BB%EF%BC%9F%E4%BC%9A%E5%8F%96%E4%BB%A3-Prometheus-%E5%90%97%EF%BC%9F"><span class="nav-number">1.10.1.</span> <span class="nav-text">Q1：OpenTelemetry 和 Prometheus 是什么关系？会取代 Prometheus 吗？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q2%EF%BC%9ATrace-%E4%B8%8A%E4%B8%8B%E6%96%87%E6%98%AF%E5%A6%82%E4%BD%95%E8%B7%A8%E6%9C%8D%E5%8A%A1%E4%BC%A0%E6%92%AD%E7%9A%84%EF%BC%9F"><span class="nav-number">1.10.2.</span> <span class="nav-text">Q2：Trace 上下文是如何跨服务传播的？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q3%EF%BC%9AHead-based-Sampling-%E5%92%8C-Tail-based-Sampling-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="nav-number">1.10.3.</span> <span class="nav-text">Q3：Head-based Sampling 和 Tail-based Sampling 的区别？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q4%EF%BC%9AOTel-Collector-%E7%9A%84-Agent-%E5%92%8C-Gateway-%E9%83%A8%E7%BD%B2%E6%A8%A1%E5%BC%8F%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E7%94%A8%E5%93%AA%E4%B8%AA%EF%BC%9F"><span class="nav-number">1.10.4.</span> <span class="nav-text">Q4：OTel Collector 的 Agent 和 Gateway 部署模式有什么区别？什么时候用哪个？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q5%EF%BC%9AOTel-%E7%9A%84-API-%E5%92%8C-SDK-%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%88%86%E7%A6%BB%EF%BC%9F"><span class="nav-number">1.10.5.</span> <span class="nav-text">Q5：OTel 的 API 和 SDK 为什么要分离？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q6%EF%BC%9A%E5%A6%82%E4%BD%95%E5%9C%A8-Spring-Boot-%E4%B8%AD%E5%AE%9E%E7%8E%B0-Trace-Log-%E5%85%B3%E8%81%94%EF%BC%9F"><span class="nav-number">1.10.6.</span> <span class="nav-text">Q6：如何在 Spring Boot 中实现 Trace-Log 关联？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q7%EF%BC%9AOTel-Profiles-%E4%BF%A1%E5%8F%B7%E8%A7%A3%E5%86%B3%E4%BB%80%E4%B9%88%E9%97%AE%E9%A2%98%EF%BC%9F%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E8%83%BD%E7%94%A8%EF%BC%9F"><span class="nav-number">1.10.7.</span> <span class="nav-text">Q7：OTel Profiles 信号解决什么问题？什么时候能用？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q8%EF%BC%9AGenAI-%E5%BA%94%E7%94%A8%E5%A6%82%E4%BD%95%E7%94%A8-OTel-%E5%81%9A%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%EF%BC%9F"><span class="nav-number">1.10.8.</span> <span class="nav-text">Q8：GenAI 应用如何用 OTel 做可观测性？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.11.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+      </div>
+
+      
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="往事随风飘散"
+      src="/images/avatar.jpg">
+  <p class="site-author-name" itemprop="name">往事随风飘散</p>
+  <div class="site-description" itemprop="description">一路步履不停，却总是慢一拍。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">40</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">114</span>
+        <span class="site-state-item-name">标签</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:fltowin@qq.com" title="E-Mail → mailto:fltowin@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+
+        <div class="sidebar-widget">
+          <style>
+            .sidebar-widget{margin:16px 0;}
+            /* 整体深色卡片，融入侧边栏 */
+            .sidebar-widget .aplayer{margin:0;border-radius:8px;overflow:hidden;font-family:inherit;background:#2b2b2b;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+            .sidebar-widget .aplayer .aplayer-body{background:#2b2b2b;}
+            /* 封面 */
+            .sidebar-widget .aplayer .aplayer-pic{width:56px;height:56px;border-radius:0 !important;}
+            .sidebar-widget .aplayer .aplayer-info{margin-left:56px;padding:7px 8px 5px;border-top:none;}
+            /* 隐藏歌词区（白痕元凶：歌词的白色渐变遮罩，深色背景下显成白条） */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-lrc{display:none !important;}
+            .sidebar-widget .aplayer .aplayer-lrc:before,
+            .sidebar-widget .aplayer .aplayer-lrc:after{display:none !important;}
+            /* 歌名、歌手 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music{height:auto;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-title{font-size:13px;color:#eee;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-music .aplayer-author{font-size:12px;color:#8a8a8a;}
+            /* 进度条 & 时间 */
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-time{color:#aaa;}
+            .sidebar-widget .aplayer .aplayer-info .aplayer-controller .aplayer-bar-wrap .aplayer-bar{background:#555;}
+            /* 歌单列表深色 */
+            .sidebar-widget .aplayer .aplayer-list{max-height:180px;background:#252525;border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li{border-top:1px solid rgba(255,255,255,.06);color:#b5b5b5;}
+            .sidebar-widget .aplayer .aplayer-list ol li:first-child{border-top:none;}
+            .sidebar-widget .aplayer .aplayer-list ol li:hover{background:rgba(255,255,255,.06);}
+            .sidebar-widget .aplayer .aplayer-list ol li.aplayer-list-light{background:rgba(255,255,255,.1);}
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-index,
+            .sidebar-widget .aplayer .aplayer-list ol li .aplayer-list-author{color:#7a7a7a;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar{width:4px;}
+            .sidebar-widget .aplayer .aplayer-list ol::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px;}
+          </style>
+          <meting-js api="https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r" server="netease" type="playlist" id="5137465810" mini="false" fixed="false" list-folded="false" list-max-height="180px" order="list" preload="none" autoplay="false" volume="0.6" theme="#ff6768"></meting-js>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+
+        
+        <aside class="sidebar sidebar-right">
+  <div class="sidebar-right-inner">
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-th fa-fw"></i> 文章分类
+      </h3>
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a><span class="category-list-count">37</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%97%A5%E5%B8%B8%E7%A2%8E%E7%A2%8E%E5%BF%B5/">日常碎碎念</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%B8%A9%E5%9D%91%E6%97%A5%E8%AE%B0/">踩坑日记</a><span class="category-list-count">1</span></li></ul>
+    </div>
+
+    
+    <div class="sidebar-right-widget">
+      <h3 class="sidebar-right-title">
+        <i class="fa fa-tags fa-fw"></i> 文章标签
+      </h3>
+      <div class="tag-cloud">
+        <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI%E7%BC%96%E7%A8%8B/" rel="tag">AI编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Agent/" rel="tag">Agent</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kafka/" rel="tag">Kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MCP/" rel="tag">MCP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cap/" rel="tag">cap</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/cicd/" rel="tag">cicd</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/clickhouse/" rel="tag">clickhouse</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/database-plus/" rel="tag">database-plus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/devops/" rel="tag">devops</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/docker/" rel="tag">docker</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/doris/" rel="tag">doris</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/druid/" rel="tag">druid</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elasticsearch/" rel="tag">elasticsearch</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/elk/" rel="tag">elk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/envoy/" rel="tag">envoy</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/flink/" rel="tag">flink</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/gc/" rel="tag">gc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/github-actions/" rel="tag">github-actions</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/graalvm/" rel="tag">graalvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grafana/" rel="tag">grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/grpc/" rel="tag">grpc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/hikaricp/" rel="tag">hikaricp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/http2/" rel="tag">http2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/istio/" rel="tag">istio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/java/" rel="tag">java</a><span class="tag-list-count">14</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jdk/" rel="tag">jdk</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jenkins/" rel="tag">jenkins</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/juc/" rel="tag">juc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jvm/" rel="tag">jvm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/jwt/" rel="tag">jwt</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/k8s/" rel="tag">k8s</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kafka/" rel="tag">kafka</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/kubernetes/" rel="tag">kubernetes</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mongodb/" rel="tag">mongodb</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mpp/" rel="tag">mpp</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis/" rel="tag">mybatis</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mybatis-plus/" rel="tag">mybatis-plus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mysql/" rel="tag">mysql</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/netty/" rel="tag">netty</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nginx/" rel="tag">nginx</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nio/" rel="tag">nio</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nosql/" rel="tag">nosql</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/oauth2/" rel="tag">oauth2</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/observability/" rel="tag">observability</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/olap/" rel="tag">olap</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/opentelemetry/" rel="tag">opentelemetry</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/orm/" rel="tag">orm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/otel/" rel="tag">otel</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prometheus/" rel="tag">prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/protobuf/" rel="tag">protobuf</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rabbitmq/" rel="tag">rabbitmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/raft/" rel="tag">raft</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/redis/" rel="tag">redis</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rocketmq/" rel="tag">rocketmq</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rpc/" rel="tag">rpc</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/service-mesh/" rel="tag">service-mesh</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/shardingsphere/" rel="tag">shardingsphere</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring/" rel="tag">spring</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spring-security/" rel="tag">spring-security</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springboot/" rel="tag">springboot</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/springcloud/" rel="tag">springcloud</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/tracing/" rel="tag">tracing</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zab/" rel="tag">zab</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/zookeeper/" rel="tag">zookeeper</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/" rel="tag">一致性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/" rel="tag">云原生</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%85%A8%E6%96%87%E6%A3%80%E7%B4%A2/" rel="tag">全文检索</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag">分布式</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/" rel="tag">分布式事务</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E5%8D%8F%E8%B0%83/" rel="tag">分布式协调</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E8%BF%BD%E8%B8%AA/" rel="tag">分布式追踪</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/" rel="tag">分布式锁</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/" rel="tag">分库分表</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="tag">反向代理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/" rel="tag">可观测性</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a><span class="tag-list-count">28</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/" rel="tag">向量检索</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%9A%E7%BA%BF%E7%A8%8B/" rel="tag">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%A4%A7%E6%95%B0%E6%8D%AE/" rel="tag">大数据</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90/" rel="tag">实时分析</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93/" rel="tag">实时数仓</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%9E%E6%97%B6%E8%AE%A1%E7%AE%97/" rel="tag">实时计算</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96/" rel="tag">容器化</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag">并发编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag">性能调优</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/" rel="tag">技术趋势</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/" rel="tag">搜索引擎</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%8A%A0%E5%AF%86/" rel="tag">数据加密</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%97%A5%E5%BF%97/" rel="tag">日志</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B5%81%E5%A4%84%E7%90%86/" rel="tag">流处理</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/" rel="tag">消息队列</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%B9%96%E4%BB%93%E4%B8%80%E4%BD%93/" rel="tag">湖仓一体</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%BA%90%E7%A0%81/" rel="tag">源码</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/" rel="tag">网络编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/" rel="tag">自动装配</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%87%AA%E6%88%91%E4%BB%8B%E7%BB%8D/" rel="tag">自我介绍</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%99%9A%E6%8B%9F%E7%BA%BF%E7%A8%8B/" rel="tag">虚拟线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%A4%E8%AF%81%E6%8E%88%E6%9D%83/" rel="tag">认证授权</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%AF%BB%E5%86%99%E5%88%86%E7%A6%BB/" rel="tag">读写分离</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B8%A9%E5%9D%91/" rel="tag">踩坑</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag">运维</a><span class="tag-list-count">5</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%BF%9E%E6%8E%A5%E6%B1%A0/" rel="tag">连接池</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6/" rel="tag">集合框架</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" rel="tag">面向对象</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/" rel="tag">面试题</a><span class="tag-list-count">26</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/" rel="tag">高并发</a><span class="tag-list-count">1</span></li></ul>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+
+<button class="sidebar-right-toggle" aria-label="切换右侧边栏" title="收起/展开">
+  <i class="fa fa-angle-left"></i>
+</button>
+
+<script>
+  // 右侧边栏收起/展开
+  (function() {
+    var toggle = document.querySelector('.sidebar-right-toggle');
+    var sidebar = document.querySelector('.sidebar-right');
+    if (!toggle || !sidebar) return;
+
+    // 读取本地状态，默认收起
+    var collapsed = localStorage.getItem('sidebar-right-collapsed') !== 'false';
+    if (collapsed) {
+      sidebar.classList.add('collapsed');
+      toggle.querySelector('i').className = 'fa fa-angle-right';
+    }
+
+    toggle.addEventListener('click', function() {
+      var isCollapsed = sidebar.classList.toggle('collapsed');
+      var icon = toggle.querySelector('i');
+      icon.className = isCollapsed ? 'fa fa-angle-right' : 'fa fa-angle-left';
+      localStorage.setItem('sidebar-right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">往事随风飘散</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  <script>
+    // 音乐播放器懒加载：页面完全加载后再注入，不阻塞首屏渲染
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        // 加载 APlayer CSS
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.css';
+        document.head.appendChild(link);
+
+        // 加载 APlayer JS
+        var apScript = document.createElement('script');
+        apScript.src = 'https://cdn.staticfile.org/aplayer/1.10.1/APlayer.min.js';
+        apScript.onload = function() {
+          // APlayer 加载完再加载 Meting
+          var metingScript = document.createElement('script');
+          metingScript.src = 'https://cdn.staticfile.org/meting/2.0.1/Meting.min.js';
+          document.body.appendChild(metingScript);
+        };
+        document.body.appendChild(apScript);
+      }, 500);
+    });
+  </script>
+</body>
+</html>
